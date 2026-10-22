@@ -14,6 +14,13 @@
 - 홈 페이지 (제목, "준비 중", 버전 표시)
 - 자동 검사(CI) `.github/workflows/ci.yml`: PR과 main 에서 lint → typecheck → format:check → test → build
 - CLAUDE.md 에 개발 명령어 섹션
+- Supabase 연결 확인
+  - DB: 연결 확인용 `public.app_health` 테이블 (RLS, 읽기 전용) — `supabase/migrations/20261022000000_app_health.sql`
+  - 데이터 계약 `docs/DATA_CONTRACT.md` v0 (연결 확인용)
+  - `/api/health`: 연결 상태 JSON (정상 200, 실패 503)
+  - 홈 화면에 "데이터베이스 연결: 정상 / 확인 필요"와 확인 시각 표시
+  - CI 의 test·build 단계에 가짜 Supabase 환경변수
+  - README·CLAUDE.md 에 환경변수 설정과 SQL 실행 방법
 
 ## [0.0.0] - 2026-10-22
 
