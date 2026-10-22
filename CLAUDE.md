@@ -17,3 +17,14 @@
 7. 문구는 농업인이 이해하는 쉬운 말로, 약어는 FOS·GW 등 프로젝트 표기를 따른다. 휴대폰 화면을 먼저 만든다.
 8. 커밋은 feat: fix: docs: 로 시작한다. 코드를 바꾸면 같은 PR에서 docs/ 도 고치고, 중요한 결정은 docs/decisions/ 에 남긴다.
 9. 사용자는 개발자가 아니다. git·배포는 알아서 하되, 무엇을 했는지 쉬운 말로 보고한다.
+
+## 개발 명령어
+
+- `npm run dev` — 내 컴퓨터에서 화면을 띄워 본다 (http://localhost:3000).
+- `npm run lint` — 코드 규칙(ESLint)을 검사한다. domain 폴더가 바깥을 불러오는지도 여기서 걸린다.
+- `npm run typecheck` — 타입(TypeScript) 오류가 없는지 검사한다.
+- `npm run format` — 코드 모양(Prettier)을 자동으로 정리한다. 검사만 하려면 `npm run format:check`.
+- `npm run test` — 테스트(Vitest)를 실행한다.
+- `npm run build` — 배포용으로 만들어 본다. 여기서 실패하면 배포도 실패한다.
+
+자동 검사(CI)는 PR과 main 에서 lint → typecheck → format:check → test → build 순서로 돈다. 구조는 docs/ARCHITECTURE.md 참고.

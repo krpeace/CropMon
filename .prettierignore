@@ -1,0 +1,8 @@
+package-lock.json
+next-env.d.ts
+.next/
+out/
+build/
+coverage/
+# next dev 가 다시 써 넣는 파일
+AGENTS.md
