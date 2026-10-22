@@ -27,4 +27,11 @@
 - `npm run test` — 테스트(Vitest)를 실행한다.
 - `npm run build` — 배포용으로 만들어 본다. 여기서 실패하면 배포도 실패한다.
 
+## 환경변수와 SQL
+
+- 환경변수: `.env.example` 을 `.env.local` 로 복사하고, 사용자가 값을 직접 채운다. Claude 는 값을 묻거나 적지 않는다. `.env.local` 은 git 에 올라가지 않는다.
+- 배포(Vercel)에는 Settings → Environment Variables 에 같은 값을 사용자가 넣는다. CI 에는 가짜 값만 쓴다.
+- SQL: Supabase 대시보드 → SQL Editor 에 `supabase/migrations/` 파일을 이름 순서대로 붙여 넣고 Run. 마이그레이션은 여러 번 실행해도 오류가 나지 않게 쓴다.
+- 연결 확인: 홈 화면 아래 "데이터베이스 연결" 또는 `/api/health`.
+
 자동 검사(CI)는 PR과 main 에서 lint → typecheck → format:check → test → build 순서로 돈다. 구조는 docs/ARCHITECTURE.md 참고.

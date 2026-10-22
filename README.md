@@ -25,8 +25,27 @@ cropwater (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Ne
 
 ## 시작하기
 
-1. `.env.example` 을 `.env.local` 로 복사합니다.
-2. Supabase 대시보드에서 값을 확인해 `.env.local` 에 채웁니다. 이 파일은 git에 올라가지 않습니다.
+### 1. 환경변수(비밀 설정값) 넣기
+
+1. `.env.example` 을 복사해 `.env.local` 을 만듭니다. (이미 있으면 건너뜁니다.)
+2. Supabase 대시보드 → Project Settings → API 에서 값을 확인해 `.env.local` 에 직접 채웁니다.
+   - `NEXT_PUBLIC_SUPABASE_URL`: Project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: anon(공개) 키
+   - `SUPABASE_SERVICE_ROLE_KEY`: 지금은 쓰지 않으니 비워 둡니다.
+3. `.env.local` 은 git에 올라가지 않습니다. 값을 대화창이나 다른 파일에 적지 마세요.
+4. 배포 화면(Vercel)에도 같은 두 값을 넣습니다: Vercel → 프로젝트 → Settings → Environment Variables.
+
+### 2. 데이터베이스 표 만들기 (SQL 실행)
+
+1. Supabase 대시보드에서 왼쪽 메뉴 SQL Editor 를 엽니다.
+2. `supabase/migrations/` 안의 `.sql` 파일을 파일 이름 순서대로 하나씩 열어, 내용을 모두 붙여 넣고 Run 을 누릅니다.
+3. 여러 번 실행해도 괜찮습니다.
+
+### 3. 확인하기
+
+1. `npm install` 후 `npm run dev` 를 실행하고 http://localhost:3000 을 엽니다.
+2. 화면 아래쪽에 "데이터베이스 연결: 정상"이 보이면 성공입니다.
+3. 자세한 상태는 http://localhost:3000/api/health 에서 볼 수 있습니다.
 
 ## 작업 규칙
 

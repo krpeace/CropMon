@@ -1,4 +1,7 @@
+import { Suspense } from "react";
+
 import packageJson from "../../package.json";
+import { DbStatus } from "./db-status";
 
 export default function Home() {
   return (
@@ -7,8 +10,15 @@ export default function Home() {
         cropwater — 노지 작물 물수지
       </h1>
       <p className="mt-3 text-lg text-gray-600 dark:text-gray-400">준비 중</p>
-      <footer className="mt-auto pt-10 text-sm text-gray-500">
-        버전 {packageJson.version}
+      <footer className="mt-auto space-y-2 pt-10 text-sm">
+        <Suspense
+          fallback={
+            <p className="text-gray-500">데이터베이스 연결: 확인 중…</p>
+          }
+        >
+          <DbStatus />
+        </Suspense>
+        <p className="text-gray-500">버전 {packageJson.version}</p>
       </footer>
     </main>
   );
