@@ -2,9 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "cropwater — 노지 작물 물수지",
-  description:
-    "노지 작물이 쓰는 물과 토양에 남은 물(FAO-56 물수지)을 농업인이 쉽게 볼 수 있게 보여 주는 서비스입니다.",
+  title: "CropMon",
+  description: "농업 데이터와 내 농장 기록으로 작물 재배 판단을 돕는 서비스",
 };
 
 export const viewport: Viewport = {
