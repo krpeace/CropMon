@@ -50,3 +50,21 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy
+
+      - name: 화면 테스트용 브라우저 설치
+        run: npx playwright install --with-deps chromium
+
+      # 위에서 만든 배포용 화면을 띄워 실제 브라우저로 쪽을 열어 본다.
+      - name: test:e2e
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy
+
+      - name: 화면 테스트 실패 기록 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 7
