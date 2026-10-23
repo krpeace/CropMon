@@ -44,3 +44,6 @@ pnpm-debug.log*
 Thumbs.db
 *.pem
 .idea/
+
+# 시안 원본 (디자인 개발이 끝나면 지운다)
+design/

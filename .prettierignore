@@ -4,5 +4,9 @@ next-env.d.ts
 out/
 build/
 coverage/
+playwright-report/
+test-results/
+# 시안 원본 (Claude Design 내보내기). 고치지 않는다.
+design/
 # next dev 가 다시 써 넣는 파일
 AGENTS.md
