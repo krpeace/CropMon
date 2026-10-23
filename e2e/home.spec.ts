@@ -42,7 +42,7 @@ test("종합: 카드를 누르면 고른 지역·작물 그대로 그 메뉴로 
 
 test("종합: 전국 표에서 줄을 누르면 그 지역으로 바뀐다", async ({ page }) => {
   await openHome(page, "?st=101&crop=apple");
-  const table = page.getByRole("region", { name: "전국 물·환기상·생육 종합" });
+  const table = page.getByRole("region", { name: "전국 물·기상·생육 종합" });
   await expect(table.getByRole("link")).toHaveCount(10);
 
   await table.getByRole("link", { name: /^안동/ }).click();

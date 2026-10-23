@@ -10,7 +10,7 @@ import { STATUS_DOT } from "../ui/status";
 
 const COLS = "grid grid-cols-(--national-cols) gap-4";
 
-/** 전국 물·환기상·생육 종합 표. 줄을 누르면 그 지역으로 바뀐다. 데스크톱에서만 보인다. */
+/** 전국 물·기상·생육 종합 표. 줄을 누르면 그 지역으로 바뀐다. 데스크톱에서만 보인다. */
 export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
   return (
     <section
@@ -19,7 +19,7 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
     >
       <div className="flex flex-wrap items-baseline gap-3 pb-3">
         <h2 id="national-title" className="text-22 m-0 font-bold">
-          전국 물·환기상·생육 종합
+          전국 물·기상·생육 종합
         </h2>
         <span className="text-15 text-ink-2/80">
           오늘 {CROP_LABEL[crop]} 기준 · 줄을 누르면 그 지역으로 바뀌어요
