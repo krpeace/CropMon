@@ -18,6 +18,20 @@ cropwater (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Ne
 | `src/infra`    | 바깥 연결. Supabase 같은 외부 서비스.         | "Supabase에서 표 읽기"             |
 | `src/app`      | Next.js 화면과 API.                           | 홈 페이지                          |
 
+그 밖에:
+
+- `src/mocks` — 예시 값. DB가 채워지기 전까지 화면 숫자를 여기서 가져옵니다. 화면은 직접 읽지 않고 `src/services`를 거칩니다. Supabase로 바꿀 때는 services 안의 읽는 곳만 고칩니다.
+- `src/app/_components` — 여러 쪽이 함께 쓰는 화면 부품. `shell/`(헤더·바닥글·쪽 제목·자료 상자·가운데 창), `ui/`(아이콘·배지), `home/`(종합 화면 조각).
+- `e2e` — 실제 브라우저로 쪽을 열어 보는 화면 테스트(Playwright).
+
+## 화면 공통 규칙
+
+- **디자인 토큰**: 색·글꼴·글자 크기·모서리·그림자·배치 기준 폭은 `src/app/tokens.css` 한 곳에 둡니다. 화면은 토큰 이름(`bg-brand`, `text-15`, `rounded-card` …)만 씁니다. Tailwind 기본 색·글자 크기·모서리는 지워 두어, 토큰에 없는 값은 효과가 없습니다.
+- **지역·작물 선택**: 주소창 `?st=<지점 번호>&crop=<apple|cabbage>`에 남겨 모든 메뉴에 이어집니다. 읽고 쓰는 규칙은 `src/domain/selection.ts`에 있습니다. 값이 없거나 잘못되면 춘천(101)·사과입니다.
+- **주소창 읽기**: `cacheComponents` 설정 때문에 주소창 값을 읽는 부분은 `<Suspense>` 안에 둡니다. 쪽 파일은 `ShellPage`/`HomeHead`에 `searchParams`를 넘기기만 합니다.
+- **폭**: px로 고정하지 않습니다. 내용 최대 폭(`--page-max` 1296)과 가장자리 여백(`--page-gutter`)은 토큰에 있고, 2열→1열이 바뀌는 폭은 `--breakpoint-desktop` 하나입니다.
+- **밝은 화면만** 씁니다 (시안 기준).
+
 ## 방향: 안쪽은 바깥을 모른다
 
 ```

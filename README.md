@@ -43,9 +43,9 @@ cropwater (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Ne
 
 ### 3. 확인하기
 
-1. `npm install` 후 `npm run dev` 를 실행하고 http://localhost:3000 을 엽니다.
-2. 화면 아래쪽에 "데이터베이스 연결: 정상"이 보이면 성공입니다.
-3. 자세한 상태는 http://localhost:3000/api/health 에서 볼 수 있습니다.
+1. `npm install` 후 `npm run dev` 를 실행합니다.
+2. http://localhost:3000/api/health 를 열어 `"ok": true` 가 보이면 데이터베이스 연결이 성공한 것입니다.
+3. http://localhost:3000 에서 화면을 봅니다. 지금 화면의 숫자는 예시 값(`src/mocks/`)입니다.
 
 ## 작업 규칙
 
