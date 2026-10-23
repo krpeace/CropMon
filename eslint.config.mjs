@@ -46,6 +46,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 시안 원본 (Claude Design 내보내기). 검사하지 않는다.
+    "design/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 
