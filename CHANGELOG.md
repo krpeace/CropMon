@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### 추가 (데이터 계약 v1)
+
+- 공개 테이블 9개: `stations`, `crops`, `crop_seasons`, `soil_types`, `scenarios`, `forecast_runs`, `weather_daily`, `water_balance_daily`, `water_outlook` — `supabase/migrations/20261024000000_data_contract_v1.sql` (표만 만든다. 지점·작물·토성의 실제 값은 다음 PR)
+- 작형 사전 `crop_seasons`: 배추처럼 작형이 여러 개인 채소를 위해 작물과 작형을 나눔
+- 모든 테이블 RLS, 비회원·회원은 읽기만. `forecast_runs`의 `error`, `raw_path`는 공개하지 않음
+- 판정 상태 다섯 가지를 코드로 저장: `need`, `ok`, `enough`, `wet`, `dormant`
+- 계약 일치 테스트 `src/infra/supabase/contract.test.ts`: 계약서와 마이그레이션의 테이블 목록, RLS·읽기 정책·쓰기 권한 없음, 상태 코드를 검사
+- `docs/DATA_CONTRACT.md` v0 → v1, 결정 기록 `docs/decisions/0004-data-contract-v1.md`
+
 ### 변경
 
 - 서비스 이름을 CropMon 으로 바꿈 (화면 제목·부제·메타, package.json 의 name `cropmon`, README)
