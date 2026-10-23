@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 변경
+
+- 서비스 이름을 CropMon 으로 바꿈 (화면 제목·부제·메타, package.json 의 name `cropmon`, README)
+- CLAUDE.md 를 "공통 규칙"과 "CropMon 전용 규칙" 두 섹션으로 나눔 (규칙 내용은 그대로)
+
 ### 추가
 
 - Next.js 16 뼈대 (App Router, TypeScript strict, `src/`, Tailwind CSS, npm), Node 24 (`.nvmrc`)

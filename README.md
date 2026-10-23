@@ -1,4 +1,4 @@
-# farmos-cropwater-web
+# CropMon
 
 노지 작물 물수지(FAO-56) 결과를 농업인이 휴대폰으로 쉽게 볼 수 있게 보여 주는 공개 웹 서비스입니다.
 
