@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { HomeHead } from "./_components/home/HomeHead";
+import { HomeBoard } from "./_components/home/HomeBoard";
 
 export const metadata: Metadata = { title: "종합" };
 
 export default function Home(props: PageProps<"/">) {
-  return <HomeHead searchParams={props.searchParams} />;
+  return <HomeBoard searchParams={props.searchParams} />;
 }

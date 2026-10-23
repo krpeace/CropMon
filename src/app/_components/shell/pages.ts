@@ -11,6 +11,7 @@ export const ICON_PATH = {
   market: "M4 4v16h16M8 15l3.5-4 3 2.5L20 7M16 7h4v4",
   pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
   play: "M8 5.5v13l10.5-6.5z",
+  chevron: "M9 6l6 6-6 6",
 } as const;
 
 type Tab = {
