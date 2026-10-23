@@ -35,7 +35,7 @@
 - `npm run format` — 코드 모양(Prettier)을 자동으로 정리한다. 검사만 하려면 `npm run format:check`.
 - `npm run test` — 테스트(Vitest)를 실행한다.
 - `npm run build` — 배포용으로 만들어 본다. 여기서 실패하면 배포도 실패한다.
-- `npm run test:e2e` — 실제 브라우저(Playwright)로 쪽을 열어 본다. 먼저 `npm run build` 를 해 둔다. 처음 한 번은 `npx playwright install chromium`.
+- `npm run test:e2e` — 실제 브라우저(Playwright)로 쪽을 열어 본다. 먼저 `npm run build` 를 해 둔다. 개발 서버와 겹치지 않게 3100 번에 따로 띄운다. 처음 한 번은 `npx playwright install chromium`.
 - `design/` 은 시안 원본이다. 고치지 않고, git 에 올리지 않는다. Prettier·ESLint 도 건너뛴다.
 
 ### 환경변수와 SQL

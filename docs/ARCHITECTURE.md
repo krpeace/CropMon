@@ -21,7 +21,7 @@ cropwater (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Ne
 그 밖에:
 
 - `src/mocks` — 예시 값. DB가 채워지기 전까지 화면 숫자를 여기서 가져옵니다. 화면은 직접 읽지 않고 `src/services`를 거칩니다. Supabase로 바꿀 때는 services 안의 읽는 곳만 고칩니다.
-- `src/app/_components` — 여러 쪽이 함께 쓰는 화면 부품. `shell/`(헤더·바닥글·쪽 제목·자료 상자·가운데 창), `ui/`(아이콘·배지), `home/`(종합 화면 조각).
+- `src/app/_components` — 여러 쪽이 함께 쓰는 화면 부품. `shell/`(헤더·바닥글·쪽 제목·자료 상자·가운데 창), `ui/`(아이콘·배지·게이지·카드 격자), `home/`(종합 화면 조각).
 - `e2e` — 실제 브라우저로 쪽을 열어 보는 화면 테스트(Playwright).
 
 ## 화면 공통 규칙
