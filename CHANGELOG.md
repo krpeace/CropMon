@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 추가 (데이터 계약 v1.3)
+
+- 3일 전망 요약 `water_outlook_summary` — `supabase/migrations/20261025000000_data_contract_v1_3.sql`. 서비스 엑셀 "관수 전망" 위쪽과 같은 내용: 출발 상태, 관수 필요 예상일(중심·빠르면·늦으면, 주 지표 3일), 권장 관수량, 3일 합
+- `docs/DATA_CONTRACT.md` v1.2 → v1.3, 결정 기록 `docs/decisions/0007-outlook-summary.md`
+
 ### 고침 (데이터 계약 v1.2)
 
 - `water_outlook.lead_day` 0~3 → 0~4. 저녁 회차는 D+1~D+4를 계산하는데 v1은 0~3만 받았다 — `supabase/migrations/20261024040000_data_contract_v1_2.sql`
