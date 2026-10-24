@@ -67,8 +67,25 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.1 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.1\b/);
+  it("계약서의 현재 버전이 v1.2 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.2\b/);
+  });
+
+  it("3일 전망의 선행일은 0~4 (아침 D+0~D+3, 저녁 D+1~D+4, v1.2)", () => {
+    const checks = [
+      ...SQL.matchAll(/check \(lead_day between (\d) and (\d)\)/g),
+    ];
+    expect(checks.at(-1)?.slice(1, 3)).toEqual(["0", "4"]); // 마지막에 실행되는 제약이 남는다
+    expect(SQL).toContain(
+      "alter table public.water_outlook drop constraint if exists water_outlook_lead_day_check",
+    );
+  });
+
+  it("원자료 Storage 버킷 raw 는 비공개로 만든다 (v1.2)", () => {
+    expect(SQL).toMatch(
+      /insert into storage\.buckets \(id, name, public\)\s+values \('raw', 'raw', false\)/,
+    );
+    expect(SQL).toMatch(/on conflict \(id\) do update set public = false/);
   });
 
   it("계산 조건은 재배 방식(kc_set_id)을 반드시 가리킨다 (v1.1)", () => {
