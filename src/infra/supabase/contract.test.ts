@@ -27,7 +27,7 @@ const SQL = readdirSync(MIGRATIONS_DIR)
   .join("\n")
   .toLowerCase();
 
-/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개)과 따로 센다. */
+/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개 + v1.3 1개)과 따로 센다. */
 const HEALTH_TABLE = "app_health";
 
 const PUBLIC_TABLES = [
@@ -41,6 +41,7 @@ const PUBLIC_TABLES = [
   "weather_daily",
   "water_balance_daily",
   "water_outlook",
+  "water_outlook_summary",
 ] as const;
 
 function tablesInContract(): string[] {
@@ -57,7 +58,7 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 10개와 app_health 가 있다", () => {
+  it("계약서에 공개 테이블 11개와 app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
       [...PUBLIC_TABLES, HEALTH_TABLE].sort(),
     );
@@ -67,8 +68,28 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.2 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.2\b/);
+  it("계약서의 현재 버전이 v1.3 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.3\b/);
+  });
+
+  it("3일 전망 요약은 회차 × 계산 조건마다 한 줄, 예상일은 0 이상 (v1.3)", () => {
+    const body = SQL.match(
+      /create table if not exists public\.water_outlook_summary\s*\(([\s\S]*?)\n\);/,
+    )?.[1];
+    expect(body).toBeDefined();
+    expect(body).toMatch(/primary key \(run_id, scenario_id\)/);
+    expect(body).toMatch(
+      /horizon_days int not null check \(horizon_days >= 1\)/,
+    );
+    for (const c of ["need_center_in", "need_early_in", "need_late_in"]) {
+      expect(body).toContain(`${c} int check (${c} >= 0)`);
+    }
+    const codes = body
+      ?.match(/status_start in \(([^)]*)\)/)?.[1]
+      .split(",")
+      .map((x) => x.trim().replace(/'/g, ""))
+      .sort();
+    expect(codes).toEqual([...WATER_STATUSES].sort());
   });
 
   it("3일 전망의 선행일은 0~4 (아침 D+0~D+3, 저녁 D+1~D+4, v1.2)", () => {
