@@ -15,7 +15,7 @@
 ### 프로젝트 배경
 
 - 노지 작물 물수지(FAO-56) 결과를 보여 주는 공개 웹 서비스. Next.js + Supabase + Vercel.
-- 계산은 하지 않는다. 별도 저장소(cropwater, Python)가 계산해 Supabase에 올리고, 이 저장소는 DB 값을 보여 준다.
+- 계산은 하지 않는다. 별도 저장소(croplib-dp, Python)가 공공 API 자료를 받아 계산해 Supabase에 올리고, 이 저장소는 DB 값을 보여 준다. 계산식의 원본은 연구 저장소 cropwater(읽기만)다.
 - 사용자(나)는 개발자가 아니다.
 
 ### 프로젝트 규칙
