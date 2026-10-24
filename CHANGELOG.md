@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 고침 (데이터 계약 v1.2)
+
+- `water_outlook.lead_day` 0~3 → 0~4. 저녁 회차는 D+1~D+4를 계산하는데 v1은 0~3만 받았다 — `supabase/migrations/20261024040000_data_contract_v1_2.sql`
+- 원자료를 둘 비공개 Storage 버킷 `raw` (같은 파일, Supabase에서만 실행)
+- `docs/DATA_CONTRACT.md` v1.1 → v1.2, 결정 기록 `docs/decisions/0006-contract-v1-2.md`
+
 ### 추가 (데이터 계약 v1.1, 재배 방식별 Kc)
 
 - 재배 방식별 Kc 표 `crop_kc_sets` — `supabase/migrations/20261024020000_data_contract_v1_1.sql`. 사과는 FAO-56 Table 12 네 가지, 기본은 3번(초생 재배, 서리 지역 0.50 / 1.20 / 0.95)
