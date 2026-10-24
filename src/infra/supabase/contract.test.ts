@@ -112,21 +112,31 @@ describe("데이터 계약과 마이그레이션", () => {
     });
   });
 
-  it("판정 상태 이름이 화면과 같다", () => {
-    // water_balance_daily 와 water_outlook 의 status 검사 목록
-    const list = [...WATER_STATUSES]
-      .map((s) => `'${s}'`)
-      .sort()
-      .join(", ");
-    const checks = [...SQL.matchAll(/status in \(([^)]*)\)/g)].map((m) =>
-      m[1]
-        .split(",")
-        .map((s) => s.trim())
-        .sort()
-        .join(", "),
+  /** 한 테이블의 create table 안에서 status 가 받는 값 목록. */
+  function statusCheck(table: string): string[] {
+    const body = SQL.match(
+      new RegExp(
+        `create table if not exists public\\.${table}\\s*\\(([\\s\\S]*?)\\n\\);`,
+      ),
+    )?.[1];
+    const list = body?.match(/status in \(([^)]*)\)/)?.[1];
+    if (!list) return [];
+    return list
+      .split(",")
+      .map((s) => s.trim().replace(/'/g, ""))
+      .sort();
+  }
+
+  it("관측 물수지의 상태 이름이 화면과 같다", () => {
+    expect(statusCheck("water_balance_daily")).toEqual(
+      [...WATER_STATUSES].sort(),
     );
-    expect(checks).toHaveLength(2);
-    for (const c of checks) expect(c).toBe(list);
+  });
+
+  it("예보 전망은 과습을 판정하지 않는다 (관측 물수지 날만)", () => {
+    expect(statusCheck("water_outlook")).toEqual(
+      WATER_STATUSES.filter((s) => s !== "wet").sort(),
+    );
   });
 
   it("계약서가 판정 상태 이름을 모두 적는다", () => {

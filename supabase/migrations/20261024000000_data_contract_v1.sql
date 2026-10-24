@@ -162,8 +162,8 @@ create table if not exists public.weather_daily (
 
 -- ---------------------------------------------------------------------------
 -- 8. water_balance_daily: 관측 물수지와 그날 상태
---    status 는 코드로 저장한다. 화면 문구는 src/domain/water-status.ts 가 붙인다.
---      need = 관수 필요, ok = 주의(아직 여유), enough = 토양 수분 충분, wet = 과습 경고, dormant = 휴면기
+--    status 는 토양수분 상태 코드로 저장한다. 화면 이름은 src/domain/water-status.ts 가 붙인다.
+--      dormant = 휴면기, wet = 과습, normal = 보통, caution = 주의, need = 관수 필요
 -- ---------------------------------------------------------------------------
 create table if not exists public.water_balance_daily (
   scenario_id text not null references public.scenarios (scenario_id),
@@ -179,7 +179,7 @@ create table if not exists public.water_balance_daily (
   etc_adj_mm numeric,
   dp_mm numeric,
   dr_mm numeric,
-  status text not null check (status in ('need', 'ok', 'enough', 'wet', 'dormant')),
+  status text not null check (status in ('need', 'caution', 'normal', 'wet', 'dormant')),
   filled boolean not null default false,
   calc_version text not null,
   primary key (scenario_id, date)
@@ -187,6 +187,7 @@ create table if not exists public.water_balance_daily (
 
 -- ---------------------------------------------------------------------------
 -- 9. water_outlook: 앞으로 3일 전망
+--    과습(wet)은 관측 물수지 날만 판정하므로 이 표의 status 에는 없다.
 -- ---------------------------------------------------------------------------
 create table if not exists public.water_outlook (
   run_id bigint not null references public.forecast_runs (run_id),
@@ -202,7 +203,7 @@ create table if not exists public.water_outlook (
   dr_center_mm numeric,
   dr_early_mm numeric,
   dr_late_mm numeric,
-  status text not null check (status in ('need', 'ok', 'enough', 'wet', 'dormant')),
+  status text not null check (status in ('need', 'caution', 'normal', 'dormant')),
   calc_version text not null,
   primary key (run_id, scenario_id, target_date)
 );
