@@ -3,11 +3,11 @@
 ## 큰 그림
 
 ```
-cropwater (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Next.js 화면)  →  Vercel (배포)
-        계산                          저장                    보여 주기                   공개
+croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Next.js 화면)  →  Vercel (배포)
+      수집·계산                        저장                    보여 주기                   공개
 ```
 
-이 저장소는 계산하지 않습니다. DB에 저장된 값을 읽어서 보여 주기만 합니다.
+이 저장소는 계산하지 않습니다. DB에 저장된 값을 읽어서 보여 주기만 합니다. 공공 API 수집과 계산은 croplib-dp가 맡고, 둘은 `docs/DATA_CONTRACT.md`의 약속으로만 이어집니다.
 
 ## 폴더 4개
 

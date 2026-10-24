@@ -10,11 +10,11 @@
 ## 구조
 
 ```
-cropwater (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Next.js 화면)  →  Vercel (배포)
-        계산                          저장                    보여 주기                   공개
+croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (Next.js 화면)  →  Vercel (배포)
+      수집·계산                        저장                    보여 주기                   공개
 ```
 
-- 이 저장소는 **계산하지 않습니다.** 계산은 cropwater 저장소가 맡고, 여기서는 DB에 저장된 값을 보여 주기만 합니다.
+- 이 저장소는 **계산하지 않습니다.** 수집과 계산은 croplib-dp 저장소가 맡고(계산식의 원본은 연구 저장소 cropwater), 여기서는 DB에 저장된 값을 보여 주기만 합니다.
 - 이 저장소가 맡는 것: 화면, DB 구조(`supabase/migrations/`), 데이터 약속 문서(`docs/DATA_CONTRACT.md`)
 
 ## 기술 스택
