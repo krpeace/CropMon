@@ -19,13 +19,13 @@ export const MOCK_STATIONS: readonly MockStation[] = [
     id: 101,
     name: "춘천",
     measuresSunlight: true,
-    todayStatus: { apple: "ok", cabbage: "ok" },
+    todayStatus: { apple: "caution", cabbage: "caution" },
   },
   {
     id: 216,
     name: "태백",
     measuresSunlight: false,
-    todayStatus: { apple: "enough", cabbage: "enough" },
+    todayStatus: { apple: "normal", cabbage: "normal" },
   },
   {
     id: 119,
@@ -37,13 +37,13 @@ export const MOCK_STATIONS: readonly MockStation[] = [
     id: 131,
     name: "청주",
     measuresSunlight: true,
-    todayStatus: { apple: "need", cabbage: "ok" },
+    todayStatus: { apple: "need", cabbage: "caution" },
   },
   {
     id: 129,
     name: "서산",
     measuresSunlight: true,
-    todayStatus: { apple: "ok", cabbage: "ok" },
+    todayStatus: { apple: "caution", cabbage: "caution" },
   },
   {
     id: 146,
@@ -55,7 +55,7 @@ export const MOCK_STATIONS: readonly MockStation[] = [
     id: 156,
     name: "광주",
     measuresSunlight: true,
-    todayStatus: { apple: "ok", cabbage: "ok" },
+    todayStatus: { apple: "caution", cabbage: "caution" },
   },
   {
     id: 136,
@@ -67,12 +67,12 @@ export const MOCK_STATIONS: readonly MockStation[] = [
     id: 192,
     name: "진주",
     measuresSunlight: true,
-    todayStatus: { apple: "ok", cabbage: "ok" },
+    todayStatus: { apple: "caution", cabbage: "caution" },
   },
   {
     id: 189,
     name: "서귀포",
     measuresSunlight: true,
-    todayStatus: { apple: "enough", cabbage: "enough" },
+    todayStatus: { apple: "normal", cabbage: "normal" },
   },
 ];

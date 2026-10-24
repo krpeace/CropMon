@@ -28,7 +28,7 @@ describe("listStationChips", () => {
     const apple = listStationChips("apple");
     const cabbage = listStationChips("cabbage");
     expect(apple.find((c) => c.id === 131)?.status).toBe("need");
-    expect(cabbage.find((c) => c.id === 131)?.status).toBe("ok");
+    expect(cabbage.find((c) => c.id === 131)?.status).toBe("caution");
   });
 });
 

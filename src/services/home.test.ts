@@ -11,7 +11,7 @@ describe("getHomeView — 시안과 같은 값", () => {
       tone: "need",
       badge: { status: "need", label: "내일 관수 필요" },
       numbers: "부족한 물 31 mm / 관수 시작점 35 mm",
-      gauge: { status: "ok", fillPct: (31 / 78) * 100, rawPct: 45 },
+      gauge: { status: "caution", fillPct: (31 / 78) * 100, rawPct: 45 },
     });
     expect(view.growth).toEqual({
       verdict: "평년보다 생육 3일 빠름",
@@ -65,8 +65,8 @@ describe("getHomeView — 전국 표", () => {
       drText: "31 / 35 mm",
       days: [
         { label: "8/13", status: "need" },
-        { label: "8/14", status: "ok" },
-        { label: "8/15", status: "ok" },
+        { label: "8/14", status: "caution" },
+        { label: "8/15", status: "caution" },
       ],
       lead: "3일 빠름",
       sunlight: "96%",
@@ -75,7 +75,7 @@ describe("getHomeView — 전국 표", () => {
 
   it("태백 줄: 2일 늦음, 햇빛 자료 없음", () => {
     expect(rows[1]).toMatchObject({
-      badge: { status: "enough", label: "토양 수분 충분" },
+      badge: { status: "normal", label: "보통" },
       drText: "9 / 35 mm",
       lead: "2일 늦음",
       sunlight: null,

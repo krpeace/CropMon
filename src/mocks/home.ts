@@ -52,7 +52,7 @@ export const MOCK_HOME: readonly MockHome[] = [
     },
     water: {
       apple: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
@@ -60,11 +60,11 @@ export const MOCK_HOME: readonly MockHome[] = [
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 31,
@@ -77,7 +77,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         note: null,
       },
       cabbage: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
@@ -85,11 +85,11 @@ export const MOCK_HOME: readonly MockHome[] = [
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 22.8,
@@ -113,19 +113,19 @@ export const MOCK_HOME: readonly MockHome[] = [
     sunlight: null,
     water: {
       apple: {
-        status: "enough",
+        status: "normal",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 9,
@@ -133,24 +133,24 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 78,
         verdict: {
           text: "흙이 촉촉해요, 물 주지 않아도 돼요",
-          tone: "enough",
+          tone: "normal",
         },
         note: null,
       },
       cabbage: {
-        status: "enough",
+        status: "normal",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 6.6,
@@ -158,7 +158,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 52,
         verdict: {
           text: "흙이 촉촉해요, 물 주지 않아도 돼요",
-          tone: "enough",
+          tone: "normal",
         },
         note: null,
       },
@@ -186,11 +186,11 @@ export const MOCK_HOME: readonly MockHome[] = [
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 41,
@@ -207,15 +207,15 @@ export const MOCK_HOME: readonly MockHome[] = [
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "enough",
+            status: "normal",
           },
         ],
         drMm: 24.2,
@@ -247,15 +247,15 @@ export const MOCK_HOME: readonly MockHome[] = [
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 38,
@@ -268,19 +268,19 @@ export const MOCK_HOME: readonly MockHome[] = [
         note: null,
       },
       cabbage: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "enough",
+            status: "normal",
           },
         ],
         drMm: 22.8,
@@ -288,7 +288,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 52,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
@@ -308,19 +308,19 @@ export const MOCK_HOME: readonly MockHome[] = [
     },
     water: {
       apple: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 22,
@@ -328,24 +328,24 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 78,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
       cabbage: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 16.2,
@@ -353,7 +353,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 52,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
@@ -381,11 +381,11 @@ export const MOCK_HOME: readonly MockHome[] = [
           },
           {
             date: "2026-08-14",
-            status: "enough",
+            status: "normal",
           },
           {
             date: "2026-08-15",
-            status: "enough",
+            status: "normal",
           },
         ],
         drMm: 0,
@@ -406,11 +406,11 @@ export const MOCK_HOME: readonly MockHome[] = [
           },
           {
             date: "2026-08-14",
-            status: "enough",
+            status: "normal",
           },
           {
             date: "2026-08-15",
-            status: "enough",
+            status: "normal",
           },
         ],
         drMm: 0,
@@ -438,19 +438,19 @@ export const MOCK_HOME: readonly MockHome[] = [
     },
     water: {
       apple: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 27,
@@ -458,24 +458,24 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 78,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
       cabbage: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 19.9,
@@ -483,7 +483,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 52,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
@@ -511,11 +511,11 @@ export const MOCK_HOME: readonly MockHome[] = [
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 44,
@@ -532,15 +532,15 @@ export const MOCK_HOME: readonly MockHome[] = [
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "enough",
+            status: "normal",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 23.8,
@@ -568,19 +568,19 @@ export const MOCK_HOME: readonly MockHome[] = [
     },
     water: {
       apple: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 18,
@@ -588,24 +588,24 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 78,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
       cabbage: {
-        status: "ok",
+        status: "caution",
         forecast: [
           {
             date: "2026-08-13",
-            status: "enough",
+            status: "normal",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "ok",
+            status: "caution",
           },
         ],
         drMm: 13.3,
@@ -613,7 +613,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 52,
         verdict: {
           text: "아직 여유 있어요, 3일 동안 괜찮아요",
-          tone: "ok",
+          tone: "caution",
         },
         note: null,
       },
@@ -633,19 +633,19 @@ export const MOCK_HOME: readonly MockHome[] = [
     },
     water: {
       apple: {
-        status: "enough",
+        status: "normal",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "enough",
+            status: "normal",
           },
         ],
         drMm: 7,
@@ -653,24 +653,24 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 78,
         verdict: {
           text: "흙이 촉촉해요, 물 주지 않아도 돼요",
-          tone: "enough",
+          tone: "normal",
         },
         note: null,
       },
       cabbage: {
-        status: "enough",
+        status: "normal",
         forecast: [
           {
             date: "2026-08-13",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-14",
-            status: "ok",
+            status: "caution",
           },
           {
             date: "2026-08-15",
-            status: "enough",
+            status: "normal",
           },
         ],
         drMm: 5.2,
@@ -678,7 +678,7 @@ export const MOCK_HOME: readonly MockHome[] = [
         tawMm: 52,
         verdict: {
           text: "흙이 촉촉해요, 물 주지 않아도 돼요",
-          tone: "enough",
+          tone: "normal",
         },
         note: null,
       },
