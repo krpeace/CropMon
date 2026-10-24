@@ -27,14 +27,15 @@ const SQL = readdirSync(MIGRATIONS_DIR)
   .join("\n")
   .toLowerCase();
 
-/** 연결 확인용 표. 계산 결과가 아니라서 v1 공개 테이블 9개와 따로 센다. */
+/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개)과 따로 센다. */
 const HEALTH_TABLE = "app_health";
 
-const V1_TABLES = [
+const PUBLIC_TABLES = [
   "stations",
   "crops",
   "crop_seasons",
   "soil_types",
+  "crop_kc_sets",
   "scenarios",
   "forecast_runs",
   "weather_daily",
@@ -56,9 +57,9 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 v1 공개 테이블 9개와 app_health 가 있다", () => {
+  it("계약서에 공개 테이블 10개와 app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
-      [...V1_TABLES, HEALTH_TABLE].sort(),
+      [...PUBLIC_TABLES, HEALTH_TABLE].sort(),
     );
   });
 
@@ -66,11 +67,20 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\b/);
+  it("계약서의 현재 버전이 v1.1 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.1\b/);
   });
 
-  describe.each([...V1_TABLES, HEALTH_TABLE])("public.%s", (table) => {
+  it("계산 조건은 재배 방식(kc_set_id)을 반드시 가리킨다 (v1.1)", () => {
+    expect(SQL).toMatch(
+      /alter table public\.scenarios\s+add column if not exists kc_set_id text references public\.crop_kc_sets \(kc_set_id\)/,
+    );
+    expect(SQL).toMatch(
+      /alter table public\.scenarios\s+alter column kc_set_id set not null/,
+    );
+  });
+
+  describe.each([...PUBLIC_TABLES, HEALTH_TABLE])("public.%s", (table) => {
     it("RLS 를 켠다", () => {
       expect(SQL).toContain(
         `alter table public.${table} enable row level security`,
@@ -104,7 +114,7 @@ describe("데이터 계약과 마이그레이션", () => {
     });
   });
 
-  describe.each(V1_TABLES)("public.%s 권한 정리", (table) => {
+  describe.each(PUBLIC_TABLES)("public.%s 권한 정리", (table) => {
     it("기본으로 붙는 권한을 먼저 거둔다", () => {
       expect(SQL).toContain(
         `revoke all on public.${table} from anon, authenticated`,

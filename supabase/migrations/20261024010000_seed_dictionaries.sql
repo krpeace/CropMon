@@ -1,9 +1,10 @@
--- 목적: 데이터 계약 v1 의 사전 자료(지점·작물·작형·토성·기본 계산 조건)를 넣는다.
+-- 목적: 데이터 계약 v1 의 사전 자료(지점·작물·작형·토성)를 넣는다. 기본 계산 조건은 v1.1 파일로 옮겼다.
 --       값의 근거는 docs/DATA_CONTRACT.md 와 docs/decisions/0004-data-contract-v1.md.
 --
 -- 실행 방법:
 --   1. 먼저 20261024000000_data_contract_v1.sql 을 실행해 둔다 (표가 있어야 한다).
 --   2. Supabase 대시보드 → SQL Editor 에 이 파일 내용을 모두 붙여 넣고 Run 을 누른다.
+--   3. 이어서 20261024020000_data_contract_v1_1.sql, 20261024030000_seed_kc_sets.sql 을 실행한다.
 --   여러 번 실행해도 오류가 나지 않는다. 같은 키가 있으면 값만 이 파일 내용으로 고친다.
 --
 -- 값을 고칠 때는 이 파일을 고치지 말고, 고친 값을 담은 새 파일을 더한다.
@@ -67,32 +68,5 @@ on conflict (soil_code) do update set
   wp_min = excluded.wp_min, wp_max = excluded.wp_max, fc = excluded.fc, wp = excluded.wp,
   is_default = excluded.is_default, sort_order = excluded.sort_order, source = excluded.source;
 
--- 5. 기본 계산 조건: 지점 10곳 × 작물 2개, 양토, 2026, 작물별 기본 작형.
---    TAW = 1000·(FC−WP)·Zr [FAO-56 식 82], RAW = p·TAW [식 83]. 양토 FC 0.25, WP 0.12.
---    작기 끝 = 시작 + 생육단계 일수 합 − 1 (사과 4/1~10/27, 여름배추 7/1~9/28).
-insert into public.scenarios (scenario_id, stn_id, crop_id, season_type_id, soil_code, season_year, season_start, season_end, dr0_mm, taw_mm, raw_mm, is_default) values
-  ('101-apple-main-loam-2026', '101', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('101-kimchi_cabbage-summer-loam-2026', '101', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('216-apple-main-loam-2026', '216', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('216-kimchi_cabbage-summer-loam-2026', '216', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('119-apple-main-loam-2026', '119', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('119-kimchi_cabbage-summer-loam-2026', '119', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('131-apple-main-loam-2026', '131', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('131-kimchi_cabbage-summer-loam-2026', '131', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('129-apple-main-loam-2026', '129', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('129-kimchi_cabbage-summer-loam-2026', '129', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('146-apple-main-loam-2026', '146', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('146-kimchi_cabbage-summer-loam-2026', '146', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('156-apple-main-loam-2026', '156', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('156-kimchi_cabbage-summer-loam-2026', '156', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('136-apple-main-loam-2026', '136', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('136-kimchi_cabbage-summer-loam-2026', '136', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('192-apple-main-loam-2026', '192', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('192-kimchi_cabbage-summer-loam-2026', '192', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true),
-  ('189-apple-main-loam-2026', '189', 'apple', 'apple-main', 'loam', 2026, '2026-04-01', '2026-10-27', 0, 130, 65, true),
-  ('189-kimchi_cabbage-summer-loam-2026', '189', 'kimchi_cabbage', 'kimchi_cabbage-summer', 'loam', 2026, '2026-07-01', '2026-09-28', 0, 65, 29.25, true)
-on conflict (scenario_id) do update set
-  stn_id = excluded.stn_id, crop_id = excluded.crop_id, season_type_id = excluded.season_type_id,
-  soil_code = excluded.soil_code, season_year = excluded.season_year, season_start = excluded.season_start,
-  season_end = excluded.season_end, dr0_mm = excluded.dr0_mm, taw_mm = excluded.taw_mm,
-  raw_mm = excluded.raw_mm, is_default = excluded.is_default;
+-- 5. 기본 계산 조건은 데이터 계약 v1.1 에서 재배 방식(crop_kc_sets)이 더해져
+--    20261024030000_seed_kc_sets.sql 로 옮겼다 (2026-10-24). 이 파일을 다시 실행해도 오류가 나지 않게 하려는 것이다.

@@ -6,18 +6,17 @@ import { describe, expect, it } from "vitest";
 import { MOCK_STATIONS } from "@/mocks/stations";
 
 /**
- * 사전 자료(supabase/migrations/20261024010000_seed_dictionaries.sql)가
- * 데이터 계약 v1(docs/DATA_CONTRACT.md)의 값과 규칙대로 들어가는지 검사한다.
+ * 사전 자료가 데이터 계약 v1.1(docs/DATA_CONTRACT.md)의 값과 규칙대로 들어가는지 검사한다.
+ *   - 20261024010000_seed_dictionaries.sql: 지점·작물·작형·토성 (v1)
+ *   - 20261024030000_seed_kc_sets.sql: 재배 방식별 Kc, 기본 계산 조건 (v1.1)
  * 계산 값(TAW, RAW, 작기 끝)은 FAO-56 식으로 다시 계산해 같은지 본다.
  */
 
-const SEED = readFileSync(
-  join(
-    process.cwd(),
-    "supabase/migrations/20261024010000_seed_dictionaries.sql",
-  ),
-  "utf8",
-);
+const read = (name: string) =>
+  readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8");
+const SEED_V1 = read("20261024010000_seed_dictionaries.sql");
+const SEED_V1_1 = read("20261024030000_seed_kc_sets.sql");
+const SEED = `${SEED_V1}\n${SEED_V1_1}`;
 
 type Value = string | number | boolean | null;
 type Row = Record<string, Value>;
@@ -87,6 +86,7 @@ const crops = rowsOf("crops");
 const seasons = rowsOf("crop_seasons");
 const soils = rowsOf("soil_types");
 const scenarios = rowsOf("scenarios");
+const kcSets = rowsOf("crop_kc_sets");
 
 function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -194,26 +194,90 @@ describe("사전 자료: 토성", () => {
   });
 });
 
+describe("사전 자료: 재배 방식별 Kc (v1.1)", () => {
+  const kc = (id: string) => {
+    const k = kcSets.find((x) => x.kc_set_id === id);
+    return [k?.kc_ini, k?.kc_mid, k?.kc_end];
+  };
+
+  it("사과는 FAO-56 Table 12 네 가지, 배추는 하나", () => {
+    expect(kcSets.map((k) => k.kc_set_id).sort()).toEqual([
+      "apple-k1",
+      "apple-k2",
+      "apple-k3",
+      "apple-k4",
+      "kimchi_cabbage-k1",
+    ]);
+    expect(kc("apple-k1")).toEqual([0.45, 0.95, 0.7]);
+    expect(kc("apple-k2")).toEqual([0.6, 0.95, 0.75]);
+    expect(kc("apple-k3")).toEqual([0.5, 1.2, 0.95]);
+    expect(kc("apple-k4")).toEqual([0.8, 1.2, 0.85]);
+    expect(kc("kimchi_cabbage-k1")).toEqual([0.7, 1.05, 0.95]);
+  });
+
+  it("번호와 이름이 키와 맞는다", () => {
+    for (const k of kcSets) {
+      expect(k.kc_set_id).toBe(`${k.crop_id}-k${k.set_no}`);
+      expect(String(k.name_ko).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("작물마다 기본 재배 방식이 하나: 사과는 3번(초생 재배, 서리 지역)", () => {
+    for (const c of crops) {
+      const d = kcSets.filter((k) => k.crop_id === c.crop_id && k.is_default);
+      expect(d, String(c.crop_id)).toHaveLength(1);
+    }
+    expect(
+      kcSets.find((k) => k.crop_id === "apple" && k.is_default)?.kc_set_id,
+    ).toBe("apple-k3");
+  });
+
+  it("작물 사전의 Kc 칸은 기본 재배 방식 값으로 맞춘다", () => {
+    expect(SEED_V1_1).toMatch(
+      /update public\.crops c\s+set kc_ini = k\.kc_ini, kc_mid = k\.kc_mid, kc_end = k\.kc_end\s+from public\.crop_kc_sets k\s+where k\.crop_id = c\.crop_id and k\.is_default/,
+    );
+  });
+});
+
 describe("사전 자료: 기본 계산 조건", () => {
-  it("지점 10곳 × 작물 2개 = 20개, 모두 양토·2026·기본 작형", () => {
-    expect(scenarios).toHaveLength(20);
+  it("v1 사전 파일에는 계산 조건이 없다 (v1.1 파일로 옮김, 다시 실행해도 오류 없게)", () => {
+    expect(SEED_V1).not.toMatch(/insert into public\.scenarios/);
+  });
+
+  it("지점 10곳 × (사과 재배 방식 4 + 배추 1) = 50개, 모두 양토·2026·기본 작형", () => {
+    expect(scenarios).toHaveLength(50);
     for (const st of stations) {
-      for (const c of crops) {
+      for (const k of kcSets) {
         const found = scenarios.filter(
-          (s) => s.stn_id === st.stn_id && s.crop_id === c.crop_id,
+          (s) => s.stn_id === st.stn_id && s.kc_set_id === k.kc_set_id,
         );
-        expect(found, `${st.stn_id}-${c.crop_id}`).toHaveLength(1);
+        expect(found, `${st.stn_id}-${k.kc_set_id}`).toHaveLength(1);
         const s = found[0];
         const season = seasons.find(
-          (x) => x.crop_id === c.crop_id && x.is_default,
+          (x) => x.crop_id === k.crop_id && x.is_default,
         );
+        expect(s.crop_id).toBe(k.crop_id);
         expect(s.season_type_id).toBe(season?.season_type_id);
         expect(s.soil_code).toBe("loam");
         expect(s.season_year).toBe(2026);
-        expect(s.is_default).toBe(true);
+        expect(s.is_default).toBe(k.is_default);
         expect(s.scenario_id).toBe(
-          `${st.stn_id}-${season?.season_type_id}-loam-2026`,
+          `${st.stn_id}-${season?.season_type_id}-k${k.set_no}-loam-2026`,
         );
+      }
+    }
+  });
+
+  it("지점·작물마다 기본 조건이 하나이고, 그 조건은 기본 재배 방식", () => {
+    for (const st of stations) {
+      for (const c of crops) {
+        const d = scenarios.filter(
+          (s) =>
+            s.stn_id === st.stn_id && s.crop_id === c.crop_id && s.is_default,
+        );
+        expect(d, `${st.stn_id}-${c.crop_id}`).toHaveLength(1);
+        const k = kcSets.find((x) => x.kc_set_id === d[0].kc_set_id);
+        expect(k?.is_default).toBe(true);
       }
     }
   });
@@ -258,14 +322,18 @@ describe("사전 자료: 기본 계산 조건", () => {
 });
 
 describe("사전 자료: 여러 번 실행", () => {
-  it.each(["stations", "crops", "crop_seasons", "soil_types", "scenarios"])(
-    "%s 는 다시 넣어도 오류 없이 값만 고친다",
-    (table) => {
-      expect(SEED).toMatch(
-        new RegExp(
-          `insert into public\\.${table} [\\s\\S]*?on conflict \\([a-z_]+\\) do update set`,
-        ),
-      );
-    },
-  );
+  it.each([
+    "stations",
+    "crops",
+    "crop_seasons",
+    "soil_types",
+    "crop_kc_sets",
+    "scenarios",
+  ])("%s 는 다시 넣어도 오류 없이 값만 고친다", (table) => {
+    expect(SEED).toMatch(
+      new RegExp(
+        `insert into public\\.${table} [\\s\\S]*?on conflict \\([a-z_]+\\) do update set`,
+      ),
+    );
+  });
 });

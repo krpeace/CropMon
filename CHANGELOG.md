@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 추가 (데이터 계약 v1.1, 재배 방식별 Kc)
+
+- 재배 방식별 Kc 표 `crop_kc_sets` — `supabase/migrations/20261024020000_data_contract_v1_1.sql`. 사과는 FAO-56 Table 12 네 가지, 기본은 3번(초생 재배, 서리 지역 0.50 / 1.20 / 0.95)
+- 계산 조건 `scenarios`에 `kc_set_id`. 공개 조건 20개 → 50개(지점 10 × (사과 4 + 배추 1)), 이름에 재배 방식 번호(`101-apple-main-k3-loam-2026`)
+- 사전 자료 `20261024030000_seed_kc_sets.sql`: 재배 방식 5개, 계산 조건 50개, `crops`의 Kc 칸을 기본 재배 방식 값으로 맞춤
+- v1 사전 자료 파일의 계산 조건 부분을 새 파일로 옮김 (다시 실행해도 오류가 나지 않게)
+- `docs/DATA_CONTRACT.md` v1 → v1.1, 결정 기록 `docs/decisions/0005-kc-sets.md`
+
 ### 추가 (사전 자료, 공1·공2)
 
 - `supabase/migrations/20261024010000_seed_dictionaries.sql`: 지점 10곳(좌표·고도·풍속계 높이·예보 격자), 작물 2개(사과·김치배추), 작형 5개(사과, 배추 봄·여름·가을·월동. 값은 사과와 여름배추만), 토성 12종(Table 19 9종, 3종 빈 칸), 기본 계산 조건 20개(지점 × 작물, 양토, 2026)
