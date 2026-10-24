@@ -24,3 +24,19 @@ export function formatKoreanDateTime(iso: string | null | undefined): string {
 
   return `${parts.year}년 ${parts.month}월 ${parts.day}일 ${period} ${hour12}:${parts.minute}`;
 }
+
+/** 시각 → 한국 시각 조각 (발표 "10월 25일 02시", 갱신 "02:41" 표시용). 읽을 수 없으면 null. */
+export function koreanClock(iso: string | null | undefined) {
+  if (!iso) return null;
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return null;
+  const parts = Object.fromEntries(
+    KOREA_PARTS.formatToParts(time).map((part) => [part.type, part.value]),
+  );
+  return {
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: parts.hour.padStart(2, "0"),
+    minute: parts.minute,
+  };
+}

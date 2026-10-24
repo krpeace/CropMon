@@ -1,0 +1,112 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  CROP_DB_ID,
+  firstMainDate,
+  koreanDate,
+  markOutlookDays,
+  needDay,
+  pickKcSet,
+} from "./water-outlook";
+
+describe("CROP_DB_ID", () => {
+  it("주소창 작물 이름을 DB 작물 번호로 바꾼다", () => {
+    expect(CROP_DB_ID).toEqual({ apple: "apple", cabbage: "kimchi_cabbage" });
+  });
+});
+
+describe("koreanDate", () => {
+  it("발표 시각(UTC)을 한국 날짜로 바꾼다", () => {
+    expect(koreanDate("2026-10-24T17:00:00+00:00")).toBe("2026-10-25");
+    expect(koreanDate("2026-10-25T08:00:00+00:00")).toBe("2026-10-25");
+  });
+});
+
+describe("firstMainDate", () => {
+  it("아침 회차는 그날, 저녁 회차는 다음 날부터 주 지표다", () => {
+    expect(firstMainDate("2026-10-24T17:00:00+00:00", "아침")).toBe(
+      "2026-10-25",
+    );
+    expect(firstMainDate("2026-10-25T08:00:00+00:00", "저녁")).toBe(
+      "2026-10-26",
+    );
+    expect(firstMainDate("2026-10-31T08:00:00+00:00", "저녁")).toBe(
+      "2026-11-01",
+    );
+  });
+});
+
+describe("needDay", () => {
+  const base = { firstDate: "2026-10-25", today: "2026-10-25", horizon: 3 };
+
+  it("0 은 지금 필요", () => {
+    expect(needDay({ ...base, center: 0, early: 0, late: 0 })).toEqual({
+      date: null,
+      text: "지금 관수 필요",
+      range: null,
+    });
+  });
+
+  it("k번째 날을 날짜로 바꾸고 오늘·내일·모레로 부른다", () => {
+    expect(needDay({ ...base, center: 1, early: 1, late: 1 }).text).toBe(
+      "오늘(10/25 일)",
+    );
+    expect(needDay({ ...base, center: 2, early: 2, late: 2 })).toEqual({
+      date: "2026-10-26",
+      text: "내일(10/26 월)",
+      range: null,
+    });
+    expect(needDay({ ...base, center: 3, early: 3, late: 3 }).text).toBe(
+      "모레(10/27 화)",
+    );
+  });
+
+  it("저녁 회차는 첫날이 내일이다", () => {
+    expect(needDay({ ...base, firstDate: "2026-10-26", center: 3 }).text).toBe(
+      "10/28(수)",
+    );
+  });
+
+  it("기간 안에 없으면 그렇게 말한다", () => {
+    expect(needDay({ ...base, center: null, early: null, late: null })).toEqual(
+      { date: null, text: "3일 안에는 없음", range: null },
+    );
+  });
+
+  it("빠르면·늦으면이 다르면 범위를 붙인다", () => {
+    expect(needDay({ ...base, center: 2, early: 1, late: null }).range).toBe(
+      "빠르면 오늘 · 늦으면 3일 안에는 없음",
+    );
+    expect(needDay({ ...base, center: 2, early: 0, late: 3 }).range).toBe(
+      "빠르면 지금 · 늦으면 모레",
+    );
+  });
+});
+
+describe("markOutlookDays", () => {
+  it("lead_day 순서로 앞 3일은 주 지표, 나머지는 참고로 표시한다", () => {
+    const rows = [3, 1, 0, 2].map((lead) => ({ lead_day: lead }));
+    expect(
+      markOutlookDays(rows, 3).map((d) => [d.lead_day, d.reference]),
+    ).toEqual([
+      [0, false],
+      [1, false],
+      [2, false],
+      [3, true],
+    ]);
+  });
+});
+
+describe("pickKcSet", () => {
+  const sets = [
+    { kc_set_id: "apple-k3", set_no: 3, is_default: true },
+    { kc_set_id: "apple-k1", set_no: 1, is_default: false },
+  ];
+
+  it("주소창 번호가 있으면 그 재배 방식, 없거나 없는 번호면 기본값", () => {
+    expect(pickKcSet(sets, 1)?.kc_set_id).toBe("apple-k1");
+    expect(pickKcSet(sets, undefined)?.kc_set_id).toBe("apple-k3");
+    expect(pickKcSet(sets, 9)?.kc_set_id).toBe("apple-k3");
+    expect(pickKcSet([], 1)).toBeNull();
+  });
+});
