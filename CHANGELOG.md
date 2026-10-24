@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 추가 (사전 자료, 공1·공2)
+
+- `supabase/migrations/20261024010000_seed_dictionaries.sql`: 지점 10곳(좌표·고도·풍속계 높이·예보 격자), 작물 2개(사과·김치배추), 작형 5개(사과, 배추 봄·여름·가을·월동. 값은 사과와 여름배추만), 토성 12종(Table 19 9종, 3종 빈 칸), 기본 계산 조건 20개(지점 × 작물, 양토, 2026)
+- 사전 자료 검사 테스트 `src/infra/supabase/seed.test.ts`: 화면과 같은 지점 10곳, 기본 작형·토성 하나, 토성 가운데 값, TAW·RAW(FAO-56 식 82·83), 작기 끝 날짜를 다시 계산해 확인
+
 ### 추가 (데이터 계약 v1)
 
 - 공개 테이블 9개: `stations`, `crops`, `crop_seasons`, `soil_types`, `scenarios`, `forecast_runs`, `weather_daily`, `water_balance_daily`, `water_outlook` — `supabase/migrations/20261024000000_data_contract_v1.sql` (표만 만든다. 지점·작물·토성의 실제 값은 다음 PR)
