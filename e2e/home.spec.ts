@@ -8,22 +8,25 @@ async function openHome(page: Page, query: string) {
   await page.getByRole("button", { name: "자동 전환 중지" }).click();
 }
 
-test("종합: 물·온도·햇빛 카드와 준비 중 카드가 시안 값으로 보인다", async ({
+// 물 판정은 가짜 Supabase(e2e/fake-supabase.mjs) 값, 온도·햇빛은 "예시" 표시가 붙은 시안 값이다.
+
+test("종합: 물 카드는 DB 값, 온도·햇빛은 '예시', 준비 중 카드", async ({
   page,
 }) => {
   await openHome(page, "?st=101&crop=apple");
+  await expect(main(page)).toContainText("02시 단기예보");
 
   const water = main(page).getByRole("link", { name: /^물/ });
   await expect(water).toContainText("내일 관수 필요");
   await expect(water).toContainText("오늘은 괜찮아요, 내일 물 주세요");
-  await expect(water).toContainText("부족한 물 31 mm / 관수 시작점 35 mm");
+  await expect(water).toContainText("부족한 물 51 mm / 관수 시작점 65 mm");
 
-  await expect(main(page).getByRole("link", { name: /^온도/ })).toContainText(
-    "적산온도 1,972 / 평년 1,910 ℃·일",
-  );
-  await expect(main(page).getByRole("link", { name: /^햇빛/ })).toContainText(
-    "올해 햇빛은 평년의 96%",
-  );
+  const temp = main(page).getByRole("link", { name: /^온도/ });
+  await expect(temp).toContainText("적산온도 1,972 / 평년 1,910 ℃·일");
+  await expect(temp).toContainText("예시");
+  const sun = main(page).getByRole("link", { name: /^햇빛/ });
+  await expect(sun).toContainText("올해 햇빛은 평년의 96%");
+  await expect(sun).toContainText("예시");
   await expect(main(page).getByRole("link", { name: /^토양/ })).toContainText(
     "준비 중",
   );
@@ -45,13 +48,37 @@ test("종합: 전국 표에서 줄을 누르면 그 지역으로 바뀐다", asy
   const table = page.getByRole("region", { name: "전국 물·기상·생육 종합" });
   await expect(table.getByRole("link")).toHaveCount(10);
 
-  await table.getByRole("link", { name: /^안동/ }).click();
-  await expect(page).toHaveURL(/\/\?st=136&crop=apple$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "오늘 안동 사과는 어떤가요?",
+  // 춘천은 예보가 있어 앞으로 3일 점, 수원은 관측만 (예보 준비 중), 안동은 자료 없음
+  await expect(table.getByRole("link", { name: /^춘천/ })).not.toContainText(
+    "예보 준비 중",
   );
+  await expect(table.getByRole("link", { name: /^수원/ })).toContainText(
+    "예보 준비 중",
+  );
+  await expect(table.getByRole("link", { name: /^안동/ })).toContainText(
+    "자료 없음",
+  );
+
+  await table.getByRole("link", { name: /^수원/ }).click();
+  await expect(page).toHaveURL(/\/\?st=119&crop=apple$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "오늘 수원 사과는 어떤가요?",
+  );
+  const water = main(page).getByRole("link", { name: /^물/ });
+  await expect(water).toContainText("어제까지 관측 기준");
+  await expect(water).not.toContainText("3일 동안");
+});
+
+test("종합: 자료가 없는 지역은 '자료 없음', 작기가 아니면 안내", async ({
+  page,
+}) => {
+  await openHome(page, "?st=136&crop=apple");
   await expect(main(page).getByRole("link", { name: /^물/ })).toContainText(
-    "오늘 물 주세요",
+    "이 지역의 물 판정 자료가 아직 없어요",
+  );
+  await openHome(page, "?st=101&crop=cabbage");
+  await expect(main(page).getByRole("link", { name: /^물/ })).toContainText(
+    "배추 작기가 아니에요",
   );
 });
 

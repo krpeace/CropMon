@@ -2,7 +2,9 @@ import { Suspense } from "react";
 
 import { CROP_LABEL, parseSelection, withSelection } from "@/domain/selection";
 import { getHomeView } from "@/services/home";
-import { getHomeMeta, getStation, STATION_IDS } from "@/services/shell";
+import { getStation, STATION_IDS } from "@/services/shell";
+
+import { loadBoard } from "../shell/board";
 
 import { Grid } from "../ui/Grid";
 import { STATUS_CARD } from "../ui/status";
@@ -33,7 +35,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
   const station = getStation(selection.stationId);
   if (!station) return null;
 
-  const view = getHomeView(selection);
+  const view = getHomeView(selection, await loadBoard());
   const flipKey = `${selection.stationId}|${selection.crop}`;
   const href = (path: string) => withSelection(path, selection);
 
@@ -48,9 +50,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
           <h1 className="text-hero leading-hero tracking-hero m-0 font-bold text-pretty">
             오늘 {station.name} {CROP_LABEL[selection.crop]}는 어떤가요?
           </h1>
-          <div className="text-15 text-ink-2/85 font-semibold">
-            {getHomeMeta(station)}
-          </div>
+          <div className="text-15 text-ink-2/85 font-semibold">{view.meta}</div>
         </FlipItem>
         <AutoRotate selection={selection} />
       </div>
@@ -64,7 +64,8 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
             verdict={view.water.verdict}
             numbers={view.water.numbers}
             background={STATUS_CARD[view.water.tone]}
-            badge={view.water.badge}
+            badge={view.water.badge ?? undefined}
+            grayBadge={view.water.grayBadge ?? undefined}
             gauge={view.water.gauge}
           />
         </FlipItem>
@@ -76,6 +77,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
             verdict={view.growth.verdict}
             numbers={view.growth.numbers}
             background="bg-card"
+            grayBadge="예시"
           />
         </FlipItem>
         <FlipItem flipKey={flipKey} order={3}>
@@ -86,7 +88,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
             verdict={view.sunlight.verdict}
             numbers={view.sunlight.numbers}
             background="bg-card"
-            grayBadge={view.sunlight.missing ? "자료 없음" : undefined}
+            grayBadge={view.sunlight.missing ? "자료 없음" : "예시"}
           />
         </FlipItem>
       </Grid>

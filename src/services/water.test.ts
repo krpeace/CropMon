@@ -270,9 +270,10 @@ describe("오늘", () => {
     const v = await view(TODAY, { recentRuns: async () => [] });
     expect(v.outlook).toBeNull();
     expect(v.now).toMatchObject({
-      basis: "10월 24일 (토) 관측 기준",
+      basis: "어제까지 관측 기준",
       drMm: 50.7,
-      verdict: { text: "아직 여유 있어요, 3일 동안 괜찮아요" },
+      // 예보가 없으면 앞날("3일 동안")을 말하지 않는다
+      verdict: { text: "아직 여유 있어요" },
     });
     expect(v.meta.issue).toBe("자료 없음");
   });

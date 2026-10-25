@@ -4,6 +4,7 @@ import { CROP_LABEL, withSelection, type Crop } from "@/domain/selection";
 import { WATER_STATUSES, WATER_STATUS_LABEL } from "@/domain/water-status";
 import type { HomeRow } from "@/services/home";
 
+import { Badge as GrayBadge } from "../ui/Badge";
 import { Gauge } from "../ui/Gauge";
 import { StatusBadge } from "../ui/StatusBadge";
 import { STATUS_DOT } from "../ui/status";
@@ -35,8 +36,14 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
           <span className="text-ink-2/60 font-normal">Dr / RAW</span>
         </span>
         <span>앞으로 3일</span>
-        <span>생육 (적산온도)</span>
-        <span>생육 (적산일사)</span>
+        <span>
+          생육 (적산온도){" "}
+          <span className="text-ink-2/60 font-normal">예시</span>
+        </span>
+        <span>
+          생육 (적산일사){" "}
+          <span className="text-ink-2/60 font-normal">예시</span>
+        </span>
       </div>
       {rows.map((row) => (
         <Link
@@ -52,7 +59,11 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
             {row.name}{" "}
             <span className="text-13 text-ink-2/70 font-normal">{row.id}</span>
           </span>
-          <StatusBadge badge={row.badge} className="justify-self-start" />
+          {row.badge ? (
+            <StatusBadge badge={row.badge} className="justify-self-start" />
+          ) : (
+            <GrayBadge className="justify-self-start">자료 없음</GrayBadge>
+          )}
           <div className="flex items-center gap-3">
             {row.gauge ? (
               <Gauge gauge={row.gauge} size="row" className="flex-1" />
@@ -62,7 +73,10 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
             <span className="text-15 w-21 text-right">{row.drText}</span>
           </div>
           <div className="flex gap-1.5">
-            {row.days.map((day) => (
+            {!row.days && (
+              <span className="text-14 text-gray-ink">예보 준비 중</span>
+            )}
+            {row.days?.map((day) => (
               <span
                 key={day.label}
                 title={WATER_STATUS_LABEL[day.status]}
