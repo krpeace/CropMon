@@ -1,5 +1,5 @@
 import { koreanClock } from "@/domain/datetime";
-import type { Crop } from "@/domain/selection";
+import { CROP_LABEL, type Crop } from "@/domain/selection";
 import type { WaterStatus } from "@/domain/water-status";
 import { STATIONS } from "@/infra/stations";
 import { MOCK_META } from "@/mocks/meta";
@@ -112,6 +112,37 @@ export function getPageMeta(
       };
     }
   }
+}
+
+/** 토양·도매시장 "준비 중" 본문의 글 (시안 sSoon 그대로). 질문은 쪽 정보(PAGE_INFO)에서 읽는다. */
+export type ComingSoon = {
+  /** 열리면 보여 줄 것 4개 */
+  items: string[];
+  /** 쓸 자료 이름 */
+  source: string;
+};
+
+export function getComingSoon(page: "soil" | "market", crop: Crop): ComingSoon {
+  if (page === "soil") {
+    return {
+      items: [
+        "우리 밭 흙의 종류(토성)와 물 빠짐",
+        "산도(pH)와 유기물이 알맞은지",
+        "인산·칼리 같은 양분이 넉넉한지",
+        "물 판정에 내 밭 토성을 바로 반영",
+      ],
+      source: "농촌진흥청 흙토람 (토양 정보)",
+    };
+  }
+  return {
+    items: [
+      `오늘 ${CROP_LABEL[crop]} 도매 가격`,
+      "지난해·평년 같은 때와 비교",
+      "도매시장에 들어온 양(반입량) 흐름",
+      "앞으로의 가격 전망",
+    ],
+    source: "aT 농산물유통정보 · 한국농촌경제연구원(KREI) 농업관측",
+  };
 }
 
 function noData(source: string): PageMeta {

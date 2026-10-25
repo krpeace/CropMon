@@ -1,8 +1,9 @@
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 
-import { parseSelection } from "@/domain/selection";
+import { parseSelection, withSelection } from "@/domain/selection";
 import {
+  getComingSoon,
   getPageMeta,
   getStation,
   STATION_IDS,
@@ -10,8 +11,10 @@ import {
 } from "@/services/shell";
 import { getObserved } from "@/services/station-status";
 
+import { ComingSoon } from "./ComingSoon";
 import { MetaBox } from "./MetaBox";
 import { PageHead } from "./PageHead";
+import { PAGE_INFO } from "./pages";
 
 type Props = {
   page: Exclude<PageKey, "home" | "water" | "temperature" | "sunlight">;
@@ -19,7 +22,7 @@ type Props = {
 };
 
 /**
- * 종합을 뺀 쪽의 뼈대: 제목 → (본문) → 자료 상자.
+ * 종합을 뺀 쪽의 뼈대: 제목 → (본문) → 자료 상자. 토양·도매시장은 "준비 중" 본문(ComingSoon)이 들어간다.
  * 주소창(searchParams)을 읽는 부분은 <Suspense> 안에 둔다 (cacheComponents 규칙).
  */
 export function ShellPage({ page, searchParams }: Props) {
@@ -40,6 +43,13 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
   return (
     <>
       <PageHead page={page} meta={meta} />
+      {(page === "soil" || page === "market") && (
+        <ComingSoon
+          question={PAGE_INFO[page].question}
+          {...getComingSoon(page, selection.crop)}
+          waterHref={withSelection("/water", selection)}
+        />
+      )}
       <MetaBox meta={meta} />
     </>
   );

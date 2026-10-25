@@ -72,6 +72,7 @@
   --text-hero: clamp(30px, 2.6vw, 40px); /* 종합 첫 줄 */
   --text-card-verdict: clamp(25px, 2vw, 28px); /* 종합 카드 판정 문구 */
   --text-verdict: clamp(26px, 2.3vw, 32px); /* 물 화면 판정 문구 */
+  --text-soon-question: clamp(25px, 2.2vw, 30px); /* 준비 중 본문의 질문 */
 
   --leading-title: 1.15;
   --leading-hero: 1.2;
@@ -92,6 +93,7 @@
   --radius-box: 16px; /* 안쪽 칸, 자료 상자 */
   --radius-row: 14px; /* 표의 줄 */
   --radius-bar: 4px; /* 비교 막대 */
+  --radius-bubble: 20px; /* 캐릭터 말풍선 */
   --radius-full: 9999px; /* 버튼·배지 캡슐 */
 
   /* ── 그림자: 카드에는 쓰지 않는다 ── */

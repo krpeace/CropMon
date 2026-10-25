@@ -28,6 +28,7 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 - **햇빛 화면** (온1): 읽기는 `src/infra/supabase/sun-source.ts`, 화면용 정리는 `src/services/sunlight.ts`, 평년 대비 %·월별 합·가장 적은 달·문구는 `src/domain/sun.ts`. 조각은 `src/app/_components/sunlight/`: `SunlightBoard`(순서·자료 상자), `SunCards`(올해 쌓인 햇빛·월별·지역 비교·재지 않는 지점). 누적 그래프는 온도 화면의 `HeatChartCard`(제목을 받음)를 같이 쓰고, 막대 좌표는 `sun-chart.ts`. 그 지점 `sun_daily` 줄이 없으면 "햇빛을 재지 않는 지점"입니다(DB 기준).
 - **화면 테스트용 가짜 DB**: `e2e/fake-supabase.mjs`가 PostgREST 흉내를 냅니다. 오늘 날짜 기준으로 춘천(101) 사과·배추 자료를 만들고, 태백(216)은 일부러 오류를 돌려줍니다. Playwright 가 먼저 띄웁니다.
 - `src/app/_components` — 여러 쪽이 함께 쓰는 화면 부품. `shell/`(헤더·바닥글·쪽 제목·자료 상자·가운데 창), `ui/`(아이콘·배지·게이지·카드 격자), `home/`(종합 화면 조각).
+- **토양·도매시장 "준비 중" 본문** (이슈 #27): `ShellPage` 가 두 쪽에만 `shell/ComingSoon.tsx`(정적 조각, DB 읽기 없음)를 제목과 자료 상자 사이에 넣습니다. 글(열리면 보여 줄 것 4개·쓸 자료)은 `src/services/shell.ts` 의 `getComingSoon` 값이고, 질문은 `PAGE_INFO` 에서 읽습니다.
 - `e2e` — 실제 브라우저로 쪽을 열어 보는 화면 테스트(Playwright).
 
 ## 화면 공통 규칙
