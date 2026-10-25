@@ -67,6 +67,7 @@
   --text-20: 20px;
   --text-22: 22px;
   --text-23: 23px;
+  --text-24: 24px; /* 온도 단계 카드 도달일 */
   --text-title: clamp(32px, 2.6vw, 40px); /* 쪽 제목 */
   --text-hero: clamp(30px, 2.6vw, 40px); /* 종합 첫 줄 */
   --text-card-verdict: clamp(25px, 2vw, 28px); /* 종합 카드 판정 문구 */
@@ -90,6 +91,7 @@
   --radius-panel: 24px; /* 가운데 창 */
   --radius-box: 16px; /* 안쪽 칸, 자료 상자 */
   --radius-row: 14px; /* 표의 줄 */
+  --radius-bar: 4px; /* 비교 막대 */
   --radius-full: 9999px; /* 버튼·배지 캡슐 */
 
   /* ── 그림자: 카드에는 쓰지 않는다 ── */
@@ -142,6 +144,9 @@
 
   /* 전국 종합 표의 열: 지점 · 오늘 · 부족한 물 · 앞으로 3일 · 적산온도 · 적산일사 */
   --national-cols: 110px 150px minmax(0, 1.5fr) 170px 150px 130px;
+
+  /* 지역 비교 줄의 열: 지점 · 막대 · 날 수(또는 "자료 없음") */
+  --compare-cols: 56px minmax(0, 1fr) 72px;
 }
 
 /* 유리 재질 헤더 */

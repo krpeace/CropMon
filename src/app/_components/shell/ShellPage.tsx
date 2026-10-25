@@ -14,7 +14,7 @@ import { MetaBox } from "./MetaBox";
 import { PageHead } from "./PageHead";
 
 type Props = {
-  page: Exclude<PageKey, "home" | "water">;
+  page: Exclude<PageKey, "home" | "water" | "temperature">;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -34,8 +34,7 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
   const selection = parseSelection(await searchParams, STATION_IDS);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page={page} meta={null} />;
-  const needsObserved =
-    page === "temperature" || (page === "sunlight" && station.measuresSunlight);
+  const needsObserved = page === "sunlight" && station.measuresSunlight;
   const observed = needsObserved ? await cachedObserved(station.id) : null;
   const meta = getPageMeta(page, station, observed);
 
@@ -48,7 +47,7 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
 }
 
 /** 그 지점의 마지막 ASOS 관측 받은 시각. 하루 두 번 바뀌므로 5분 동안 같은 값을 쓴다. */
-async function cachedObserved(stationId: number) {
+export async function cachedObserved(stationId: number) {
   "use cache";
   cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
   return getObserved(stationId);

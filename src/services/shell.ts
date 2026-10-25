@@ -80,7 +80,7 @@ export function getPageMeta(
   switch (page) {
     case "temperature":
       return {
-        source: `${asos(station)} 일 관측 · 평년값 1991–2020`,
+        source: `${asos(station)} 일 관측`,
         issue: "해당 없음 (관측 자료)",
         ...observedTimes(observed),
       };

@@ -1,5 +1,5 @@
 // 화면 테스트용 가짜 Supabase (PostgREST 흉내). 값은 지어낸 것이다. 실제 농가·키 없음.
-// 오늘(한국 날짜)을 기준으로 춘천(101) 사과·배추 자료를 만든다. 태백(216)은 일부러 오류를 돌려준다.
+// 오늘(한국 날짜)을 기준으로 춘천(101) 사과·배추 자료와 지점 10곳의 적산온도를 만든다. 태백(216)만 묻는 읽기는 일부러 오류를 돌려준다.
 import http from "node:http";
 
 const PORT = Number(process.env.FAKE_SUPABASE_PORT ?? 54321);
@@ -145,7 +145,73 @@ const weather_daily = ["101", "119"].map((stn_id) => ({
   fetched_at: new Date(Date.parse(runAt) + 20 * 60_000).toISOString(), // 02:20
 }));
 
+// 작물 사전: 적산온도 기준온도와 단계 (계약 v1.4)
+const crops = [
+  {
+    crop_id: "apple",
+    t_base_c: 4,
+    gdd_stages: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000],
+  },
+  { crop_id: "kimchi_cabbage", t_base_c: 4, gdd_stages: [300, 600, 900, 1200] },
+];
+
+// 적산온도 (온도 화면). 지점마다 어제의 [올해 누적, 평년 누적, 며칠 빠른가]를 정해 두고,
+// 1년 모양은 같은 곡선을 늘리고 줄인다. 춘천은 4,165 / 3,973 (+192), 수원은 다음 단계(2,500)에 아직 못 닿음.
+const HEAT = {
+  101: [4165, 3973, 20],
+  216: [2700, 2650, null],
+  119: [2200, 2100, 6],
+  131: [2300, 2210, 5],
+  129: [2100, 2050, 2],
+  146: [2400, 2310, 4],
+  156: [2350, 2400, -3],
+  136: [2250, 2150, 5],
+  192: [2380, 2300, 4],
+  189: [2900, 2750, 7],
+};
+const yesterday = add(today, -1);
+const yearDays = [];
+for (let d = `${year}-01-01`; d <= `${year}-12-31`; d = add(d, 1)) {
+  yearDays.push(d);
+}
+// 하루 적산온도 모양 (겨울 0, 여름 크게)
+const shape = [];
+let acc = 0;
+yearDays.forEach((_, i) => {
+  acc += Math.max(0, 7 - 15 * Math.cos((2 * Math.PI * (i - 15)) / 365));
+  shape.push(acc);
+});
+const yIdx = Math.max(0, yearDays.indexOf(yesterday));
+const r1 = (v) => Math.round(v * 10) / 10;
+const heat_daily = [];
+for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
+  for (const crop_id of ["apple", "kimchi_cabbage"]) {
+    yearDays.forEach((date, i) => {
+      const observed = date <= yesterday;
+      const cum = observed ? r1((cumY * shape[i]) / shape[yIdx]) : null;
+      heat_daily.push({
+        stn_id,
+        crop_id,
+        date,
+        t_base_c: 4,
+        gdd_day: observed
+          ? r1((cumY * (shape[i] - (shape[i - 1] ?? 0))) / shape[yIdx])
+          : null,
+        gdd_cum: cum,
+        gdd_normal_cum: r1((normalY * shape[i]) / shape[yIdx]),
+        lead_days: observed ? lead : null,
+        normal_from: 2016,
+        normal_to: 2025,
+        filled: false,
+        calc_version: "fake",
+      });
+    });
+  }
+}
+
 const TABLES = {
+  crops,
+  heat_daily,
   weather_daily,
   crop_kc_sets: kcSets,
   scenarios,

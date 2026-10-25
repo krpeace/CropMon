@@ -107,17 +107,20 @@ export const COLUMNS = {
  * 한 번 읽기를 오래 기다리지 않는다 (DB가 멈춰도 화면은 "자료 없음"으로 뜬다).
  * 자동 재시도도 끈다: 켜 두면 DB에 닿지 못할 때 쪽 하나가 7초쯤 걸린다. 다시 읽기는 새로고침으로 한다.
  */
-const TIMEOUT_MS = 8000;
+export const TIMEOUT_MS = 8000;
 
-type Result<T> = { data: T | null; error: { message: string } | null };
+export type Result<T> = { data: T | null; error: { message: string } | null };
 
-function unwrap<T>(table: string, r: Result<T>): T {
+export function unwrap<T>(table: string, r: Result<T>): T {
   if (r.error) throw new Error(`${table} 읽기 실패: ${r.error.message}`);
   return r.data as T;
 }
 
 /** numeric 열이 문자로 와도 수로 바꾼다. */
-function nums<T extends object>(row: T, skip: readonly string[] = []): T {
+export function nums<T extends object>(
+  row: T,
+  skip: readonly string[] = [],
+): T {
   const out = { ...row } as Record<string, unknown>;
   for (const [k, v] of Object.entries(out)) {
     if (
