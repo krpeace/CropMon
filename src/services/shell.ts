@@ -69,10 +69,6 @@ function updatedShort(updated: string) {
   return `${updated} 갱신`;
 }
 
-export function getHomeMeta(station: Station) {
-  return `${updatedShort(MOCK_META.updated)} · ${asos(station)} · 단기예보`;
-}
-
 export function getPageMeta(
   // 물 화면은 DB 값으로 따로 만든다 (src/services/water.ts)
   page: Exclude<PageKey, "home" | "water">,

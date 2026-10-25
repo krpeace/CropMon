@@ -153,3 +153,26 @@ describe("물 화면 주소창 (기준 날짜·발표 회차)", () => {
     expect(relDay("2026-10-30", "2026-10-25")).toBeNull();
   });
 });
+
+describe("관측 기준 문구와 예상일 날 수", () => {
+  it("observedBasis: 어제면 '어제까지', 아니면 날짜", async () => {
+    const { observedBasis } = await import("./water-outlook");
+    expect(observedBasis("2026-10-24", "2026-10-25")).toBe(
+      "어제까지 관측 기준",
+    );
+    expect(observedBasis("2026-10-22", "2026-10-25")).toBe(
+      "10월 22일까지 관측 기준",
+    );
+  });
+
+  it("needInDays: 요약의 몇 번째 날 → 오늘부터 며칠", async () => {
+    const { needInDays } = await import("./water-outlook");
+    // 아침 회차: 첫날 = 오늘
+    expect(needInDays(0, "2026-10-25", "2026-10-25")).toBe(0);
+    expect(needInDays(1, "2026-10-25", "2026-10-25")).toBe(0);
+    expect(needInDays(2, "2026-10-25", "2026-10-25")).toBe(1);
+    // 저녁 회차: 첫날 = 내일
+    expect(needInDays(1, "2026-10-26", "2026-10-25")).toBe(1);
+    expect(needInDays(null, "2026-10-26", "2026-10-25")).toBeNull();
+  });
+});

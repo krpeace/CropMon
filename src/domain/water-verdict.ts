@@ -27,6 +27,8 @@ type VerdictInput = {
   seasonEnd: string;
   /** 기준 날짜 (YYYY-MM-DD). */
   date: string;
+  /** 단기예보가 있는가. 없으면(관측만) 앞날을 말하지 않는다. 기본 true. */
+  forecast?: boolean;
 };
 
 function monthDay(iso: string) {
@@ -86,6 +88,11 @@ export function waterVerdict(i: VerdictInput): Verdict {
     const extra =
       i.needIn === 1 ? (i.past ? "다음날 관수 필요" : "내일 관수 필요") : null;
     return v(text, i.needIn === 1 ? "need" : "caution", extra);
+  }
+  if (i.forecast === false && !i.past) {
+    return i.status === "normal"
+      ? v("흙이 촉촉해요, 물 주지 않아도 돼요", "normal")
+      : v("아직 여유 있어요", "caution");
   }
   if (i.status === "normal") {
     return v(
