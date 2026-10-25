@@ -55,3 +55,7 @@ app  →  services  →  domain
 - Next.js (App Router, TypeScript strict), Tailwind CSS
 - 품질 도구: ESLint, Prettier, Vitest
 - Node 버전은 `.nvmrc`에 적힌 값을 쓰고, 자동 검사(CI)도 같은 값을 씁니다.
+
+## 운영 예약 (결정 0014)
+
+croplib-dp 수집은 Supabase pg_cron 이 정해진 시각에 GitHub 워크플로를 실행시킨다(`ops.dispatch_workflow`, 토큰은 Vault `github_dispatch_token`). 운영용 이름공간 `ops` 는 화면·회원이 볼 수 없다. 최근 실행 요청 결과는 `select * from ops.dispatch_recent;`.

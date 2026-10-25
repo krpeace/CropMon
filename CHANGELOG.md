@@ -11,6 +11,11 @@
 - 온도 자료 상자 출처에 평년 기간을 붙임 ("평년값 1991–2020" 지움)
 - 화면 테스트용 가짜 DB 에 적산온도 표·작물 단계 (`e2e/fake-supabase.mjs`), `e2e/temperature.spec.ts`
 
+### 추가 (수집 예약을 Supabase 가 직접, 대책 2)
+
+- Supabase pg_cron → GitHub `workflow_dispatch` 로 croplib-dp 수집(02:15·02:45·17:15·17:45), 적산온도(09:20), 감시(매시간 40분)를 정시에 실행 — `supabase/migrations/20261026010000_ops_dispatch_cron.sql`. 토큰은 Vault 에만
+- 결정 기록 `docs/decisions/0014-ops-cron-dispatch.md`
+
 ### 추가 (데이터 계약 v1.4, 온1)
 
 - 적산온도 `heat_daily`, 적산일사 `sun_daily` — `supabase/migrations/20261026000000_data_contract_v1_4.sql`. 평년은 지난 10년(2016–2025) 같은 날 평균
