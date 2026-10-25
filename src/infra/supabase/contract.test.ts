@@ -27,7 +27,7 @@ const SQL = readdirSync(MIGRATIONS_DIR)
   .join("\n")
   .toLowerCase();
 
-/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개 + v1.3 1개)과 따로 센다. */
+/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개 + v1.3 1개 + v1.4 2개)과 따로 센다. */
 const HEALTH_TABLE = "app_health";
 
 const PUBLIC_TABLES = [
@@ -42,6 +42,8 @@ const PUBLIC_TABLES = [
   "water_balance_daily",
   "water_outlook",
   "water_outlook_summary",
+  "heat_daily",
+  "sun_daily",
 ] as const;
 
 function tablesInContract(): string[] {
@@ -58,7 +60,7 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 11개와 app_health 가 있다", () => {
+  it("계약서에 공개 테이블 13개와 app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
       [...PUBLIC_TABLES, HEALTH_TABLE].sort(),
     );
@@ -68,8 +70,40 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.3 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.3\b/);
+  it("계약서의 현재 버전이 v1.4 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.4\b/);
+  });
+
+  const bodyOf = (table: string) =>
+    SQL.match(
+      new RegExp(
+        `create table if not exists public\\.${table}\\s*\\(([\\s\\S]*?)\\n\\);`,
+      ),
+    )?.[1];
+
+  it("적산온도는 지점 × 작물 × 날짜, 적산일사는 지점 × 날짜 (v1.4)", () => {
+    const heat = bodyOf("heat_daily");
+    const sun = bodyOf("sun_daily");
+    expect(heat).toMatch(/primary key \(stn_id, crop_id, date\)/);
+    expect(sun).toMatch(/primary key \(stn_id, date\)/);
+    for (const c of ["gdd_cum", "gdd_normal_cum", "lead_days", "t_base_c"]) {
+      expect(heat).toContain(c);
+    }
+    for (const c of ["rs_cum_mj", "rs_normal_cum_mj"]) expect(sun).toContain(c);
+    // 평년 기간을 줄마다 남긴다 (2016–2025 같은 기간을 화면에 적기 위해)
+    for (const b of [heat, sun]) {
+      expect(b).toMatch(/normal_from int not null/);
+      expect(b).toMatch(/normal_to int not null/);
+    }
+  });
+
+  it("작물 사전에 적산온도 기준온도와 단계가 있다 (v1.4)", () => {
+    expect(SQL).toMatch(
+      /alter table public\.crops\s+add column if not exists t_base_c numeric/,
+    );
+    expect(SQL).toMatch(
+      /alter table public\.crops\s+add column if not exists gdd_stages int\[\]/,
+    );
   });
 
   it("3일 전망 요약은 회차 × 계산 조건마다 한 줄, 예상일은 0 이상 (v1.3)", () => {
