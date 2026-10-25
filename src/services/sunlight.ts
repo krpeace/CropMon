@@ -6,15 +6,15 @@ import {
   sunPercent,
   sunSummary,
 } from "@/domain/sun";
-import { addDays, koreanDate, observedBasis } from "@/domain/water-outlook";
+import { koreanDate, observedBasis } from "@/domain/water-outlook";
 import {
   createSunSource,
-  type SunLatestRow,
   type SunRow,
   type SunSource,
 } from "@/infra/supabase/sun-source";
 import { STATIONS } from "@/infra/stations";
 
+import { readSunLatest } from "./growth-latest";
 import type { Station } from "./shell";
 import type { HeatDay } from "./temperature";
 
@@ -68,8 +68,6 @@ export type SunlightView = {
 const NO_DATA = "자료 없음";
 const LOW_PCT = 95;
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
-/** 어제 값이 없는 지점은 이만큼 거슬러 올라가 마지막 관측일을 찾는다. */
-const LOOKBACK_DAYS = 14;
 
 type Deps = { createSource?: () => SunSource; now?: () => Date };
 type Main = Omit<SunlightView, "today" | "compare" | "compareProblem">;
@@ -170,27 +168,11 @@ async function readCompare(
 ): Promise<Pick<SunlightView, "compare" | "compareProblem">> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
-    const yesterday = addDays(today, -1);
-    const ids = STATIONS.map((s) => String(s.id));
-    const found = new Map<string, SunLatestRow>();
-    for (const r of await db.onDate(ids, yesterday)) {
-      if (r.rs_cum_mj != null) found.set(r.stn_id, r);
-    }
-    const missing = ids.filter((id) => !found.has(id));
-    if (missing.length > 0) {
-      const from = addDays(yesterday, -(LOOKBACK_DAYS - 1));
-      // 날짜 순이므로 나중 줄이 앞 줄을 덮어 지점마다 마지막 관측일이 남는다
-      for (const r of await db.recent(missing, from, yesterday)) {
-        if (r.rs_cum_mj != null) found.set(r.stn_id, r);
-      }
-    }
+    const found = await readSunLatest(db, today);
     return {
       compare: STATIONS.map((s) => {
-        const r = found.get(String(s.id));
-        const pct = sunPercent(
-          r?.rs_cum_mj ?? null,
-          r?.rs_normal_cum_mj ?? null,
-        );
+        const r = found[s.id];
+        const pct = sunPercent(r?.cum ?? null, r?.normal ?? null);
         return {
           id: s.id,
           name: s.name,

@@ -36,14 +36,8 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
           <span className="text-ink-2/60 font-normal">Dr / RAW</span>
         </span>
         <span>앞으로 3일</span>
-        <span>
-          생육 (적산온도){" "}
-          <span className="text-ink-2/60 font-normal">예시</span>
-        </span>
-        <span>
-          생육 (적산일사){" "}
-          <span className="text-ink-2/60 font-normal">예시</span>
-        </span>
+        <span>생육 (적산온도)</span>
+        <span>생육 (적산일사)</span>
       </div>
       {rows.map((row) => (
         <Link
@@ -89,7 +83,11 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
               </span>
             ))}
           </div>
-          <span className="text-16 font-semibold">{row.lead}</span>
+          <span
+            className={`text-16 font-semibold ${row.lead ? "text-ink" : "text-gray-ink"}`}
+          >
+            {row.lead ?? "자료 없음"}
+          </span>
           <span
             className={`text-16 font-semibold ${row.sunlight ? "text-ink" : "text-gray-ink"}`}
           >

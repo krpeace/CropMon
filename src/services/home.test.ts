@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { HomeGrowth } from "./growth-latest";
 import { getHomeView } from "./home";
 import type { StationBoard, StationWater } from "./station-status";
 
@@ -57,11 +58,26 @@ const BOARD: StationBoard = {
   },
 };
 const NOW = () => new Date("2026-10-25T18:00:00+09:00");
+/** 가짜 적산온도·적산일사 (마지막 관측일). 수원(119)은 둘 다 없고, 진주(192)는 일사가 없다. */
+const GROWTH: HomeGrowth = {
+  heatOk: true,
+  sunOk: true,
+  heat: {
+    101: { lead: 20, cum: 4165, normal: 3973, annualNormal: 4100 },
+    216: { lead: null, cum: 2700, normal: 2650, annualNormal: 2600 },
+    136: { lead: -2, cum: 2140, normal: 2190, annualNormal: 2300 },
+  },
+  sun: {
+    101: { cum: 3218, normal: 3352 },
+    216: { cum: 3500, normal: 3333 },
+  },
+};
 const view = (
   stationId: number,
   crop: "apple" | "cabbage" = "apple",
   board = BOARD,
-) => getHomeView({ stationId, crop }, board, NOW);
+  growth = GROWTH,
+) => getHomeView({ stationId, crop }, board, growth, NOW);
 
 describe("종합 화면 물 카드 (DB)", () => {
   it("예보 지점: 판정 문구·배지·숫자·게이지, 첫 줄 갱신은 회차", () => {
@@ -120,21 +136,62 @@ describe("종합 화면 물 카드 (DB)", () => {
   });
 });
 
-describe("온도·햇빛 카드는 예시 값", () => {
-  it("숫자는 시안 예시, '예시' 표시", () => {
-    const v = view(101);
-    expect(v.growth).toEqual({
-      verdict: "평년보다 생육 3일 빠름",
-      numbers: "적산온도 1,972 / 평년 1,910 ℃·일",
-      example: true,
-    });
-    expect(v.sunlight).toMatchObject({
-      verdict: "올해 햇빛은 평년의 96%",
+describe("온도·햇빛 카드 (DB)", () => {
+  it("온도: 평년보다 며칠 빠른가와 적산온도 (온도 화면과 같은 문구)", () => {
+    expect(view(101).growth).toEqual({
+      verdict: "평년보다 생육 20일 빠름",
+      numbers: "적산온도 4,165 / 평년 3,973 ℃·일",
       missing: false,
-      example: true,
     });
-    expect(view(216).sunlight).toMatchObject({
+    expect(view(136).growth.verdict).toBe("평년보다 생육 2일 늦음");
+  });
+
+  it("온도 태백형: 며칠 빠른가가 비었고 평년 한 해 치를 넘었으면", () => {
+    expect(view(216).growth).toMatchObject({
+      verdict: "평년 한 해 치를 넘었어요",
+      missing: false,
+    });
+  });
+
+  it("햇빛: 평년 대비 %와 적산일사", () => {
+    expect(view(101).sunlight).toEqual({
+      verdict: "올해 햇빛은 평년의 96%",
+      numbers: "적산일사 3,218 / 평년 3,352 MJ/m²",
+      missing: false,
+    });
+    // 태백도 DB 에 일사 자료가 있으면 보인다
+    expect(view(216).sunlight.verdict).toBe("올해 햇빛은 평년의 105%");
+  });
+
+  it("자료가 없으면 회색 '자료 없음'과 이유", () => {
+    expect(view(119).growth).toEqual({
       verdict: "자료 없음",
+      numbers: "이 지역의 적산온도 자료가 아직 없어요",
+      missing: true,
+    });
+    expect(view(192).sunlight).toEqual({
+      verdict: "자료 없음",
+      numbers: "진주 관측소의 햇빛 자료가 없어요",
+      missing: true,
+    });
+  });
+
+  it("DB 를 읽지 못했으면 그 사실을 적는다", () => {
+    const v = view(101, "apple", BOARD, {
+      heatOk: false,
+      sunOk: false,
+      heat: {},
+      sun: {},
+    });
+    const failed = "DB에서 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.";
+    expect(v.growth).toEqual({
+      verdict: "자료 없음",
+      numbers: failed,
+      missing: true,
+    });
+    expect(v.sunlight).toEqual({
+      verdict: "자료 없음",
+      numbers: failed,
       missing: true,
     });
   });
@@ -158,7 +215,8 @@ describe("전국 표", () => {
         { label: "10/27", status: "need" },
         { label: "10/28", status: "caution" },
       ],
-      lead: "3일 빠름",
+      lead: "20일 빠름",
+      sunlight: "96%",
     });
   });
 
@@ -174,6 +232,23 @@ describe("전국 표", () => {
       gauge: null,
       drText: "—",
       days: null,
+      lead: null,
+      sunlight: null,
+    });
+  });
+});
+
+describe("전국 표 생육 칸 (DB)", () => {
+  const rows = view(136).rows;
+
+  it("적산온도는 며칠 빠른가, 적산일사는 평년 대비 %", () => {
+    expect(rows.find((r) => r.id === 136)).toMatchObject({
+      lead: "2일 늦음",
+      sunlight: null,
+    });
+    expect(rows.find((r) => r.id === 216)).toMatchObject({
+      lead: "한 해 치 넘음",
+      sunlight: "105%",
     });
   });
 });

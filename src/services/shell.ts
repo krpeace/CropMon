@@ -6,7 +6,7 @@ import { MOCK_META } from "@/mocks/meta";
 
 /**
  * 공통 틀(헤더·쪽 제목·자료 상자)에 필요한 값을 화면용으로 정리한다.
- * 지점 판정·관측 시각은 DB 값을 받아 쓰고(station-status.ts), 종합·내 농장 미리보기는 아직 src/mocks 예시 값이다.
+ * 지점 판정·관측 시각은 DB 값을 받아 쓰고(station-status.ts), 내 농장 미리보기는 아직 src/mocks 예시 값이다.
  */
 
 export type PageKey =
