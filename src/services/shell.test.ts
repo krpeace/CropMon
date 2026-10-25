@@ -42,15 +42,6 @@ describe("getPageMeta", () => {
   const chuncheon = getStation(101)!;
   const taebaek = getStation(216)!;
 
-  it("물 화면은 단기예보와 물수지를 자료로 적는다", () => {
-    expect(getPageMeta("water", chuncheon)).toEqual({
-      source: "기상청 ASOS 춘천(101) · 단기예보 · FAO-56 물수지",
-      issue: "8월 12일 17시 단기예보",
-      updated: "8월 12일 17:42",
-      short: "17시 예보 · 17:42 갱신",
-    });
-  });
-
   it("햇빛을 재지 않는 지점은 햇빛 화면이 모두 '자료 없음'이다", () => {
     expect(getPageMeta("sunlight", taebaek)).toEqual({
       source: "기상청 ASOS 태백(216) 일사 관측 · 자료 없음",

@@ -84,8 +84,8 @@ export type WaterSource = {
     cropId: string,
     year: number,
   ): Promise<ScenarioRow[]>;
-  /** 이 지점의 서버 수집(actions) 중 실패가 아닌 마지막 회차. */
-  latestRun(stnId: string): Promise<RunRow | null>;
+  /** 이 지점의 서버 수집(actions) 중 실패가 아닌 최근 회차들, 새것부터 (오늘 02·17시 고르기용). */
+  recentRuns(stnId: string, limit: number): Promise<RunRow[]>;
   outlook(runId: number, scenarioId: string): Promise<OutlookRow[]>;
   summary(runId: number, scenarioId: string): Promise<SummaryRow | null>;
   /** 작기 시작부터 그날까지의 관측 물수지, 날짜 순. */
@@ -183,8 +183,8 @@ export function createWaterSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    latestRun: (stnId) =>
-      one<RunRow>(
+    recentRuns: (stnId, limit) =>
+      many<RunRow>(
         "forecast_runs",
         client
           .from("forecast_runs")
@@ -193,10 +193,9 @@ export function createWaterSource(
           .eq("collector", "actions")
           .neq("result", "실패")
           .order("run_at", { ascending: false })
-          .limit(1)
+          .limit(limit)
           .retry(false)
-          .abortSignal(signal())
-          .maybeSingle(),
+          .abortSignal(signal()),
       ),
     outlook: (runId, scenarioId) =>
       many<OutlookRow>(

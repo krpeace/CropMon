@@ -1,31 +1,45 @@
 import { koreanClock } from "@/domain/datetime";
 import type { Selection } from "@/domain/selection";
 import {
+  addDays,
   CROP_DB_ID,
+  dayLabel,
   firstMainDate,
   koreanDate,
   markOutlookDays,
   needDay,
   pickKcSet,
+  relDay,
   type NeedDay,
+  type RunHour,
+  type WaterQuery,
 } from "@/domain/water-outlook";
 import {
-  todayBadge,
   WATER_STATUS_LABEL,
   WATER_STATUSES,
   type StatusBadge,
   type WaterStatus,
 } from "@/domain/water-status";
 import {
+  leftText,
+  monthlySummary,
+  waterVerdict,
+  type MonthRow,
+  type Verdict,
+} from "@/domain/water-verdict";
+import {
   createWaterSource,
+  type BalanceRow,
+  type OutlookRow,
+  type RunRow,
   type WaterSource,
 } from "@/infra/supabase/water-source";
 
 import type { PageMeta, Station } from "./shell";
 
 /**
- * 물 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.3).
- * 계산하지 않는다. 숫자는 반올림해 문구로만 바꾼다.
+ * 물 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.3, 결정 0008·0009).
+ * 계산하지 않는다. 숫자는 반올림해 문구로 바꾸고, 월별 표만 일별 값을 더한다(표시용 합계).
  */
 
 export type Cultivation = {
@@ -42,78 +56,111 @@ export type WaterGauge = {
   rawPct: number;
 };
 
-export type WaterNow = {
-  /** 이 상태의 날짜 (전망 출발 날짜, 없으면 마지막 관측 물수지 날). */
+export type DayNav = {
+  /** 기준 날짜. */
   date: string;
+  today: string;
+  isToday: boolean;
+  /** "10월 25일 (일) 오늘" */
+  label: string;
+  /** 전날·다음날. 갈 수 없으면 null. 다음날이 오늘이면 today. */
+  prev: string | null;
+  next: string | null;
+  /** 고를 수 있는 첫날 (작기 자료의 첫날). */
+  min: string;
+};
+
+export type NowCard = {
+  /** "어제까지 관측 기준" 처럼 이 상태의 기준. */
+  basis: string;
   status: WaterStatus;
-  badge: StatusBadge;
+  badges: StatusBadge[];
+  verdict: Verdict;
+  /** 부족한 물을 보여 줄 수 있는 날 (휴면기·자료 없음이면 false). */
+  active: boolean;
   drMm: number | null;
   rawMm: number;
   tawMm: number;
-  numbers: string;
   gauge: WaterGauge | null;
+  leftText: string | null;
+  /** 그날(또는 마지막 관측일) ETo·ETc·비. */
+  obs: {
+    label: string;
+    eto: string;
+    etc: string;
+    rain: string;
+  } | null;
 };
 
 export type OutlookDay = {
+  /** "내일", "다음날" */
+  rel: string;
+  /** "10월 26일 (월)" */
   date: string;
-  label: string;
+  iso: string;
+  /** 예보 · 관측 · 참고(마지막 참고일) */
+  kind: "예보" | "관측" | "참고";
+  reference: boolean;
   status: WaterStatus;
   statusLabel: string;
-  /** 마지막 참고일 (관수 필요 예상일은 보지 않는 날). */
-  reference: boolean;
-  etcMm: number | null;
-  etcErrMm: number | null;
-  rainMm: number | null;
-  popPct: number | null;
-  rainExpectedMm: number | null;
-  drMm: number | null;
-  drEarlyMm: number | null;
-  drLateMm: number | null;
+  etcLabel: string;
+  etc: string;
+  rainLabel: string;
+  rain: string;
+  dr: string;
 };
 
-export type WaterOutlook = {
-  firstDate: string;
-  horizon: number;
-  need: NeedDay;
-  /** 권장 관수량 문구. 예상일이 없으면 null. */
+export type OutlookCard = {
+  /** "02시 예보 기준", "관측값 기준" */
+  basis: string;
+  /** 오늘 받은 발표 회차 고르기. 지난 날을 볼 때는 빈 목록. */
+  runs: { hour: RunHour; available: boolean; selected: boolean }[];
+  /** 관수 필요 예상일·권장 관수량은 오늘 기준으로만 (요약 표). */
+  need: NeedDay | null;
   advice: string | null;
-  etcSum: string | null;
-  rainSum: string | null;
   days: OutlookDay[];
 };
 
 export type SeasonDay = {
   date: string;
-  drMm: number | null;
-  rainMm: number | null;
+  etoMm: number | null;
   etcMm: number | null;
+  rainMm: number | null;
+  drMm: number | null;
   status: WaterStatus;
-  filled: boolean;
 };
 
 export type WaterView = {
   meta: PageMeta;
   cultivation: Cultivation[];
   scenarioId: string | null;
+  day: DayNav | null;
+  now: NowCard | null;
+  outlook: OutlookCard | null;
+  season: SeasonDay[];
+  months: MonthRow[];
   rawMm: number | null;
   tawMm: number | null;
-  now: WaterNow | null;
-  outlook: WaterOutlook | null;
-  /** 2026 작기 관측 물수지 (그래프·표용), 날짜 순. */
-  season: SeasonDay[];
   /** 자료를 보여 줄 수 없을 때 그 이유. 없으면 null. */
   problem: string | null;
 };
 
 const NO_DATA = "자료 없음";
+const DASH = "—";
 const MIN_FILL_PCT = 2;
 const mm = (v: number) => Math.round(v);
 const one = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
+const orDash = (v: number | null, f: (x: number) => string) =>
+  v == null ? DASH : f(v);
 
 function status(code: string): WaterStatus {
   return (WATER_STATUSES as readonly string[]).includes(code)
     ? (code as WaterStatus)
     : "normal";
+}
+
+function badge(s: WaterStatus): StatusBadge {
+  return { status: s, label: WATER_STATUS_LABEL[s] };
 }
 
 function source(station: Station) {
@@ -129,15 +176,16 @@ function noMeta(station: Station): PageMeta {
   };
 }
 
+function runHour(run: RunRow): RunHour {
+  return koreanClock(run.run_at)?.hour === "17" ? "17" : "02";
+}
+
 function issueText(at: string | null) {
   const c = koreanClock(at);
   return c ? `${c.month}월 ${c.day}일 ${c.hour}시` : null;
 }
 
-function waterMeta(
-  station: Station,
-  run: Awaited<ReturnType<WaterSource["latestRun"]>>,
-): PageMeta {
+function waterMeta(station: Station, run: RunRow | null): PageMeta {
   const issue = run && issueText(run.run_at);
   if (!run || !issue) return noMeta(station);
   const src = issueText(run.src_run_at);
@@ -148,14 +196,12 @@ function waterMeta(
         ? ""
         : ` (${run.result})`;
   const done = koreanClock(run.finished_at);
-  const hour = koreanClock(run.run_at)!.hour;
+  const doneTime = done ? `${done.hour}:${done.minute}` : NO_DATA;
   return {
     source: source(station),
     issue: `${issue} 단기예보${note}`,
-    updated: done
-      ? `${done.month}월 ${done.day}일 ${done.hour}:${done.minute}`
-      : NO_DATA,
-    short: `${hour}시 예보 · ${done ? `${done.hour}:${done.minute}` : NO_DATA} 갱신`,
+    updated: done ? `${done.month}월 ${done.day}일 ${doneTime}` : NO_DATA,
+    short: `${runHour(run)}시 예보 · ${doneTime} 갱신`,
   };
 }
 
@@ -178,25 +224,33 @@ function empty(meta: PageMeta, problem: string | null): WaterView {
     meta,
     cultivation: [],
     scenarioId: null,
-    rawMm: null,
-    tawMm: null,
+    day: null,
     now: null,
     outlook: null,
     season: [],
+    months: [],
+    rawMm: null,
+    tawMm: null,
     problem,
   };
 }
 
-const createDefault = () => createWaterSource();
+const daysBetween = (a: string, b: string) =>
+  Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
+
+type Deps = { createSource?: () => WaterSource; now?: () => Date };
 
 export async function getWaterView(
   selection: Selection,
   station: Station,
-  createSource: () => WaterSource = createDefault,
-  now: () => Date = () => new Date(),
+  query: WaterQuery = { date: null, run: null },
+  {
+    createSource = () => createWaterSource(),
+    now = () => new Date(),
+  }: Deps = {},
 ): Promise<WaterView> {
   try {
-    return await readView(selection, station, createSource(), now());
+    return await readView(selection, station, query, createSource(), now());
   } catch (error) {
     console.error("[water] DB 읽기 실패:", error);
     return empty(
@@ -206,9 +260,17 @@ export async function getWaterView(
   }
 }
 
+function pickRun(runs: RunRow[], today: string, want: RunHour | null) {
+  const todays = runs.filter((r) => koreanDate(r.run_at) === today);
+  const run =
+    (want && todays.find((r) => runHour(r) === want)) || runs[0] || null;
+  return { run, todays };
+}
+
 async function readView(
   selection: Selection,
   station: Station,
+  query: WaterQuery,
   db: WaterSource,
   at: Date,
 ): Promise<WaterView> {
@@ -217,11 +279,12 @@ async function readView(
   const stnId = String(station.id);
   const cropId = CROP_DB_ID[selection.crop];
 
-  const [sets, scenarios, run] = await Promise.all([
+  const [sets, scenarios, runs] = await Promise.all([
     db.kcSets(cropId),
     db.scenarios(stnId, cropId, year),
-    db.latestRun(stnId),
+    db.recentRuns(stnId, 4),
   ]);
+  const { run, todays } = pickRun(runs, today, query.run);
   const meta = waterMeta(station, run);
   const set = pickKcSet(sets, selection.kc);
   const cultivation = sets.map((s) => ({
@@ -242,110 +305,288 @@ async function readView(
 
   const [balance, outlookRows, summary] = await Promise.all([
     db.balance(id, today),
-    run ? db.outlook(run.run_id, id) : Promise.resolve([]),
+    run ? db.outlook(run.run_id, id) : Promise.resolve([] as OutlookRow[]),
     run ? db.summary(run.run_id, id) : Promise.resolve(null),
   ]);
 
+  const byDate = new Map(balance.map((b) => [b.date, b]));
+  const min = balance[0]?.date ?? today;
+  const date =
+    query.date && query.date >= min ? query.date : query.date ? min : today;
+  const isToday = date === today;
+  const day: DayNav = {
+    date,
+    today,
+    isToday,
+    label: `${dayLabel(date)}${isToday ? " 오늘" : ""}`,
+    prev: date > min ? addDays(date, -1) : null,
+    next: isToday ? null : addDays(date, 1),
+    min,
+  };
+
   const season = balance.map((b): SeasonDay => ({
     date: b.date,
-    drMm: b.dr_mm,
-    rainMm: b.rain_mm,
+    etoMm: b.eto_mm,
     etcMm: b.etc_mm,
+    rainMm: b.rain_mm,
+    drMm: b.dr_mm,
     status: status(b.status),
-    filled: b.filled,
   }));
-
-  let outlook: WaterOutlook | null = null;
-  if (run && summary && outlookRows.length > 0) {
-    const firstDate = firstMainDate(run.run_at, run.run_name);
-    const horizon = summary.horizon_days;
-    const need = needDay({
-      center: summary.need_center_in,
-      early: summary.need_early_in,
-      late: summary.need_late_in,
-      firstDate,
-      today,
-      horizon,
-    });
-    const days = markOutlookDays(outlookRows, horizon).map((r): OutlookDay => {
-      const s = status(r.status);
-      return {
-        date: r.target_date,
-        label: needDay({ center: 1, firstDate: r.target_date, today, horizon })
-          .text,
-        status: s,
-        statusLabel: WATER_STATUS_LABEL[s],
-        reference: r.reference,
-        etcMm: r.etc_mm,
-        etcErrMm: r.etc_err_mm,
-        rainMm: r.rain_fcst_mm,
-        popPct: r.pop_pct,
-        rainExpectedMm: r.rain_expected_mm,
-        drMm: r.dr_center_mm,
-        drEarlyMm: r.dr_early_mm,
-        drLateMm: r.dr_late_mm,
-      };
-    });
-    const net = summary.advice_net_mm;
-    const gross = summary.advice_gross_mm;
-    outlook = {
-      firstDate,
-      horizon,
-      need,
-      advice:
-        net == null
-          ? null
-          : gross == null
-            ? `${mm(net)} mm`
-            : `${mm(net)} mm (공급 ${mm(gross)} mm, 10a당 약 ${mm(gross)}톤)`,
-      etcSum:
-        summary.etc_sum_mm == null
-          ? null
-          : `${one(summary.etc_sum_mm)}${summary.etc_sum_err_mm == null ? "" : ` ± ${one(summary.etc_sum_err_mm)}`} mm`,
-      rainSum:
-        summary.rain_sum_mm == null
-          ? null
-          : `${one(summary.rain_sum_mm)} mm (기대 ${one(summary.rain_expected_sum_mm ?? 0)} mm)`,
-      days,
-    };
-  }
-
-  const last = balance.at(-1);
-  const startDr = summary ? summary.dr_start_mm : (last?.dr_mm ?? null);
-  const startStatus = summary
-    ? status(summary.status_start)
-    : last
-      ? status(last.status)
-      : null;
-  const startDate = summary ? summary.start_date : last?.date;
-  // 배지의 "내일"은 오늘 다음 날 (todayBadge 가 내일 관수 필요를 미리 알려 준다).
-  const next = outlook?.days.find((d) => !d.reference && d.date > today);
-  const nowView: WaterNow | null =
-    startStatus && startDate
-      ? {
-          date: startDate,
-          status: startStatus,
-          badge: todayBadge(startStatus, next?.status ?? startStatus),
-          drMm: startDr,
-          rawMm: raw,
-          tawMm: taw,
-          numbers:
-            startDr == null
-              ? NO_DATA
-              : `부족한 물 ${mm(startDr)} mm / 관수 시작점 ${mm(raw)} mm`,
-          gauge: gauge(startStatus, startDr, raw, taw),
-        }
-      : null;
+  const ctx = {
+    selection,
+    scenario,
+    raw,
+    taw,
+    run,
+    todays,
+    today,
+    date,
+    byDate,
+    balance,
+    outlookRows,
+    summary,
+  };
 
   return {
     meta,
     cultivation,
     scenarioId: id,
+    day,
+    now: isToday ? nowToday(ctx) : nowPast(ctx),
+    outlook: isToday ? outlookToday(ctx) : outlookPast(ctx),
+    season,
+    months: monthlySummary(season),
     rawMm: raw,
     tawMm: taw,
-    now: nowView,
-    outlook,
-    season,
     problem: null,
+  };
+}
+
+type Ctx = {
+  selection: Selection;
+  scenario: { season_start: string; season_end: string };
+  raw: number;
+  taw: number;
+  run: RunRow | null;
+  todays: RunRow[];
+  today: string;
+  date: string;
+  byDate: Map<string, BalanceRow>;
+  balance: BalanceRow[];
+  outlookRows: OutlookRow[];
+  summary: Awaited<ReturnType<WaterSource["summary"]>>;
+};
+
+function obsOf(row: BalanceRow | undefined, ref: string, past = false) {
+  if (!row) return null;
+  const name = past && row.date === ref ? "이날" : relDay(row.date, ref);
+  return {
+    label: `${name ?? dayLabel(row.date)} 관측`,
+    eto: orDash(row.eto_mm, one),
+    etc: orDash(row.etc_mm, one),
+    rain: orDash(row.rain_mm, one),
+  };
+}
+
+function card(
+  c: Ctx,
+  s: WaterStatus,
+  dr: number | null,
+  needIn: number | null,
+  basis: string,
+  obs: NowCard["obs"],
+): NowCard {
+  const verdict = waterVerdict({
+    status: s,
+    needIn,
+    past: c.date !== c.today,
+    crop: c.selection.crop,
+    seasonStart: c.scenario.season_start,
+    seasonEnd: c.scenario.season_end,
+    date: c.date,
+  });
+  const active = dr != null && s !== "dormant";
+  return {
+    basis,
+    status: s,
+    badges: [
+      badge(s),
+      ...(verdict.extra
+        ? [{ status: "need" as const, label: verdict.extra }]
+        : []),
+    ],
+    verdict,
+    active,
+    drMm: dr,
+    rawMm: c.raw,
+    tawMm: c.taw,
+    gauge: active ? gauge(s, dr, c.raw, c.taw) : null,
+    leftText: active && dr != null ? leftText(dr, c.raw) : null,
+    obs,
+  };
+}
+
+function nowToday(c: Ctx): NowCard | null {
+  const last = c.balance.at(-1);
+  const sm = c.summary;
+  if (sm && c.run) {
+    const first = firstMainDate(c.run.run_at, c.run.run_name);
+    const k = sm.need_center_in;
+    const needIn =
+      k == null
+        ? null
+        : k === 0
+          ? 0
+          : daysBetween(c.today, addDays(first, k - 1));
+    const basis =
+      sm.start_date === addDays(c.today, -1)
+        ? "어제까지 관측 기준"
+        : sm.start_date === c.today
+          ? "오늘 예보까지 반영"
+          : `${dayLabel(sm.start_date)} 기준`;
+    const obs = obsOf(c.byDate.get(sm.start_date) ?? last, c.today);
+    return card(c, status(sm.status_start), sm.dr_start_mm, needIn, basis, obs);
+  }
+  if (!last) return null;
+  return card(
+    c,
+    status(last.status),
+    last.dr_mm,
+    null,
+    `${dayLabel(last.date)} 관측 기준`,
+    obsOf(last, c.today),
+  );
+}
+
+/** 지난 날 다음 3일: 관측 물수지가 있으면 관측, 없으면 고른 회차의 예보. */
+function nextDays(c: Ctx) {
+  const fc = new Map(c.outlookRows.map((o) => [o.target_date, o]));
+  return [1, 2, 3].map((j) => {
+    const iso = addDays(c.date, j);
+    return { j, iso, obs: c.byDate.get(iso), fc: fc.get(iso) };
+  });
+}
+
+function nowPast(c: Ctx): NowCard | null {
+  const row = c.byDate.get(c.date);
+  if (!row) return null;
+  const s = status(row.status);
+  let needIn: number | null = s === "need" ? 0 : null;
+  if (needIn == null) {
+    for (const d of nextDays(c)) {
+      const st = d.obs?.status ?? d.fc?.status;
+      if (st === "need") {
+        needIn = d.j;
+        break;
+      }
+    }
+  }
+  return card(c, s, row.dr_mm, needIn, "관측 물수지", obsOf(row, c.date, true));
+}
+
+const REL_PAST = ["다음날", "이틀 뒤", "사흘 뒤"];
+
+function fcDay(
+  o: OutlookRow & { reference: boolean },
+  rel: string,
+): OutlookDay {
+  const s = status(o.status);
+  return {
+    rel,
+    date: dayLabel(o.target_date),
+    iso: o.target_date,
+    kind: o.reference ? "참고" : "예보",
+    reference: o.reference,
+    status: s,
+    statusLabel: WATER_STATUS_LABEL[s],
+    etcLabel: "작물이 쓸 물",
+    etc: orDash(o.etc_mm, (v) => `${one(v)} mm`),
+    rainLabel: "예상 비 (확률)",
+    rain:
+      o.rain_fcst_mm == null
+        ? DASH
+        : `${mm(o.rain_fcst_mm)} mm${o.pop_pct == null ? "" : ` (${mm(o.pop_pct)}%)`}`,
+    dr: orDash(o.dr_center_mm, (v) => `${mm(v)} mm`),
+  };
+}
+
+function obsDay(b: BalanceRow, rel: string): OutlookDay {
+  const s = status(b.status);
+  return {
+    rel,
+    date: dayLabel(b.date),
+    iso: b.date,
+    kind: "관측",
+    reference: false,
+    status: s,
+    statusLabel: WATER_STATUS_LABEL[s],
+    etcLabel: "작물이 쓴 물",
+    etc: orDash(b.etc_mm, (v) => `${one(v)} mm`),
+    rainLabel: "내린 비",
+    rain: orDash(b.rain_mm, (v) => `${one(v)} mm`),
+    dr: orDash(b.dr_mm, (v) => `${mm(v)} mm`),
+  };
+}
+
+function runsSeg(c: Ctx) {
+  const have = new Map(c.todays.map((r) => [runHour(r), r]));
+  const sel = c.run ? runHour(c.run) : null;
+  const selIsToday = c.run ? have.get(runHour(c.run)) === c.run : false;
+  if (have.size === 0) return [];
+  return (["02", "17"] as const).map((hour) => ({
+    hour,
+    available: have.has(hour),
+    selected: selIsToday && sel === hour,
+  }));
+}
+
+function outlookToday(c: Ctx): OutlookCard | null {
+  const sm = c.summary;
+  if (!c.run || !sm || c.outlookRows.length === 0) return null;
+  const dormant = sm.status_start === "dormant";
+  const firstDate = firstMainDate(c.run.run_at, c.run.run_name);
+  const horizon = sm.horizon_days;
+  const need = needDay({
+    center: sm.need_center_in,
+    early: sm.need_early_in,
+    late: sm.need_late_in,
+    firstDate,
+    today: c.today,
+    horizon,
+  });
+  const net = sm.advice_net_mm;
+  const gross = sm.advice_gross_mm;
+  return {
+    basis: `${runHour(c.run)}시 예보 기준`,
+    runs: runsSeg(c),
+    // 휴면기·작기 아님에는 관수 필요 예상일을 보이지 않는다
+    need: dormant ? null : need,
+    advice:
+      net == null
+        ? null
+        : gross == null
+          ? `${mm(net)} mm`
+          : `${mm(net)} mm (공급 ${mm(gross)} mm, 10a당 약 ${mm(gross)}톤)`,
+    days: markOutlookDays(c.outlookRows, horizon).map((o) =>
+      fcDay(o, relDay(o.target_date, c.today) ?? dayLabel(o.target_date)),
+    ),
+  };
+}
+
+function outlookPast(c: Ctx): OutlookCard | null {
+  const days = nextDays(c).flatMap((d) => {
+    const rel = REL_PAST[d.j - 1];
+    if (d.obs) return [obsDay(d.obs, rel)];
+    if (d.fc) return [fcDay({ ...d.fc, reference: false }, rel)];
+    return [];
+  });
+  if (days.length === 0) return null;
+  const mixed = days.some((d) => d.kind !== "관측");
+  return {
+    basis: mixed && c.run ? `관측 + ${runHour(c.run)}시 예보` : "관측값 기준",
+    runs: [],
+    need: null,
+    advice: null,
+    days,
   };
 }

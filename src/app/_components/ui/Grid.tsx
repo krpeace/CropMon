@@ -5,6 +5,8 @@
 const MIN = {
   card: "grid-cols-[repeat(auto-fit,minmax(min(100%,var(--grid-card)),1fr))]",
   small: "grid-cols-[repeat(auto-fit,minmax(min(100%,var(--grid-small)),1fr))]",
+  wide: "grid-cols-[repeat(auto-fit,minmax(min(100%,var(--grid-wide)),1fr))]",
+  day: "grid-cols-[repeat(auto-fit,minmax(min(100%,var(--grid-day)),1fr))]",
 };
 
 export function Grid({
@@ -14,5 +16,11 @@ export function Grid({
   min: keyof typeof MIN;
   children: React.ReactNode;
 }) {
-  return <div className={`grid gap-3 ${MIN[min]}`}>{children}</div>;
+  return (
+    <div
+      className={`grid ${min === "wide" ? "items-start gap-4" : "gap-3"} ${MIN[min]}`}
+    >
+      {children}
+    </div>
+  );
 }
