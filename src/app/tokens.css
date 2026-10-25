@@ -64,11 +64,13 @@
   --text-17: 17px;
   --text-18: 18px;
   --text-19: 19px;
+  --text-20: 20px;
   --text-22: 22px;
   --text-23: 23px;
   --text-title: clamp(32px, 2.6vw, 40px); /* 쪽 제목 */
   --text-hero: clamp(30px, 2.6vw, 40px); /* 종합 첫 줄 */
   --text-card-verdict: clamp(25px, 2vw, 28px); /* 종합 카드 판정 문구 */
+  --text-verdict: clamp(26px, 2.3vw, 32px); /* 물 화면 판정 문구 */
 
   --leading-title: 1.15;
   --leading-hero: 1.2;
@@ -135,6 +137,8 @@
   /* 카드 격자: 칸이 이 폭보다 좁아지면 한 줄에 놓는 칸 수를 줄인다 (시안 그대로) */
   --grid-card: 340px; /* 물·온도·햇빛 카드 */
   --grid-small: 160px; /* 준비 중 작은 카드 */
+  --grid-wide: 460px; /* 물 화면 ①·② 카드 */
+  --grid-day: 170px; /* 물 화면 앞으로 3일의 날짜 칸 */
 
   /* 전국 종합 표의 열: 지점 · 오늘 · 부족한 물 · 앞으로 3일 · 적산온도 · 적산일사 */
   --national-cols: 110px 150px minmax(0, 1.5fr) 170px 150px 130px;

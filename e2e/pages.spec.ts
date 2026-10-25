@@ -31,17 +31,3 @@ test("종합이 아닌 쪽은 아래에 자료·발표·갱신을 보여 준다"
   await expect(meta).toContainText("갱신");
   await expect(meta).toContainText("자료 없음");
 });
-
-test("물: DB에 닿지 못하면 멈추지 않고 '자료 없음'과 이유를 보여 준다", async ({
-  page,
-}) => {
-  // 자동 검사(CI)는 가짜 Supabase 주소로 돈다.
-  const response = await page.goto("/water?st=101&crop=apple&kc=1");
-  expect(response?.status()).toBe(200);
-  const now = page.getByRole("region", { name: "지금 토양 상태" });
-  await expect(now).toContainText("자료 없음");
-  await expect(now).toContainText("DB에서 물 자료를 읽지 못했어요");
-  const meta = page.getByRole("region", { name: "자료 정보" });
-  await expect(meta).toContainText("기상청 ASOS 춘천(101)");
-  await expect(meta).toContainText("자료 없음");
-});

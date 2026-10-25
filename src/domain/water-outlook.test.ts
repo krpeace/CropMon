@@ -110,3 +110,46 @@ describe("pickKcSet", () => {
     expect(pickKcSet([], 1)).toBeNull();
   });
 });
+
+describe("물 화면 주소창 (기준 날짜·발표 회차)", () => {
+  it("날짜는 오늘보다 앞일 때만, 회차는 02·17만", async () => {
+    const { parseWaterQuery } = await import("./water-outlook");
+    const today = "2026-10-25";
+    expect(parseWaterQuery({ d: "2026-10-20", run: "17" }, today)).toEqual({
+      date: "2026-10-20",
+      run: "17",
+    });
+    expect(parseWaterQuery({ d: "2026-10-25" }, today)).toEqual({
+      date: null,
+      run: null,
+    });
+    expect(parseWaterQuery({ d: "2026-10-26", run: "05" }, today)).toEqual({
+      date: null,
+      run: null,
+    });
+    expect(parseWaterQuery({ d: "2026-02-30" }, today)).toEqual({
+      date: null,
+      run: null,
+    });
+  });
+
+  it("링크에 붙인다", async () => {
+    const { withWaterQuery } = await import("./water-outlook");
+    const s = { stationId: 101, crop: "apple" as const, kc: 1 };
+    expect(withWaterQuery(s, { date: "2026-10-20" })).toBe(
+      "/water?st=101&crop=apple&kc=1&d=2026-10-20",
+    );
+    expect(withWaterQuery(s, { run: "17" })).toBe(
+      "/water?st=101&crop=apple&kc=1&run=17",
+    );
+    expect(withWaterQuery(s, {})).toBe("/water?st=101&crop=apple&kc=1");
+  });
+
+  it("날짜 표기", async () => {
+    const { dayLabel, relDay } = await import("./water-outlook");
+    expect(dayLabel("2026-10-25")).toBe("10월 25일 (일)");
+    expect(relDay("2026-10-28", "2026-10-25")).toBe("글피");
+    expect(relDay("2026-10-24", "2026-10-25")).toBe("어제");
+    expect(relDay("2026-10-30", "2026-10-25")).toBeNull();
+  });
+});

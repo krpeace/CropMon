@@ -56,18 +56,12 @@ export function getHomeMeta(station: Station) {
 }
 
 export function getPageMeta(
-  page: Exclude<PageKey, "home">,
+  // 물 화면은 DB 값으로 따로 만든다 (src/services/water.ts)
+  page: Exclude<PageKey, "home" | "water">,
   station: Station,
 ): PageMeta {
-  const { forecastIssue, forecastIssueHour, updated } = MOCK_META;
+  const { forecastIssue, updated } = MOCK_META;
   switch (page) {
-    case "water":
-      return {
-        source: `${asos(station)} · 단기예보 · FAO-56 물수지`,
-        issue: forecastIssue,
-        updated,
-        short: `${forecastIssueHour}시 예보 · ${updated.slice(-5)} 갱신`,
-      };
     case "temperature":
       return {
         source: `${asos(station)} 일 관측 · 평년값 1991–2020`,

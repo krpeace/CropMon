@@ -108,3 +108,59 @@ export function pickKcSet<T extends { set_no: number; is_default: boolean }>(
     null
   );
 }
+
+// ── 물 화면 주소창: 기준 날짜(&d=)와 발표 회차(&run=) ──────────────────────
+
+export const RUN_HOURS = ["02", "17"] as const;
+export type RunHour = (typeof RUN_HOURS)[number];
+export type WaterQuery = { date: string | null; run: RunHour | null };
+
+type QueryValue = string | string[] | undefined;
+
+function firstValue(q: Record<string, QueryValue>, key: string) {
+  const v = q[key];
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function isIsoDate(v: string | undefined): v is string {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  return new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
+}
+
+/** 기준 날짜는 오늘보다 앞선 날만 받는다(오늘이면 null = 오늘). 회차는 02·17만. */
+export function parseWaterQuery(
+  q: Record<string, QueryValue>,
+  today: string,
+): WaterQuery {
+  const d = firstValue(q, "d");
+  const run = firstValue(q, "run");
+  return {
+    date: isIsoDate(d) && d < today ? d : null,
+    run: RUN_HOURS.find((h) => h === run) ?? null,
+  };
+}
+
+/** 물 화면 링크: 지역·작물·재배 방식 + 기준 날짜·회차. */
+export function withWaterQuery(
+  s: { stationId: number; crop: Crop; kc?: number },
+  q: { date?: string | null; run?: RunHour | null },
+): string {
+  const kc = s.kc ? `&kc=${s.kc}` : "";
+  const d = q.date ? `&d=${q.date}` : "";
+  const run = q.run ? `&run=${q.run}` : "";
+  return `/water?st=${s.stationId}&crop=${s.crop}${kc}${d}${run}`;
+}
+
+/** "2026-10-25" → "10월 25일 (일)" */
+export function dayLabel(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${WEEKDAY[d.getUTCDay()]})`;
+}
+
+/** 오늘과 가까운 날의 이름. 그 밖은 null. */
+export function relDay(iso: string, today: string): string | null {
+  const n = (Date.parse(iso) - Date.parse(today)) / DAY;
+  return (
+    { [-1]: "어제", 0: "오늘", 1: "내일", 2: "모레", 3: "글피" }[n] ?? null
+  );
+}

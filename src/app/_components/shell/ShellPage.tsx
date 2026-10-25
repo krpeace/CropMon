@@ -12,7 +12,7 @@ import { MetaBox } from "./MetaBox";
 import { PageHead } from "./PageHead";
 
 type Props = {
-  page: Exclude<PageKey, "home">;
+  page: Exclude<PageKey, "home" | "water">;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 

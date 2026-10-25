@@ -58,9 +58,9 @@ describe("water-source", () => {
     }
   });
 
-  it("마지막 회차는 서버 수집 중 실패가 아닌 최신 한 줄", async () => {
-    const { client, calls } = fakeClient({ data: null, error: null });
-    expect(await createWaterSource(client).latestRun("101")).toBeNull();
+  it("최근 회차는 서버 수집 중 실패가 아닌 것을 새것부터", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    expect(await createWaterSource(client).recentRuns("101", 4)).toEqual([]);
     expect(calls).toEqual([
       "from(forecast_runs)",
       `select(${JSON.stringify(COLUMNS.forecast_runs)})`,
@@ -68,8 +68,7 @@ describe("water-source", () => {
       'eq("collector","actions")',
       'neq("result","실패")',
       'order("run_at",{"ascending":false})',
-      "limit(1)",
-      "maybeSingle()",
+      "limit(4)",
     ]);
   });
 
