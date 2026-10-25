@@ -102,10 +102,25 @@ describe("사전 자료: 지점", () => {
     expect(rows).toEqual(STATIONS.map((s) => [String(s.id), s.name]));
   });
 
-  it("11/06 예보 수집은 춘천(101)만", () => {
+  it("처음 사전 자료에서는 예보 수집이 춘천(101)만이다", () => {
     expect(stations.filter((r) => r.has_forecast).map((r) => r.stn_id)).toEqual(
       ["101"],
     );
+  });
+
+  it("물6: 뒤 파일에서 10곳 모두 예보 수집을 켜고, 10곳 모두 예보 격자가 있다", () => {
+    const sql = read("20261025010000_forecast_all_stations.sql")
+      .replace(/--.*$/gm, "")
+      .toLowerCase();
+    expect(sql).toMatch(/update public\.stations\s+set has_forecast = true/);
+    expect(sql).not.toMatch(/where stn_id/); // 일부 지점만 켜지 않는다
+    for (const r of stations) {
+      expect([r.stn_id, r.grid_nx != null, r.grid_ny != null]).toEqual([
+        r.stn_id,
+        true,
+        true,
+      ]);
+    }
   });
 
   it("춘천 예보 격자는 cropwater 와 같은 73·134", () => {
