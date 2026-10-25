@@ -209,9 +209,60 @@ for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
   }
 }
 
+// 적산일사 (햇빛 화면). 지점마다 어제의 [올해 누적, 평년 누적]을 정해 두고, 달마다 올해/평년 비율을 달리한다
+// (3월이 가장 적음). 춘천은 3,218 / 3,352 (96%). 진주(192)는 줄이 없다 = 햇빛을 재지 않는 지점.
+const SUN = {
+  101: [3218, 3352],
+  216: [3500, 3333],
+  119: [3351, 3419],
+  131: [3487, 3453],
+  129: [3251, 3352],
+  146: [3385, 3419],
+  156: [3556, 3453],
+  136: [3660, 3520],
+  189: [2993, 3184],
+};
+const SUN_MONTH = [
+  1.03, 0.98, 0.85, 1.02, 1.05, 0.96, 0.91, 1.03, 1, 1.04, 1, 1,
+];
+const sunNormalDay = yearDays.map(
+  (_, i) => 12 + 6 * Math.cos((2 * Math.PI * (i - 172)) / 365),
+);
+const sunYearDay = yearDays.map(
+  (d, i) => sunNormalDay[i] * SUN_MONTH[Number(d.slice(5, 7)) - 1],
+);
+const sumTo = (arr, n) => arr.slice(0, n + 1).reduce((a, b) => a + b, 0);
+const sun_daily = [];
+for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
+  const fy = cumY / sumTo(sunYearDay, yIdx);
+  const fn = normalY / sumTo(sunNormalDay, yIdx);
+  let cy = 0;
+  let cn = 0;
+  yearDays.forEach((date, i) => {
+    const observed = date <= yesterday;
+    const dy = observed ? sunYearDay[i] * fy : null;
+    const dn = sunNormalDay[i] * fn;
+    if (dy != null) cy += dy;
+    cn += dn;
+    sun_daily.push({
+      stn_id,
+      date,
+      rs_day_mj: dy == null ? null : r1(dy),
+      rs_cum_mj: dy == null ? null : r1(cy),
+      rs_normal_day_mj: r1(dn),
+      rs_normal_cum_mj: r1(cn),
+      normal_from: 2016,
+      normal_to: 2025,
+      filled: false,
+      calc_version: "fake",
+    });
+  });
+}
+
 const TABLES = {
   crops,
   heat_daily,
+  sun_daily,
   weather_daily,
   crop_kc_sets: kcSets,
   scenarios,

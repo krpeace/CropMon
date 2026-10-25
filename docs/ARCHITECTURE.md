@@ -25,6 +25,7 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 - **지점 사전**: `src/infra/stations.ts` 고정 목록(번호·이름·일사 관측 여부). 주소창 읽기에 바로 쓰려고 DB 를 묻지 않으며, DB 사전 자료와 같은지는 `seed.test.ts`가 검사합니다.
 - **물 화면 조각** (`src/app/_components/water/`): `WaterBoard`(순서와 기준 날짜 줄·재배 방식), `NowCard`(① 지금 토양 상태·토성 말풍선), `OutlookCard`(② 앞으로 3일), `SeasonCard`(③ 작기 그래프·월별 요약). 그래프 좌표는 `season-chart.ts`(순수 함수, 테스트 있음)가 만들고, 누르면 그날로 가는 부분(`ChartClick`)과 날짜 고르기(`DayPicker`)만 브라우저 코드입니다. 판정 문구·월별 합계 규칙은 `src/domain/water-verdict.ts`에 있습니다.
 - **온도 화면** (온1): 읽기는 `src/infra/supabase/heat-source.ts`(물 화면과 같은 방식), 화면용 정리는 `src/services/temperature.ts`, 문구·단계 도달일 찾기는 `src/domain/heat.ts`. 조각은 `src/app/_components/temperature/`: `TemperatureBoard`(순서·자료 상자), `SpeedCard`(생육 속도·단계 카드), `HeatChartCard`(누적 그래프, 좌표는 `heat-chart.ts`), `CompareCard`(저온요구량·지역 비교). 고른 지점과 지역 비교는 따로 읽어, 한쪽이 실패해도 다른 쪽은 보입니다.
+- **햇빛 화면** (온1): 읽기는 `src/infra/supabase/sun-source.ts`, 화면용 정리는 `src/services/sunlight.ts`, 평년 대비 %·월별 합·가장 적은 달·문구는 `src/domain/sun.ts`. 조각은 `src/app/_components/sunlight/`: `SunlightBoard`(순서·자료 상자), `SunCards`(올해 쌓인 햇빛·월별·지역 비교·재지 않는 지점). 누적 그래프는 온도 화면의 `HeatChartCard`(제목을 받음)를 같이 쓰고, 막대 좌표는 `sun-chart.ts`. 그 지점 `sun_daily` 줄이 없으면 "햇빛을 재지 않는 지점"입니다(DB 기준).
 - **화면 테스트용 가짜 DB**: `e2e/fake-supabase.mjs`가 PostgREST 흉내를 냅니다. 오늘 날짜 기준으로 춘천(101) 사과·배추 자료를 만들고, 태백(216)은 일부러 오류를 돌려줍니다. Playwright 가 먼저 띄웁니다.
 - `src/app/_components` — 여러 쪽이 함께 쓰는 화면 부품. `shell/`(헤더·바닥글·쪽 제목·자료 상자·가운데 창), `ui/`(아이콘·배지·게이지·카드 격자), `home/`(종합 화면 조각).
 - `e2e` — 실제 브라우저로 쪽을 열어 보는 화면 테스트(Playwright).

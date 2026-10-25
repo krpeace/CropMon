@@ -14,7 +14,7 @@ import { MetaBox } from "./MetaBox";
 import { PageHead } from "./PageHead";
 
 type Props = {
-  page: Exclude<PageKey, "home" | "water" | "temperature">;
+  page: Exclude<PageKey, "home" | "water" | "temperature" | "sunlight">;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -34,9 +34,8 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
   const selection = parseSelection(await searchParams, STATION_IDS);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page={page} meta={null} />;
-  const needsObserved = page === "sunlight" && station.measuresSunlight;
-  const observed = needsObserved ? await cachedObserved(station.id) : null;
-  const meta = getPageMeta(page, station, observed);
+  // 토양·도매시장·내 농장은 관측 시각이 필요 없다 (온도·햇빛은 각 보드가 cachedObserved 를 쓴다)
+  const meta = getPageMeta(page, station, null);
 
   return (
     <>

@@ -1,20 +1,33 @@
-import type { TemperatureView } from "@/services/temperature";
+import type { HeatDay } from "@/services/temperature";
 
 import { heatChart } from "./heat-chart";
 
 const LINE = "[vector-effect:non-scaling-stroke]";
 
-/** 적산온도 누적 (시안 그대로): 올해(진초록 실선) · 평년(회색 점선) · 오늘 세로선 · 월 눈금. 예상 점선 없음. */
-export function HeatChartCard({ view }: { view: TemperatureView }) {
-  if (view.days.length === 0) return null;
-  const ch = heatChart(view.days, view.today);
+/**
+ * 누적 그래프 (시안 그대로): 올해(진초록 실선) · 평년(회색 점선) · 오늘 세로선 · 월 눈금. 예상 점선 없음.
+ * 적산온도("적산온도 누적")와 적산일사("적산일사 누적")가 함께 쓴다.
+ */
+export function HeatChartCard({
+  title,
+  days,
+  today,
+  normalPeriod,
+}: {
+  title: string;
+  days: HeatDay[];
+  today: string;
+  normalPeriod: string | null;
+}) {
+  if (days.length === 0) return null;
+  const ch = heatChart(days, today);
 
   return (
     <section
-      aria-label="적산온도 누적"
+      aria-label={title}
       className="rounded-card bg-card flex flex-col gap-3 p-5"
     >
-      <span className="text-17 font-bold">적산온도 누적</span>
+      <span className="text-17 font-bold">{title}</span>
       <div className="text-13 text-ink-2/88 flex flex-wrap gap-x-3.5 gap-y-1.5">
         <span className="flex items-center gap-1.5">
           <span className="bg-brand h-0.75 w-4" />
@@ -22,7 +35,7 @@ export function HeatChartCard({ view }: { view: TemperatureView }) {
         </span>
         <span className="flex items-center gap-1.5">
           <span className="border-ink-2/50 h-0 w-4 border-t-2 border-dashed" />
-          평년{view.normalPeriod ? ` ${view.normalPeriod}` : ""}
+          평년{normalPeriod ? ` ${normalPeriod}` : ""}
         </span>
       </div>
       <div className="flex flex-col gap-1.5 pl-10">
