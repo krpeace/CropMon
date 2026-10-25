@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 추가 (데이터 계약 v1.4, 온1)
+
+- 적산온도 `heat_daily`, 적산일사 `sun_daily` — `supabase/migrations/20261026000000_data_contract_v1_4.sql`. 평년은 지난 10년(2016–2025) 같은 날 평균
+- 작물 사전에 적산온도 기준온도 `t_base_c`·단계 `gdd_stages` (사과·배추 4℃)
+- `docs/DATA_CONTRACT.md` v1.3 → v1.4, 결정 기록 `docs/decisions/0013-contract-v1-4-heat-sun.md`
+
 ### 바꿈 (예보 수집 10곳, 물6)
 
 - 단기예보를 10곳 모두 받음 — `supabase/migrations/20261025010000_forecast_all_stations.sql` (사전 값만, 구조 그대로)
