@@ -21,13 +21,14 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 그 밖에:
 
 - `src/mocks` — 예시 값. DB가 채워지기 전까지 화면 숫자를 여기서 가져옵니다. 화면은 직접 읽지 않고 `src/services`를 거칩니다. Supabase로 바꿀 때는 services 안의 읽는 곳만 고칩니다.
+- **DB에서 읽는 쪽**: 물 화면(`src/services/water.ts`)이 처음입니다. 읽기는 `src/infra/supabase/water-source.ts`(공개 키, 필요한 열만, 8초 제한, 자동 재시도 끔), 이름·날짜 붙이기는 `src/domain/water-outlook.ts`가 합니다. DB에 닿지 못하면 쪽은 멈추지 않고 "자료 없음"과 이유를 보여 줍니다. 쪽을 요청마다 그리도록 `connection()`을 부릅니다. 종합 화면·지역 칩은 아직 예시 값입니다.
 - `src/app/_components` — 여러 쪽이 함께 쓰는 화면 부품. `shell/`(헤더·바닥글·쪽 제목·자료 상자·가운데 창), `ui/`(아이콘·배지·게이지·카드 격자), `home/`(종합 화면 조각).
 - `e2e` — 실제 브라우저로 쪽을 열어 보는 화면 테스트(Playwright).
 
 ## 화면 공통 규칙
 
 - **디자인 토큰**: 색·글꼴·글자 크기·모서리·그림자·배치 기준 폭은 `src/app/tokens.css` 한 곳에 둡니다. 화면은 토큰 이름(`bg-brand`, `text-15`, `rounded-card` …)만 씁니다. Tailwind 기본 색·글자 크기·모서리는 지워 두어, 토큰에 없는 값은 효과가 없습니다.
-- **지역·작물 선택**: 주소창 `?st=<지점 번호>&crop=<apple|cabbage>`에 남겨 모든 메뉴에 이어집니다. 읽고 쓰는 규칙은 `src/domain/selection.ts`에 있습니다. 값이 없거나 잘못되면 춘천(101)·사과입니다.
+- **지역·작물 선택**: 주소창 `?st=<지점 번호>&crop=<apple|cabbage>`에 남겨 모든 메뉴에 이어집니다. 읽고 쓰는 규칙은 `src/domain/selection.ts`에 있습니다. 값이 없거나 잘못되면 춘천(101)·사과입니다. 재배 방식은 `&kc=<번호>`(FAO-56 Table 12 순서, `crop_kc_sets.set_no`)로, 골랐을 때만 붙습니다. 지역을 바꾸면 그대로, 작물을 바꾸면 빠집니다(그 작물의 기본 재배 방식).
 - **주소창 읽기**: `cacheComponents` 설정 때문에 주소창 값을 읽는 부분은 `<Suspense>` 안에 둡니다. 쪽 파일은 `ShellPage`/`HomeHead`에 `searchParams`를 넘기기만 합니다.
 - **폭**: px로 고정하지 않습니다. 내용 최대 폭(`--page-max` 1296)과 가장자리 여백(`--page-gutter`)은 토큰에 있고, 2열→1열이 바뀌는 폭은 `--breakpoint-desktop` 하나입니다.
 - **밝은 화면만** 씁니다 (시안 기준).

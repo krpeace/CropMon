@@ -40,6 +40,17 @@ describe("parseSelection", () => {
     });
   });
 
+  it("재배 방식 번호(kc)는 1 이상 정수일 때만 읽는다", () => {
+    expect(parseSelection({ st: "216", crop: "apple", kc: "1" }, IDS)).toEqual({
+      stationId: 216,
+      crop: "apple",
+      kc: 1,
+    });
+    expect(parseSelection({ kc: "0" }, IDS)).not.toHaveProperty("kc");
+    expect(parseSelection({ kc: "1.5" }, IDS)).not.toHaveProperty("kc");
+    expect(parseSelection({ kc: "가" }, IDS)).not.toHaveProperty("kc");
+  });
+
   it("같은 이름이 여러 번 오면 첫 값을 쓴다", () => {
     expect(
       parseSelection({ st: ["216", "119"], crop: ["cabbage"] }, IDS),
@@ -52,6 +63,12 @@ describe("withSelection", () => {
     expect(withSelection("/water", { stationId: 136, crop: "cabbage" })).toBe(
       "/water?st=136&crop=cabbage",
     );
+  });
+
+  it("재배 방식을 골랐으면 kc 도 붙인다", () => {
+    expect(
+      withSelection("/water", { stationId: 101, crop: "apple", kc: 1 }),
+    ).toBe("/water?st=101&crop=apple&kc=1");
   });
 
   it("선택값이 아직 없으면 주소만 돌려준다", () => {

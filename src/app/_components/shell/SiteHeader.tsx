@@ -111,6 +111,7 @@ function SelectionBar({
                 href={withSelection(pathname, {
                   stationId: chip.id,
                   crop: selection?.crop ?? CROPS[0],
+                  kc: selection?.kc, // 지역만 바꾸면 재배 방식은 그대로
                 })}
                 scroll={false}
                 aria-current={selected ? "true" : undefined}

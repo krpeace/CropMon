@@ -7,8 +7,11 @@ export const CROP_LABEL: Record<Crop, string> = {
   cabbage: "배추",
 };
 
-/** 지역(관측 지점)과 작물. 주소창 ?st=101&crop=apple 로 모든 메뉴에 이어진다. */
-export type Selection = { stationId: number; crop: Crop };
+/**
+ * 지역(관측 지점)과 작물. 주소창 ?st=101&crop=apple 로 모든 메뉴에 이어진다.
+ * kc 는 재배 방식 번호(FAO-56 Table 12 순서, DB crop_kc_sets.set_no). 고르지 않았으면 없다(기본 재배 방식).
+ */
+export type Selection = { stationId: number; crop: Crop; kc?: number };
 
 type QueryValue = string | string[] | undefined;
 type Query = URLSearchParams | Record<string, QueryValue>;
@@ -30,16 +33,19 @@ export function parseSelection(
 ): Selection {
   const st = Number(first(query, "st"));
   const crop = first(query, "crop");
+  const kc = Number(first(query, "kc"));
   return {
     stationId: stationIds.includes(st) ? st : stationIds[0],
     crop: isCrop(crop) ? crop : CROPS[0],
+    ...(Number.isInteger(kc) && kc >= 1 ? { kc } : {}),
   };
 }
 
 /** 주소 뒤에 선택값을 붙인다. 선택값을 아직 모르면 주소만 돌려준다. */
 export function withSelection(path: string, selection: Selection | null) {
   if (!selection) return path;
-  return `${path}?st=${selection.stationId}&crop=${selection.crop}`;
+  const kc = selection.kc ? `&kc=${selection.kc}` : "";
+  return `${path}?st=${selection.stationId}&crop=${selection.crop}${kc}`;
 }
 
 /** 자동 전환 순서: 사과로 모든 지점 → 배추로 모든 지점 → 처음으로. */
