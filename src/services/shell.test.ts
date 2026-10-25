@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { getPageMeta, getStation, listStationChips } from "./shell";
+import {
+  getComingSoon,
+  getPageMeta,
+  getStation,
+  listStationChips,
+} from "./shell";
 
 describe("listStationChips", () => {
   it("지점 10곳을 시안 순서대로 돌려준다", () => {
@@ -92,5 +97,40 @@ describe("getPageMeta", () => {
       updated: "8월 12일 17:42 (미리보기)",
       short: "8월 12일 17:42 갱신",
     });
+  });
+});
+
+describe("getComingSoon — 토양·도매시장 '준비 중' 본문 글 (시안 그대로)", () => {
+  it("토양: 열리면 보여 줄 것 4개와 쓸 자료", () => {
+    expect(getComingSoon("soil", "apple")).toEqual({
+      items: [
+        "우리 밭 흙의 종류(토성)와 물 빠짐",
+        "산도(pH)와 유기물이 알맞은지",
+        "인산·칼리 같은 양분이 넉넉한지",
+        "물 판정에 내 밭 토성을 바로 반영",
+      ],
+      source: "농촌진흥청 흙토람 (토양 정보)",
+    });
+  });
+
+  it("토양 글은 작물을 바꿔도 같다", () => {
+    expect(getComingSoon("soil", "cabbage")).toEqual(
+      getComingSoon("soil", "apple"),
+    );
+  });
+
+  it("도매시장: ①은 고른 작물 이름 (사과/배추)", () => {
+    const apple = getComingSoon("market", "apple");
+    const cabbage = getComingSoon("market", "cabbage");
+    expect(apple.items).toEqual([
+      "오늘 사과 도매 가격",
+      "지난해·평년 같은 때와 비교",
+      "도매시장에 들어온 양(반입량) 흐름",
+      "앞으로의 가격 전망",
+    ]);
+    expect(cabbage.items[0]).toBe("오늘 배추 도매 가격");
+    expect(apple.source).toBe(
+      "aT 농산물유통정보 · 한국농촌경제연구원(KREI) 농업관측",
+    );
   });
 });
