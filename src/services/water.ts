@@ -8,6 +8,7 @@ import {
   koreanDate,
   markOutlookDays,
   needDay,
+  observedBasis,
   pickKcSet,
   relDay,
   type NeedDay,
@@ -395,10 +396,12 @@ function card(
   needIn: number | null,
   basis: string,
   obs: NowCard["obs"],
+  forecast = true,
 ): NowCard {
   const verdict = waterVerdict({
     status: s,
     needIn,
+    forecast,
     past: c.date !== c.today,
     crop: c.selection.crop,
     seasonStart: c.scenario.season_start,
@@ -448,13 +451,15 @@ function nowToday(c: Ctx): NowCard | null {
     return card(c, status(sm.status_start), sm.dr_start_mm, needIn, basis, obs);
   }
   if (!last) return null;
+  // 예보가 없으면(회차 없음) 어제까지의 관측으로만 판정하고 앞날은 말하지 않는다 (결정 0011)
   return card(
     c,
     status(last.status),
     last.dr_mm,
     null,
-    `${dayLabel(last.date)} 관측 기준`,
+    observedBasis(last.date, c.today),
     obsOf(last, c.today),
+    false,
   );
 }
 

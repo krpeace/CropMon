@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  getHomeMeta,
-  getPageMeta,
-  getStation,
-  listStationChips,
-} from "./shell";
+import { getPageMeta, getStation, listStationChips } from "./shell";
 
 describe("listStationChips", () => {
   it("지점 10곳을 시안 순서대로 돌려준다", () => {
@@ -96,13 +91,5 @@ describe("getPageMeta", () => {
       updated: "8월 12일 17:42 (미리보기)",
       short: "8월 12일 17:42 갱신",
     });
-  });
-});
-
-describe("getHomeMeta", () => {
-  it("갱신 시각, 지점, 자료를 한 줄로 적는다", () => {
-    expect(getHomeMeta(getStation(136)!)).toBe(
-      "8월 12일 17:42 갱신 · 기상청 ASOS 안동(136) · 단기예보",
-    );
   });
 });

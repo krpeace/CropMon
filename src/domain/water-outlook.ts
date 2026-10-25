@@ -164,3 +164,23 @@ export function relDay(iso: string, today: string): string | null {
     { [-1]: "어제", 0: "오늘", 1: "내일", 2: "모레", 3: "글피" }[n] ?? null
   );
 }
+
+/** "어제까지 관측 기준" / "10월 22일까지 관측 기준" (예보가 없을 때 판정의 기준). */
+export function observedBasis(lastObserved: string, today: string): string {
+  if (lastObserved === addDays(today, -1)) return "어제까지 관측 기준";
+  const [, m, d] = lastObserved.split("-").map(Number);
+  return `${m}월 ${d}일까지 관측 기준`;
+}
+
+/** 요약의 관수 필요 예상일(몇 번째 날, 0 = 지금) → 오늘부터 며칠 뒤. 없으면 null. */
+export function needInDays(
+  k: number | null,
+  firstDate: string,
+  today: string,
+): number | null {
+  if (k == null) return null;
+  if (k === 0) return 0;
+  return Math.round(
+    (Date.parse(addDays(firstDate, k - 1)) - Date.parse(today)) / DAY,
+  );
+}

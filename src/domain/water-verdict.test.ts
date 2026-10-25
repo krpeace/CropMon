@@ -157,3 +157,18 @@ describe("monthlySummary (표시용 합계)", () => {
     ]);
   });
 });
+
+describe("예보가 없는 지점 (어제까지 관측 기준)", () => {
+  const v = (status: Parameters<typeof waterVerdict>[0]["status"]) =>
+    waterVerdict({ ...base, status, needIn: null, forecast: false });
+
+  it("앞날을 말하지 않는다", () => {
+    expect(v("caution")).toMatchObject({
+      text: "아직 여유 있어요",
+      tone: "caution",
+    });
+    expect(v("normal").text).toBe("흙이 촉촉해요, 물 주지 않아도 돼요");
+    expect(v("need").text).toBe("오늘 물 주세요");
+    expect(v("wet").text).toBe("물 주지 마세요, 땅이 너무 젖었어요");
+  });
+});
