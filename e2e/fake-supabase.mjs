@@ -43,6 +43,8 @@ const scenarios = [
   scen("k1", "kimchi_cabbage", "06-01", "09-08", 65, 29.25),
   // 수원(119): 예보 회차 없이 관측 물수지만 (지역 칩은 마지막 관측 판정을 쓴다)
   scen("k3", "apple", "04-01", "11-15", 130, 65, "119"),
+  // 진주(192): 예보 회차가 있지만 계수는 춘천 값을 빌려 쓰는 지점 (물6)
+  scen("k3", "apple", "04-01", "11-15", 130, 65, "192"),
 ];
 
 const statusOf = (dr, raw) =>
@@ -79,15 +81,29 @@ const forecast_runs = [
     src_run_at: null,
     finished_at: new Date(Date.parse(runAt) + 41 * 60_000).toISOString(),
   },
+  {
+    run_id: 2,
+    stn_id: "192",
+    collector: "actions",
+    run_at: runAt,
+    run_name: "아침",
+    result: "정시 성공",
+    on_time: true,
+    src_run_at: null,
+    finished_at: new Date(Date.parse(runAt) + 41 * 60_000).toISOString(),
+  },
 ];
 const water_outlook = [];
 const water_outlook_summary = [];
+const RUN_OF = { 101: 1, 192: 2 }; // 예보 회차가 있는 지점
 for (const s of scenarios) {
+  const runId = RUN_OF[s.stn_id];
+  if (!runId) continue;
   const on = today >= s.season_start && today <= s.season_end;
   const st = ["caution", "need", "need", "caution"];
   for (let lead = 0; lead < 4; lead++) {
     water_outlook.push({
-      run_id: 1,
+      run_id: runId,
       scenario_id: s.scenario_id,
       target_date: add(today, lead),
       lead_day: lead,
@@ -104,7 +120,7 @@ for (const s of scenarios) {
   }
   const last = balance.filter((b) => b.scenario_id === s.scenario_id).at(-1);
   water_outlook_summary.push({
-    run_id: 1,
+    run_id: runId,
     scenario_id: s.scenario_id,
     horizon_days: 3,
     start_date: last.date,

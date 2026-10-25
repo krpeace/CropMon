@@ -96,3 +96,14 @@ test("물: 휴대폰 폭(390)에서 옆으로 넘치지 않는다", async ({ pag
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("물: 춘천 밖 예보 지점은 예보 범위가 검증 전이라고 알린다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=192&crop=apple");
+  await expect(outlook(page)).toContainText("02시 예보 기준");
+  await expect(outlook(page)).toContainText("춘천 값을 빌려 써서 아직 검증 전");
+  await page.goto("/water?st=101&crop=apple");
+  await expect(outlook(page)).toContainText("02시 예보 기준");
+  await expect(outlook(page)).not.toContainText("검증 전");
+});

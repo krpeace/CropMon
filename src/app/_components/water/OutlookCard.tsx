@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { Selection } from "@/domain/selection";
-import { withWaterQuery } from "@/domain/water-outlook";
+import { FORECAST_CALIBRATED, withWaterQuery } from "@/domain/water-outlook";
 import type { OutlookCard as Outlook } from "@/services/water";
 
 import { Grid } from "../ui/Grid";
@@ -15,6 +15,8 @@ export function OutlookCard({
   outlook: Outlook | null;
   selection: Selection;
 }) {
+  const borrowed =
+    outlook?.need != null && !FORECAST_CALIBRATED.includes(selection.stationId);
   return (
     <section
       aria-label="앞으로 3일"
@@ -125,6 +127,12 @@ export function OutlookCard({
               </div>
             ))}
           </Grid>
+          {borrowed && (
+            <p className="text-13 text-ink-2/75 m-0">
+              이 지점의 예보 범위(빠르면·늦으면)는 춘천 값을 빌려 써서 아직 검증
+              전이에요.
+            </p>
+          )}
           {outlook.days.some((d) => d.reference) && (
             <p className="text-13 text-ink-2/75 m-0">
               참고: 마지막 날은 예보가 덜 정확해 관수 필요 예상일에 넣지 않아요.

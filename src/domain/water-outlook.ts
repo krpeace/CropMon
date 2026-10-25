@@ -5,6 +5,12 @@ import type { Crop } from "./selection";
  * 기준은 docs/DATA_CONTRACT.md 의 water_outlook, water_outlook_summary.
  */
 
+/**
+ * 예보 일사 계수와 예보 오차표를 그 지점 자료로 맞춘 지점 (croplib-dp data/). 나머지는 FAO-56 기본값과
+ * 춘천 오차표를 빌려 써서, 빠르면·늦으면 범위가 아직 검증 전이다 (결정 0012).
+ */
+export const FORECAST_CALIBRATED: readonly number[] = [101];
+
 /** 주소창 작물 이름 → DB 작물 번호(crops.crop_id). */
 export const CROP_DB_ID: Record<Crop, string> = {
   apple: "apple",
