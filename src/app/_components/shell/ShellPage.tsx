@@ -1,3 +1,4 @@
+import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 
 import { parseSelection } from "@/domain/selection";
@@ -7,6 +8,7 @@ import {
   STATION_IDS,
   type PageKey,
 } from "@/services/shell";
+import { getObserved } from "@/services/station-status";
 
 import { MetaBox } from "./MetaBox";
 import { PageHead } from "./PageHead";
@@ -32,7 +34,10 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
   const selection = parseSelection(await searchParams, STATION_IDS);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page={page} meta={null} />;
-  const meta = getPageMeta(page, station);
+  const needsObserved =
+    page === "temperature" || (page === "sunlight" && station.measuresSunlight);
+  const observed = needsObserved ? await cachedObserved(station.id) : null;
+  const meta = getPageMeta(page, station, observed);
 
   return (
     <>
@@ -40,4 +45,11 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
       <MetaBox meta={meta} />
     </>
   );
+}
+
+/** 그 지점의 마지막 ASOS 관측 받은 시각. 하루 두 번 바뀌므로 5분 동안 같은 값을 쓴다. */
+async function cachedObserved(stationId: number) {
+  "use cache";
+  cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
+  return getObserved(stationId);
 }

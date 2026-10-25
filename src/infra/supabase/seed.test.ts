@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { MOCK_STATIONS } from "@/mocks/stations";
+import { STATIONS } from "@/infra/stations";
 
 /**
  * 사전 자료가 데이터 계약 v1.1(docs/DATA_CONTRACT.md)의 값과 규칙대로 들어가는지 검사한다.
@@ -95,11 +95,11 @@ function addDays(iso: string, days: number): string {
 }
 
 describe("사전 자료: 지점", () => {
-  it("화면과 같은 10곳을 같은 순서로 넣는다", () => {
-    const ids = [...stations]
+  it("화면 지점 사전(src/infra/stations.ts)과 같은 10곳을 같은 이름·순서로 넣는다", () => {
+    const rows = [...stations]
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
-      .map((r) => r.stn_id);
-    expect(ids).toEqual(MOCK_STATIONS.map((s) => String(s.id)));
+      .map((r) => [r.stn_id, r.name_ko]);
+    expect(rows).toEqual(STATIONS.map((s) => [String(s.id), s.name]));
   });
 
   it("11/06 예보 수집은 춘천(101)만", () => {

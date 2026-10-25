@@ -5,7 +5,7 @@ import {
   type WaterStatus,
 } from "@/domain/water-status";
 import { MOCK_HOME, type MockHome } from "@/mocks/home";
-import { MOCK_STATIONS } from "@/mocks/stations";
+import { STATIONS } from "@/infra/stations";
 
 /**
  * 종합 화면에 필요한 값을 화면용 문구로 정리한다.
@@ -81,10 +81,10 @@ function leadShort(days: number) {
 export function getHomeView(selection: Selection): HomeView {
   const { crop } = selection;
   const home = homeOf(selection.stationId);
-  const station = MOCK_STATIONS.find((s) => s.id === home.stationId);
+  const station = STATIONS.find((s) => s.id === home.stationId);
   const w = home.water[crop];
 
-  const rows = MOCK_STATIONS.map((s): HomeRow => {
+  const rows = STATIONS.map((s): HomeRow => {
     const h = homeOf(s.id);
     const rw = h.water[crop];
     return {

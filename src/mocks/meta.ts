@@ -2,7 +2,6 @@
 export const MOCK_META = {
   forecastIssue: "8월 12일 17시 단기예보",
   updated: "8월 12일 17:42",
-  sunlightUpdated: "8월 12일 06:10",
   /** 내 농장 미리보기의 밭 주소(홍천군 내촌면)에서 가장 가까운 지점. */
   farmStationId: 101,
 } as const;

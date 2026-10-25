@@ -25,11 +25,12 @@ const kcSets = [
   sort_order,
 }));
 
-const scen = (kc, crop, start, end, taw, raw) => ({
-  scenario_id: `101-${crop}-${kc}-loam-${year}`,
-  stn_id: "101",
+const scen = (kc, crop, start, end, taw, raw, stn = "101") => ({
+  scenario_id: `${stn}-${crop}-${kc}-loam-${year}`,
+  stn_id: stn,
   crop_id: crop,
   season_year: year,
+  is_default: kc === "k3" || crop !== "apple",
   kc_set_id: `${crop}-${kc}`,
   taw_mm: taw,
   raw_mm: raw,
@@ -40,6 +41,8 @@ const scenarios = [
   scen("k3", "apple", "04-01", "11-15", 130, 65),
   scen("k1", "apple", "04-01", "11-15", 130, 65),
   scen("k1", "kimchi_cabbage", "06-01", "09-08", 65, 29.25),
+  // 수원(119): 예보 회차 없이 관측 물수지만 (지역 칩은 마지막 관측 판정을 쓴다)
+  scen("k3", "apple", "04-01", "11-15", 130, 65, "119"),
 ];
 
 const statusOf = (dr, raw) =>
@@ -119,7 +122,15 @@ for (const s of scenarios) {
   });
 }
 
+// 지점별 ASOS 관측 받은 시각 (온도·햇빛 자료 상자)
+const weather_daily = ["101", "119"].map((stn_id) => ({
+  stn_id,
+  date: add(today, -1),
+  fetched_at: new Date(Date.parse(runAt) + 20 * 60_000).toISOString(), // 02:20
+}));
+
 const TABLES = {
+  weather_daily,
   crop_kc_sets: kcSets,
   scenarios,
   forecast_runs,
@@ -139,6 +150,11 @@ function filter(rows, params) {
       if (op === "eq") return x === val;
       if (op === "neq") return x !== val;
       if (op === "lte") return x != null && x <= val;
+      if (op === "gte") return x != null && x >= val;
+      if (op === "in") {
+        const list = val.replace(/^\(|\)$/g, "").split(",");
+        return list.map((v) => v.replace(/"/g, "")).includes(x);
+      }
       return true;
     });
   }
@@ -164,8 +180,10 @@ http
     };
     if (url.pathname === "/") return send(200, { ok: true });
     const table = url.pathname.replace("/rest/v1/", "");
-    if (url.search.includes("216"))
+    // 태백(216)만 묻는 읽기는 일부러 오류 (여러 지점을 한꺼번에 묻는 읽기는 정상)
+    if (/eq\.216\b|eq\.216-/.test(decodeURIComponent(url.search))) {
       return send(500, { message: "가짜 오류 (화면 테스트)" });
+    }
     const rows = TABLES[table];
     if (!rows) return send(404, { message: `없는 표 ${table}` });
     const out = filter(rows, url.searchParams);

@@ -11,25 +11,41 @@ import {
   withSelection,
   type Selection,
 } from "@/domain/selection";
+import { WATER_STATUS_LABEL } from "@/domain/water-status";
 import { listStationChips, STATION_IDS } from "@/services/shell";
+import type { StationStatuses } from "@/services/station-status";
 
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { TABS } from "./pages";
 import { useSheet } from "./sheet-context";
 
-/** 주소창의 지역·작물을 읽는 헤더. layout 에서 <Suspense> 안에 둔다. */
-export function SiteHeader() {
+/**
+ * 주소창의 지역·작물을 읽는 헤더. layout 에서 <Suspense> 안에 둔다.
+ * statuses: 지점별 오늘 물 판정 (서버에서 DB 로 읽어 넘김, 결정 0010).
+ */
+export function SiteHeader({ statuses }: { statuses: StationStatuses | null }) {
   const params = useSearchParams();
-  return <SiteHeaderView selection={parseSelection(params, STATION_IDS)} />;
+  return (
+    <SiteHeaderView
+      selection={parseSelection(params, STATION_IDS)}
+      statuses={statuses}
+    />
+  );
 }
 
-/** 주소창을 읽기 전(첫 화면)에 보이는 헤더. 아무 지역도 고르지 않은 모양. */
+/** 주소창·판정을 읽기 전(첫 화면)에 보이는 헤더. 아무 지역도 고르지 않은 모양. */
 export function SiteHeaderFallback() {
-  return <SiteHeaderView selection={null} />;
+  return <SiteHeaderView selection={null} statuses={null} />;
 }
 
-function SiteHeaderView({ selection }: { selection: Selection | null }) {
+function SiteHeaderView({
+  selection,
+  statuses,
+}: {
+  selection: Selection | null;
+  statuses: StationStatuses | null;
+}) {
   const pathname = usePathname();
   const { open } = useSheet();
 
@@ -78,7 +94,11 @@ function SiteHeaderView({ selection }: { selection: Selection | null }) {
           </span>
         </button>
       </div>
-      <SelectionBar pathname={pathname} selection={selection} />
+      <SelectionBar
+        pathname={pathname}
+        selection={selection}
+        statuses={statuses}
+      />
     </header>
   );
 }
@@ -86,11 +106,13 @@ function SiteHeaderView({ selection }: { selection: Selection | null }) {
 function SelectionBar({
   pathname,
   selection,
+  statuses,
 }: {
   pathname: string;
   selection: Selection | null;
+  statuses: StationStatuses | null;
 }) {
-  const chips = listStationChips(selection?.crop ?? CROPS[0]);
+  const chips = listStationChips(selection?.crop ?? CROPS[0], statuses);
 
   return (
     <div className="border-ink-2/12 bg-bg/70 border-t-(length:--hairline)">
@@ -121,9 +143,15 @@ function SelectionBar({
               >
                 <span
                   aria-hidden="true"
-                  className={`size-2 rounded-full ${STATUS_DOT[chip.status]}`}
+                  className={`size-2 rounded-full ${
+                    chip.status ? STATUS_DOT[chip.status] : "bg-fill/30"
+                  }`}
                 />
                 {chip.name}
+                {/* 색만으로 말하지 않는다: 화면 읽기 도구에는 판정 이름을 읽어 준다 */}
+                <span className="sr-only">
+                  {chip.status ? WATER_STATUS_LABEL[chip.status] : "자료 없음"}
+                </span>
               </Link>
             );
           })}
