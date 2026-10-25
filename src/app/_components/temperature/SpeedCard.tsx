@@ -40,7 +40,7 @@ export function SpeedCard({ view }: { view: TemperatureView }) {
   );
 }
 
-/** 적산온도 단계 카드 두 개: 올해가 막 지난 단계와 다음 단계 (시안의 만개·수확 자리, 결정 0014). */
+/** 적산온도 단계 카드 두 개: 올해가 막 지난 단계와 다음 단계 (시안의 만개·수확 자리, 결정 0015). */
 export function StageCards({ view }: { view: TemperatureView }) {
   if (view.stages.length === 0) return null;
   return (
