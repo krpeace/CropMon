@@ -61,7 +61,8 @@ describe("getPageMeta", () => {
 
   it("햇빛·온도는 그 지점 ASOS 관측을 받은 실제 시각을 쓴다", () => {
     expect(getPageMeta("sunlight", chuncheon, observed)).toEqual({
-      source: "기상청 ASOS 춘천(101) 일사 관측 · 평년값 1991–2020",
+      // 평년 기간은 DB 값이라 햇빛 화면이 붙인다 (결정 0013·0016, 시안의 "평년값 1991–2020" 지움)
+      source: "기상청 ASOS 춘천(101) 일사 관측",
       issue: "해당 없음 (관측 자료)",
       updated: "10월 25일 02:20 (10월 24일까지 관측)",
       short: "10월 25일 02:20 갱신",

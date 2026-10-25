@@ -50,7 +50,12 @@ async function ResolvedTemperatureBoard({ searchParams }: Props) {
       <PageHead page="temperature" meta={meta} />
       <SpeedCard view={view} />
       <StageCards view={view} />
-      <HeatChartCard view={view} />
+      <HeatChartCard
+        title="적산온도 누적"
+        days={view.days}
+        today={view.today}
+        normalPeriod={view.normalPeriod}
+      />
       <Grid min="wide">
         <ChillCard crop={selection.crop} />
         <CompareCard view={view} crop={selection.crop} />
