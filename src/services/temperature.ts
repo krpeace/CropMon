@@ -7,20 +7,15 @@ import {
   reachDate,
 } from "@/domain/heat";
 import type { Selection } from "@/domain/selection";
-import {
-  addDays,
-  CROP_DB_ID,
-  koreanDate,
-  observedBasis,
-} from "@/domain/water-outlook";
+import { CROP_DB_ID, koreanDate, observedBasis } from "@/domain/water-outlook";
 import {
   createHeatSource,
-  type HeatLatestRow,
   type HeatRow,
   type HeatSource,
 } from "@/infra/supabase/heat-source";
 import { STATIONS } from "@/infra/stations";
 
+import { readHeatLatest } from "./growth-latest";
 import type { Station } from "./shell";
 
 /**
@@ -75,8 +70,6 @@ export type TemperatureView = {
 
 const NO_DATA = "자료 없음";
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
-/** 어제 값이 없는 지점은 이만큼 거슬러 올라가 마지막 관측일을 찾는다. */
-const LOOKBACK_DAYS = 14;
 
 type Deps = { createSource?: () => HeatSource; now?: () => Date };
 
@@ -191,23 +184,10 @@ async function readCompare(
 ): Promise<Pick<TemperatureView, "compare" | "compareProblem">> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
-    const yesterday = addDays(today, -1);
-    const ids = STATIONS.map((s) => String(s.id));
-    const found = new Map<string, HeatLatestRow>();
-    for (const r of await db.onDate(ids, cropId, yesterday)) {
-      if (r.gdd_cum != null) found.set(r.stn_id, r);
-    }
-    const missing = ids.filter((id) => !found.has(id));
-    if (missing.length > 0) {
-      const from = addDays(yesterday, -(LOOKBACK_DAYS - 1));
-      // 날짜 순이므로 나중 줄이 앞 줄을 덮어 지점마다 마지막 관측일이 남는다
-      for (const r of await db.recent(missing, cropId, from, yesterday)) {
-        if (r.gdd_cum != null) found.set(r.stn_id, r);
-      }
-    }
+    const found = await readHeatLatest(db, cropId, today);
     return {
       compare: STATIONS.map((s) => {
-        const lead = found.get(String(s.id))?.lead_days ?? null;
+        const lead = found[s.id]?.lead ?? null;
         return {
           id: s.id,
           name: s.name,

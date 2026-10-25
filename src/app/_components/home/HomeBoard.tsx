@@ -4,8 +4,7 @@ import { CROP_LABEL, parseSelection, withSelection } from "@/domain/selection";
 import { getHomeView } from "@/services/home";
 import { getStation, STATION_IDS } from "@/services/shell";
 
-import { loadBoard } from "../shell/board";
-
+import { loadBoard, loadGrowth } from "../shell/board";
 import { Grid } from "../ui/Grid";
 import { STATUS_CARD } from "../ui/status";
 import { AutoRotate } from "./AutoRotate";
@@ -35,7 +34,11 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
   const station = getStation(selection.stationId);
   if (!station) return null;
 
-  const view = getHomeView(selection, await loadBoard());
+  const [board, growth] = await Promise.all([
+    loadBoard(),
+    loadGrowth(selection.crop),
+  ]);
+  const view = getHomeView(selection, board, growth);
   const flipKey = `${selection.stationId}|${selection.crop}`;
   const href = (path: string) => withSelection(path, selection);
 
@@ -77,7 +80,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
             verdict={view.growth.verdict}
             numbers={view.growth.numbers}
             background="bg-card"
-            grayBadge="예시"
+            grayBadge={view.growth.missing ? "자료 없음" : undefined}
           />
         </FlipItem>
         <FlipItem flipKey={flipKey} order={3}>
@@ -88,7 +91,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
             verdict={view.sunlight.verdict}
             numbers={view.sunlight.numbers}
             background="bg-card"
-            grayBadge={view.sunlight.missing ? "자료 없음" : "예시"}
+            grayBadge={view.sunlight.missing ? "자료 없음" : undefined}
           />
         </FlipItem>
       </Grid>

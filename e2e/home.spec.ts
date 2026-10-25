@@ -8,11 +8,9 @@ async function openHome(page: Page, query: string) {
   await page.getByRole("button", { name: "자동 전환 중지" }).click();
 }
 
-// 물 판정은 가짜 Supabase(e2e/fake-supabase.mjs) 값, 온도·햇빛은 "예시" 표시가 붙은 시안 값이다.
+// 물 판정·적산온도·적산일사 모두 가짜 Supabase(e2e/fake-supabase.mjs) 값이다.
 
-test("종합: 물 카드는 DB 값, 온도·햇빛은 '예시', 준비 중 카드", async ({
-  page,
-}) => {
+test("종합: 물·온도·햇빛 카드는 DB 값, 준비 중 카드", async ({ page }) => {
   await openHome(page, "?st=101&crop=apple");
   await expect(main(page)).toContainText("02시 단기예보");
 
@@ -22,11 +20,11 @@ test("종합: 물 카드는 DB 값, 온도·햇빛은 '예시', 준비 중 카�
   await expect(water).toContainText("부족한 물 51 mm / 관수 시작점 65 mm");
 
   const temp = main(page).getByRole("link", { name: /^온도/ });
-  await expect(temp).toContainText("적산온도 1,972 / 평년 1,910 ℃·일");
-  await expect(temp).toContainText("예시");
+  await expect(temp).toContainText("평년보다 생육 20일 빠름");
+  await expect(temp).toContainText("적산온도 4,165 / 평년 3,973 ℃·일");
   const sun = main(page).getByRole("link", { name: /^햇빛/ });
   await expect(sun).toContainText("올해 햇빛은 평년의 96%");
-  await expect(sun).toContainText("예시");
+  await expect(sun).toContainText("적산일사 3,218 / 평년 3,352 MJ/m²");
   await expect(main(page).getByRole("link", { name: /^토양/ })).toContainText(
     "준비 중",
   );
@@ -90,9 +88,39 @@ test("종합: '내 밭 단위로 보고 싶다면'을 누르면 내 농장 미�
   await expect(page).toHaveURL(/\/my-farm\?st=101&crop=apple$/);
 });
 
-test("종합: 태백은 햇빛 카드가 '자료 없음'", async ({ page }) => {
+// 예전에는 시안 값(measuresSunlight)으로 태백을 "재지 않는 지점"으로 보았다. 이제 DB 기준이다 (결정 0016·0017).
+test("종합: 태백도 DB 에 일사 자료가 있으면 햇빛 카드에 보인다", async ({
+  page,
+}) => {
   await openHome(page, "?st=216&crop=apple");
   await expect(main(page).getByRole("link", { name: /^햇빛/ })).toContainText(
-    "태백 관측소는 햇빛(일사)을 재지 않아요",
+    "올해 햇빛은 평년의 105%",
   );
+});
+
+test("종합: 카드와 전국 표에 '예시' 글자가 없고, 생육 칸은 DB 값", async ({
+  page,
+}) => {
+  await openHome(page, "?st=101&crop=apple");
+  await expect(main(page)).not.toContainText("예시");
+  const table = page.getByRole("region", { name: "전국 물·기상·생육 종합" });
+  const chuncheon = table.getByRole("link", { name: /^춘천/ });
+  await expect(chuncheon).toContainText("20일 빠름");
+  await expect(chuncheon).toContainText("96%");
+  // 광주는 평년보다 늦고, 진주는 일사 자료(sun_daily)가 없다
+  await expect(table.getByRole("link", { name: /^광주/ })).toContainText(
+    "3일 늦음",
+  );
+  await expect(table.getByRole("link", { name: /^진주/ })).toContainText(
+    "자료 없음",
+  );
+});
+
+test("종합: 햇빛 자료가 없는 지점은 회색 '자료 없음' (진주)", async ({
+  page,
+}) => {
+  await openHome(page, "?st=192&crop=apple");
+  const sun = main(page).getByRole("link", { name: /^햇빛/ });
+  await expect(sun).toContainText("자료 없음");
+  await expect(sun).toContainText("진주 관측소의 햇빛 자료가 없어요");
 });
