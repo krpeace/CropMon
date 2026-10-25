@@ -1,18 +1,20 @@
+import { koreanClock } from "@/domain/datetime";
 import type { Crop } from "@/domain/selection";
 import type { WaterStatus } from "@/domain/water-status";
+import { STATIONS } from "@/infra/stations";
 import { MOCK_META } from "@/mocks/meta";
-import { MOCK_STATIONS } from "@/mocks/stations";
 
 /**
  * 공통 틀(헤더·쪽 제목·자료 상자)에 필요한 값을 화면용으로 정리한다.
- * 지금은 src/mocks 의 예시 값을 읽는다. Supabase 로 바꿀 때는 이 파일만 고친다.
+ * 지점 판정·관측 시각은 DB 값을 받아 쓰고(station-status.ts), 종합·내 농장 미리보기는 아직 src/mocks 예시 값이다.
  */
 
 export type PageKey =
   "home" | "water" | "temperature" | "sunlight" | "soil" | "market" | "my-farm";
 
 export type Station = { id: number; name: string; measuresSunlight: boolean };
-export type StationChip = Station & { status: WaterStatus };
+/** status 가 null 이면 "자료 없음". */
+export type StationChip = Station & { status: WaterStatus | null };
 
 /** 자료·발표·갱신 세 줄과, 쪽 제목 옆 짧은 표시. */
 export type PageMeta = {
@@ -24,23 +26,39 @@ export type PageMeta = {
 
 const NO_DATA = "자료 없음";
 
-export const STATION_IDS: readonly number[] = MOCK_STATIONS.map((s) => s.id);
+export const STATION_IDS: readonly number[] = STATIONS.map((s) => s.id);
 
-function toStation(s: (typeof MOCK_STATIONS)[number]): Station {
+function toStation(s: (typeof STATIONS)[number]): Station {
   return { id: s.id, name: s.name, measuresSunlight: s.measuresSunlight };
 }
 
 export function getStation(id: number): Station | null {
-  const found = MOCK_STATIONS.find((s) => s.id === id);
+  const found = STATIONS.find((s) => s.id === id);
   return found ? toStation(found) : null;
 }
 
-/** 지역 칩 목록. 점 색은 고른 작물의 오늘 물 판정. */
-export function listStationChips(crop: Crop): StationChip[] {
-  return MOCK_STATIONS.map((s) => ({
+type Statuses = Record<Crop, Partial<Record<number, WaterStatus | null>>>;
+
+/** 지역 칩 목록. 점 색은 고른 작물의 오늘 물 판정(DB). 판정을 아직 모르면 null. */
+export function listStationChips(
+  crop: Crop,
+  statuses: Statuses | null,
+): StationChip[] {
+  return STATIONS.map((s) => ({
     ...toStation(s),
-    status: s.todayStatus[crop],
+    status: statuses?.[crop][s.id] ?? null,
   }));
+}
+
+export type Observed = { date: string; fetchedAt: string } | null;
+
+/** ASOS 관측을 받은 시각: "10월 25일 02:20 (10월 24일까지 관측)". */
+function observedTimes(observed: Observed) {
+  const c = koreanClock(observed?.fetchedAt);
+  if (!observed || !c) return { updated: NO_DATA, short: NO_DATA };
+  const [, m, d] = observed.date.split("-").map(Number);
+  const at = `${c.month}월 ${c.day}일 ${c.hour}:${c.minute}`;
+  return { updated: `${at} (${m}월 ${d}일까지 관측)`, short: `${at} 갱신` };
 }
 
 function asos(station: Station) {
@@ -59,15 +77,16 @@ export function getPageMeta(
   // 물 화면은 DB 값으로 따로 만든다 (src/services/water.ts)
   page: Exclude<PageKey, "home" | "water">,
   station: Station,
+  /** 그 지점의 마지막 ASOS 관측 (온도·햇빛). 모르면 null. */
+  observed: Observed = null,
 ): PageMeta {
   const { forecastIssue, updated } = MOCK_META;
   switch (page) {
     case "temperature":
       return {
         source: `${asos(station)} 일 관측 · 평년값 1991–2020`,
-        issue: `${forecastIssue} (예상선)`,
-        updated,
-        short: updatedShort(updated),
+        issue: "해당 없음 (관측 자료)",
+        ...observedTimes(observed),
       };
     case "sunlight":
       if (!station.measuresSunlight) {
@@ -81,8 +100,7 @@ export function getPageMeta(
       return {
         source: `${asos(station)} 일사 관측 · 평년값 1991–2020`,
         issue: "해당 없음 (관측 자료)",
-        updated: MOCK_META.sunlightUpdated,
-        short: updatedShort(MOCK_META.sunlightUpdated),
+        ...observedTimes(observed),
       };
     case "soil":
       return noData("농촌진흥청 흙토람");

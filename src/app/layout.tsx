@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { Sheets } from "./_components/shell/Sheets";
 import { SheetProvider } from "./_components/shell/sheet-context";
 import { SiteFooter } from "./_components/shell/SiteFooter";
-import { SiteHeader, SiteHeaderFallback } from "./_components/shell/SiteHeader";
+import { SiteHeaderFallback } from "./_components/shell/SiteHeader";
+import { SiteHeaderWithStatus } from "./_components/shell/SiteHeaderWithStatus";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <SheetProvider>
           <Suspense fallback={<SiteHeaderFallback />}>
-            <SiteHeader />
+            <SiteHeaderWithStatus />
           </Suspense>
           <main className="mx-auto flex max-w-(--page-max) flex-col gap-4 px-(--page-gutter) pt-3">
             {children}

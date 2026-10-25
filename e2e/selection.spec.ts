@@ -78,3 +78,28 @@ test("종합 화면은 5초마다 다음 지역으로 바뀌고, 멈출 수 있�
     page.getByRole("button", { name: "자동 전환 시작" }),
   ).toBeVisible();
 });
+
+test("지역 칩 점은 DB 의 오늘 물 판정, 없으면 '자료 없음'", async ({
+  page,
+}) => {
+  await page.goto("/temperature?st=101&crop=apple");
+  const chips = page.getByRole("group", { name: "지역" });
+  await expect(chips.getByRole("link", { name: "춘천 주의" })).toBeVisible();
+  await expect(
+    chips.getByRole("link", { name: /수원 (관수 필요|주의|보통)/ }),
+  ).toBeVisible();
+  await expect(
+    chips.getByRole("link", { name: "태백 자료 없음" }),
+  ).toBeVisible();
+});
+
+test("온도 화면 자료 상자는 ASOS 관측을 받은 실제 시각", async ({ page }) => {
+  await page.goto("/temperature?st=101&crop=apple");
+  const meta = page.getByRole("region", { name: "자료 정보" });
+  await expect(meta).toContainText("02:20");
+  await expect(meta).toContainText("일까지 관측");
+  await page.goto("/temperature?st=216&crop=apple");
+  await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(
+    "자료 없음",
+  );
+});

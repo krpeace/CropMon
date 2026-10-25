@@ -9,7 +9,7 @@ import {
 
 describe("listStationChips", () => {
   it("지점 10곳을 시안 순서대로 돌려준다", () => {
-    const chips = listStationChips("apple");
+    const chips = listStationChips("apple", null);
     expect(chips.map((c) => c.name)).toEqual([
       "춘천",
       "태백",
@@ -24,11 +24,19 @@ describe("listStationChips", () => {
     ]);
   });
 
-  it("작물마다 오늘 물 판정을 붙인다", () => {
-    const apple = listStationChips("apple");
-    const cabbage = listStationChips("cabbage");
+  it("작물마다 DB 의 오늘 물 판정을 붙이고, 없으면 null", () => {
+    const statuses = {
+      apple: { 131: "need" as const },
+      cabbage: { 131: "caution" as const },
+    };
+    const apple = listStationChips("apple", statuses);
+    const cabbage = listStationChips("cabbage", statuses);
     expect(apple.find((c) => c.id === 131)?.status).toBe("need");
     expect(cabbage.find((c) => c.id === 131)?.status).toBe("caution");
+    expect(apple.find((c) => c.id === 101)?.status).toBeNull();
+    expect(
+      listStationChips("apple", null).every((c) => c.status === null),
+    ).toBe(true);
   });
 });
 
@@ -51,10 +59,29 @@ describe("getPageMeta", () => {
     });
   });
 
-  it("햇빛을 재는 지점은 일사 관측 갱신 시각을 쓴다", () => {
-    expect(getPageMeta("sunlight", chuncheon).short).toBe(
-      "8월 12일 06:10 갱신",
-    );
+  const observed = {
+    date: "2026-10-24",
+    fetchedAt: "2026-10-24T17:20:00+00:00",
+  };
+
+  it("햇빛·온도는 그 지점 ASOS 관측을 받은 실제 시각을 쓴다", () => {
+    expect(getPageMeta("sunlight", chuncheon, observed)).toEqual({
+      source: "기상청 ASOS 춘천(101) 일사 관측 · 평년값 1991–2020",
+      issue: "해당 없음 (관측 자료)",
+      updated: "10월 25일 02:20 (10월 24일까지 관측)",
+      short: "10월 25일 02:20 갱신",
+    });
+    expect(getPageMeta("temperature", chuncheon, observed)).toMatchObject({
+      issue: "해당 없음 (관측 자료)",
+      updated: "10월 25일 02:20 (10월 24일까지 관측)",
+    });
+  });
+
+  it("관측 시각을 읽지 못하면 '자료 없음'", () => {
+    expect(getPageMeta("temperature", chuncheon, null)).toMatchObject({
+      updated: "자료 없음",
+      short: "자료 없음",
+    });
   });
 
   it("준비 중인 토양·도매시장은 '자료 없음'이다", () => {
