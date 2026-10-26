@@ -68,3 +68,47 @@ jobs:
           name: playwright-report
           path: test-results/
           retention-days: 7
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 이력 전체 받기
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks 설치
+        run: |
+          GITLEAKS_VERSION="8.30.1"
+          ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          CHECKSUMS="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${ARCHIVE}"
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${CHECKSUMS}"
+
+          grep "${ARCHIVE}" "${CHECKSUMS}" | sha256sum --check --status
+          tar -xzf "${ARCHIVE}" gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          rm -f "${ARCHIVE}" "${CHECKSUMS}"
+          gitleaks version
+
+      - name: 자체 시험 (가짜 키 탐지 확인)
+        run: |
+          TMP_DIR=$(mktemp -d)
+          # AWS Access Key ID 형식 (AKIA + A~Z, 2~7 16자). 저장소 파일에 온전한 키가 남지 않도록 분할 결합
+          P1="AKIA"
+          P2="234567QW"
+          P3="ERTYUIOP"
+          echo "aws_key=${P1}${P2}${P3}" > "${TMP_DIR}/fake_key.txt"
+
+          if gitleaks dir --redact --verbose "${TMP_DIR}"; then
+            echo "::error::gitleaks 가 가짜 키를 탐지하지 못했습니다."
+            rm -rf "${TMP_DIR}"
+            exit 1
+          fi
+
+          rm -rf "${TMP_DIR}"
+          echo "정상: gitleaks 가 가짜 키를 성공적으로 탐지했습니다."
+
+      - name: 저장소 비밀키 검사 (전체 이력)
+        run: gitleaks git --redact --verbose .

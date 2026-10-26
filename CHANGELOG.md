@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### 추가 (자동 검사에 비밀키 검사 gitleaks 추가 — 이슈 #33)
+
+- GitHub Actions CI(`.github/workflows/ci.yml`)에 `secrets` 작업 추가:
+  - 공식 MIT 바이너리(`v8.30.1`)를 직접 다운로드하고 SHA256 체크섬을 검증하여 설치
+  - 전체 커밋 이력(`fetch-depth: 0`) 대상 gitleaks 검사 (`gitleaks git --redact --verbose .`)
+  - 런타임 자체 시험(Self-test): AWS Key 형식(Base32 `[A-Z2-7]` 16자, 엔트로피 조건 충족)의 가짜 키를 분할 결합하여 임시 파일로 만든 후 `gitleaks dir --redact`로 검출 확인(미검출 시 CI 실패). 가짜 키는 저장소 파일에 온전한 문자열로 남기지 않음
+- 기본 규칙 상속 및 엄격한 예외 관리 설정 `.gitleaks.toml` 추가 (`[extend] useDefault = true`)
+- 전체 42개 커밋 이력 스캔 결과 0건 유출 확인
+- 결정 기록 `docs/decisions/0019-secret-scan.md` 및 `docs/ARCHITECTURE.md` 반영
+
 ### 추가 (내 농장 데모 화면 정적 미리보기 — 이슈 #31)
 
 - `/my-farm` 에 디자인 시안과 동일한 정적 미리보기 화면 구현:
