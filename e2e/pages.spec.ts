@@ -131,3 +131,50 @@ test("준비 중 본문: 390 폭에서 두 칸이 한 줄로 쌓이고 옆으로
     expect(overflow).toBeLessThanOrEqual(0);
   }
 });
+
+// 파비콘과 홈 화면 아이콘 (이슈 #29)
+test("파비콘과 홈 화면 아이콘이 연결되어 있고 이미지로 응답한다", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+
+  // <head> 에 rel="icon" 연결이 있고(favicon.ico 와 icon.png), rel="apple-touch-icon" 연결이 있다.
+  await expect(page.locator('link[rel="icon"]')).toHaveCount(2);
+
+  const favicon = page.locator('link[rel="icon"][href*="favicon.ico"]');
+  const iconPng = page.locator('link[rel="icon"]:not([href*="favicon.ico"])');
+  const appleIcon = page.locator('link[rel="apple-touch-icon"]');
+
+  await expect(favicon).toHaveCount(1);
+  await expect(iconPng).toHaveCount(1);
+  await expect(appleIcon).toHaveCount(1);
+
+  const faviconHref = await favicon.getAttribute("href");
+  const iconHref = await iconPng.getAttribute("href");
+  const appleHref = await appleIcon.getAttribute("href");
+
+  expect(faviconHref).toBeTruthy();
+  expect(iconHref).toBeTruthy();
+  expect(appleHref).toBeTruthy();
+
+  // 각 주소로 요청하면 200 이고 content-type 이 이미지다
+  for (const href of [faviconHref!, iconHref!, appleHref!]) {
+    const res = await request.get(href);
+    expect(res.status()).toBe(200);
+    expect(res.headers()["content-type"]).toMatch(/^image\//);
+  }
+});
+
+test("다른 쪽(/water)에서도 같은 연결이 나온다", async ({ page }) => {
+  await page.goto("/water");
+
+  await expect(page.locator('link[rel="icon"]')).toHaveCount(2);
+  await expect(
+    page.locator('link[rel="icon"][href*="favicon.ico"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('link[rel="icon"]:not([href*="favicon.ico"])'),
+  ).toHaveCount(1);
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
+});
