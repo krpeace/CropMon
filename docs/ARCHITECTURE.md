@@ -57,8 +57,10 @@ app  →  services  →  domain
 ## 기술
 
 - Next.js (App Router, TypeScript strict), Tailwind CSS
-- 품질 도구: ESLint, Prettier, Vitest
+- 품질 도구: ESLint, Prettier, Vitest, Playwright
+- 보안 도구: gitleaks (비밀키 검사, 결정 0019)
 - Node 버전은 `.nvmrc`에 적힌 값을 쓰고, 자동 검사(CI)도 같은 값을 씁니다.
+- CI 검사(`.github/workflows/ci.yml`): `quality` 작업(린트·타입체크·포맷·단위테스트·빌드·E2E)과 `secrets` 작업(gitleaks 바이너리 체크섬 검증 후 전체 커밋 이력 비밀키 검사 및 런타임 자체 시험)이 병렬로 돌아갑니다.
 
 ## 운영 예약 (결정 0014)
 
