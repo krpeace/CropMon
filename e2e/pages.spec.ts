@@ -178,3 +178,118 @@ test("다른 쪽(/water)에서도 같은 연결이 나온다", async ({ page }) 
   ).toHaveCount(1);
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
 });
+
+// 내 농장 미리보기 (이슈 #31)
+test.describe("내 농장 데모 화면 (정적 미리보기)", () => {
+  test("기본 상태: 지점 101 사과 양토 판정, 배지, 주소 매칭, 자료 상자", async ({
+    page,
+  }) => {
+    await page.goto("/my-farm");
+
+    // 기본 제목 & 배지
+    await expect(
+      page.getByText("오늘은 괜찮아요, 내일 물 주세요"),
+    ).toBeVisible();
+    await expect(page.getByText("내일 관수 필요")).toBeVisible();
+
+    // 주소 입력 기본값 및 피드백
+    const addrInput = page.getByPlaceholder("예: 홍천군 내촌면");
+    await expect(addrInput).toHaveValue("홍천군 내촌면");
+    await expect(
+      page.getByText("가까운 관측 지점: 춘천(101) · 약 18.0 km · 자동 연결"),
+    ).toBeVisible();
+
+    // 자료 상자
+    const meta = page.getByRole("region", { name: "자료 정보" });
+    await expect(meta).toContainText("기상청 ASOS 춘천(101) · 내 밭 기록(CSV)");
+    await expect(meta).toContainText("미리보기");
+  });
+
+  test("흙을 사토로 변경하면 '오늘 물 주세요'로 바뀐다", async ({ page }) => {
+    await page.goto("/my-farm");
+    await page.getByRole("button", { name: /^사토/ }).click();
+
+    await expect(page.getByText("오늘 물 주세요")).toBeVisible();
+    await expect(page.getByText("관수 필요")).toBeVisible();
+  });
+
+  test("작물을 배추로 변경하면 카드가 바뀐다", async ({ page }) => {
+    await page.goto("/my-farm");
+    await page.getByRole("button", { name: "배추" }).click();
+
+    // 배추 선택 시 카드의 맥락 문구에 '배추' 포함
+    await expect(page.getByText("춘천 · 양토 · 배추")).toBeVisible();
+  });
+
+  test("주소를 태백시로 변경하면 거리와 자료 상자가 바뀐다", async ({
+    page,
+  }) => {
+    await page.goto("/my-farm");
+    const addrInput = page.getByPlaceholder("예: 홍천군 내촌면");
+    await addrInput.fill("태백시");
+
+    await expect(
+      page.getByText("가까운 관측 지점: 태백(216) · 약 19.4 km · 자동 연결"),
+    ).toBeVisible();
+
+    const meta = page.getByRole("region", { name: "자료 정보" });
+    await expect(meta).toContainText("기상청 ASOS 태백(216) · 내 밭 기록(CSV)");
+  });
+
+  test("엉뚱한 주소 입력 시 안내 문구를 보여준다", async ({ page }) => {
+    await page.goto("/my-farm");
+    const addrInput = page.getByPlaceholder("예: 홍천군 내촌면");
+    await addrInput.fill("서울시 종로구 세종대로");
+
+    await expect(
+      page.getByText("가까운 지점을 찾지 못했어요. 시·군 이름을 넣어 보세요"),
+    ).toBeVisible();
+  });
+
+  test("예시 파일로 보기 클릭 시 리포트가 열리고, 다시 올리기로 지워진다", async ({
+    page,
+  }) => {
+    await page.goto("/my-farm");
+
+    // 초기 상태: 업로드 안내 및 예시 보기 버튼
+    await expect(page.getByText("스마트팜 CSV 올리기")).toBeVisible();
+    const exampleBtn = page.getByRole("button", { name: "예시 파일로 보기" });
+    await expect(exampleBtn).toBeVisible();
+
+    // 예시 파일 보기 클릭
+    await exampleBtn.click();
+
+    // 리포트 노출
+    await expect(
+      page.getByText("스마트팜_관수기록_2026.csv (예시)"),
+    ).toBeVisible();
+    await expect(page.getByText(/물 줄 때를.*맞췄어요/)).toBeVisible();
+    await expect(page.getByText("물 준 횟수")).toBeVisible();
+    await expect(page.getByText("모두 준 물")).toBeVisible();
+    await expect(page.getByText("달마다 준 물 (mm)")).toBeVisible();
+    await expect(
+      page.getByText(
+        "비 온 다음 날 물을 준 날이 3일 있었어요. 이런 날은 건너뛰어도 괜찮아요.",
+      ),
+    ).toBeVisible();
+
+    // 다시 올리기 클릭
+    await page.getByRole("button", { name: "다시 올리기" }).click();
+
+    // 리포트 닫히고 원래 상태 복귀
+    await expect(page.getByText("스마트팜 CSV 올리기")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "예시 파일로 보기" }),
+    ).toBeVisible();
+  });
+
+  test("390px 모바일 폭에서 가로 스크롤 넘침이 없다", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/my-farm");
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+});

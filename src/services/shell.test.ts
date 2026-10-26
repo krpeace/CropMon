@@ -90,8 +90,14 @@ describe("getPageMeta", () => {
     expect(getPageMeta("market", chuncheon).updated).toBe("자료 없음");
   });
 
-  it("내 농장은 고른 지역과 상관없이 밭 주소의 지점을 쓴다", () => {
+  it("내 농장은 밭 주소에 매칭된 지점을 쓴다", () => {
     expect(getPageMeta("my-farm", taebaek)).toEqual({
+      source: "기상청 ASOS 태백(216) · 내 밭 기록(CSV)",
+      issue: "8월 12일 17시 단기예보",
+      updated: "8월 12일 17:42 (미리보기)",
+      short: "8월 12일 17:42 갱신",
+    });
+    expect(getPageMeta("my-farm", chuncheon)).toEqual({
       source: "기상청 ASOS 춘천(101) · 내 밭 기록(CSV)",
       issue: "8월 12일 17시 단기예보",
       updated: "8월 12일 17:42 (미리보기)",
