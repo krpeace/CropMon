@@ -17,7 +17,10 @@ import { PageHead } from "./PageHead";
 import { PAGE_INFO } from "./pages";
 
 type Props = {
-  page: Exclude<PageKey, "home" | "water" | "temperature" | "sunlight">;
+  page: Exclude<
+    PageKey,
+    "home" | "water" | "temperature" | "sunlight" | "my-farm"
+  >;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 

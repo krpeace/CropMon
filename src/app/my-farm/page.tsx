@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { ShellPage } from "../_components/shell/ShellPage";
+import { FarmScreen } from "../_components/farm/FarmScreen";
 
 export const metadata: Metadata = { title: "내 농장" };
 
-export default function Page(props: PageProps<"/my-farm">) {
-  return <ShellPage page="my-farm" searchParams={props.searchParams} />;
+export default function Page() {
+  return <FarmScreen />;
 }

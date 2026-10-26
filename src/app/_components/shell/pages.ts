@@ -12,6 +12,9 @@ export const ICON_PATH = {
   pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
   play: "M8 5.5v13l10.5-6.5z",
   chevron: "M9 6l6 6-6 6",
+  pin: "M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11zM12 7.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z",
+  upload: "M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3",
+  check: "M5 12.5l4.5 4.5L19 7.5",
 } as const;
 
 type Tab = {
