@@ -20,7 +20,8 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 
 그 밖에:
 
-- `src/mocks` — 예시 값. 지금은 내 농장 미리보기의 자료 상자 값만 남았습니다. 화면은 직접 읽지 않고 `src/services`를 거칩니다. Supabase로 바꿀 때는 services 안의 읽는 곳만 고칩니다.
+- `src/mocks` — 예시 값. `src/mocks/meta.ts`(발표 회차 등)와 `src/mocks/farm.ts`(내 농장 데모용 240개 계산 표, `FARM_SAMPLES`)가 있습니다.
+- **내 농장 데모 화면** (이슈 #31, 결정 0018): 2027년 회원제 정식 오픈 전까지 시안과 똑같이 보여 주는 정적 미리보기 화면입니다. 화면에서 계산하지 않고, 시안 물수지 흉내 계산을 미리 돌려 뽑아 둔 240개 표(`src/mocks/farm.ts`)에서 `지점|작물|흙번호` 키로 읽기만 합니다. 주소 맞추기와 흙 12종 목록은 `src/domain/farm-preview.ts`의 `farmMatch(addr)` 순수 함수(테스트 있음)가 맡고, 화면은 클라이언트 컴포넌트(`src/app/_components/farm/FarmScreen.tsx`) 하나입니다. CSV 올리기는 파일 이름만 표시하며, "예시 파일로 보기"로 정적 보고서를 열고 다시 올리기로 초기화할 수 있습니다.
 - **DB에서 읽는 쪽**: 물 화면(`src/services/water.ts`)이 처음입니다. 읽기는 `src/infra/supabase/water-source.ts`(공개 키, 필요한 열만, 8초 제한, 자동 재시도 끔), 이름·날짜 붙이기는 `src/domain/water-outlook.ts`가 합니다. DB에 닿지 못하면 쪽은 멈추지 않고 "자료 없음"과 이유를 보여 줍니다. 쪽을 요청마다 그리도록 `connection()`을 부릅니다. 지역 칩 점 색(`src/services/station-status.ts`, `src/infra/supabase/status-source.ts`)과 온도·햇빛 자료 상자의 관측 시각도 DB에서 읽습니다. 헤더는 모든 쪽에 나오므로 `SiteHeaderWithStatus`가 서버에서 읽어 5분 동안 재사용(`use cache`)하고, 브라우저 쪽 헤더에 넘깁니다. 종합 화면 물 카드·전국 표도 같은 판정 표(`getStationBoard`, 캐시는 `src/app/_components/shell/board.ts` 한 곳)를 씁니다. 온도·햇빛 카드와 전국 표 생육 칸은 지점 10곳의 마지막 관측일 적산온도·적산일사(`src/services/growth-latest.ts`, 온도·햇빛 화면의 지역 비교와 같은 읽기)를 판정 표와 따로 5분 동안 재사용합니다(`loadGrowth`, 같은 `board.ts`). 헤더는 이 값을 쓰지 않습니다.
 - **지점 사전**: `src/infra/stations.ts` 고정 목록(번호·이름·일사 관측 여부). 주소창 읽기에 바로 쓰려고 DB 를 묻지 않으며, DB 사전 자료와 같은지는 `seed.test.ts`가 검사합니다.
 - **물 화면 조각** (`src/app/_components/water/`): `WaterBoard`(순서와 기준 날짜 줄·재배 방식), `NowCard`(① 지금 토양 상태·토성 말풍선), `OutlookCard`(② 앞으로 3일), `SeasonCard`(③ 작기 그래프·월별 요약). 그래프 좌표는 `season-chart.ts`(순수 함수, 테스트 있음)가 만들고, 누르면 그날로 가는 부분(`ChartClick`)과 날짜 고르기(`DayPicker`)만 브라우저 코드입니다. 판정 문구·월별 합계 규칙은 `src/domain/water-verdict.ts`에 있습니다.

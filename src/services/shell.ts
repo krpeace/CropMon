@@ -103,7 +103,7 @@ export function getPageMeta(
     case "market":
       return noData("aT · KREI");
     case "my-farm": {
-      const farmStation = getStation(MOCK_META.farmStationId) ?? station;
+      const farmStation = station ?? getStation(MOCK_META.farmStationId);
       return {
         source: `${asos(farmStation)} · 내 밭 기록(CSV)`,
         issue: forecastIssue,
