@@ -27,7 +27,7 @@ const SQL = readdirSync(MIGRATIONS_DIR)
   .join("\n")
   .toLowerCase();
 
-/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개 + v1.3 1개 + v1.4 2개)과 따로 센다. */
+/** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개 + v1.3 1개 + v1.4 2개 + v1.5 1개)과 따로 센다. */
 const HEALTH_TABLE = "app_health";
 
 const PUBLIC_TABLES = [
@@ -44,6 +44,7 @@ const PUBLIC_TABLES = [
   "water_outlook_summary",
   "heat_daily",
   "sun_daily",
+  "soil_water_daily",
 ] as const;
 
 function tablesInContract(): string[] {
@@ -60,7 +61,7 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 13개와 app_health 가 있다", () => {
+  it("계약서에 공개 테이블 14개와 app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
       [...PUBLIC_TABLES, HEALTH_TABLE].sort(),
     );
@@ -70,8 +71,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.4 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.4\b/);
+  it("계약서의 현재 버전이 v1.5 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.5\b/);
   });
 
   const bodyOf = (table: string) =>
@@ -80,6 +81,52 @@ describe("데이터 계약과 마이그레이션", () => {
         `create table if not exists public\\.${table}\\s*\\(([\\s\\S]*?)\\n\\);`,
       ),
     )?.[1];
+
+  it("작물 공통 물 상태는 지점 × 토성 × 날짜, 6가지 상태 코드 (v1.5)", () => {
+    const soilWater = bodyOf("soil_water_daily");
+    expect(soilWater).toBeDefined();
+    expect(soilWater).toMatch(/primary key \(stn_id, soil_code, date\)/);
+    for (const c of [
+      "eto_mm",
+      "rain_mm",
+      "eto_7d_mm",
+      "rain_7d_mm",
+      "dp_mm",
+      "dr_mm",
+      "taw_mm",
+      "raw_mm",
+      "aw_pct",
+      "status",
+      "days_to_dry",
+      "filled",
+      "calc_version",
+      "updated_at",
+    ]) {
+      expect(soilWater).toContain(c);
+    }
+    const codes = soilWater
+      ?.match(/status in \(([^)]*)\)/)?.[1]
+      .split(",")
+      .map((x) => x.trim().replace(/'/g, ""))
+      .sort();
+    expect(codes).toEqual(
+      ["winter", "pool", "ample", "fair", "dry", "very_dry"].sort(),
+    );
+  });
+
+  it("토성 사전에 is_estimated 열이 있다 (v1.5)", () => {
+    expect(SQL).toMatch(
+      /alter table public\.soil_types\s+add column if not exists is_estimated boolean not null default false/,
+    );
+  });
+
+  it("추정 토성 3종과 작물 공통(common)이 시드에 있다 (v1.5)", () => {
+    for (const code of ["sandy_clay_loam", "clay_loam", "sandy_clay"]) {
+      expect(SQL).toContain(code);
+    }
+    expect(SQL).toContain("common");
+    expect(SQL).toContain("작물 공통");
+  });
 
   it("적산온도는 지점 × 작물 × 날짜, 적산일사는 지점 × 날짜 (v1.4)", () => {
     const heat = bodyOf("heat_daily");
@@ -233,6 +280,19 @@ describe("데이터 계약과 마이그레이션", () => {
 
   it("계약서가 판정 상태 이름을 모두 적는다", () => {
     for (const status of WATER_STATUSES) {
+      expect(CONTRACT).toContain(`\`${status}\``);
+    }
+  });
+
+  it("계약서가 작물 공통 판정 코드를 모두 적는다 (v1.5)", () => {
+    for (const status of [
+      "winter",
+      "pool",
+      "ample",
+      "fair",
+      "dry",
+      "very_dry",
+    ]) {
       expect(CONTRACT).toContain(`\`${status}\``);
     }
   });
