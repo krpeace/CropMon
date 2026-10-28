@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 import { CROP_LABEL, parseSelection, withSelection } from "@/domain/selection";
 import { getHomeView } from "@/services/home";
-import { getStation, STATION_IDS } from "@/services/shell";
+import { getStation, STATION_ENTRIES } from "@/services/shell";
 
 import { loadBoard, loadGrowth } from "../shell/board";
 import { Grid } from "../ui/Grid";
@@ -30,7 +30,7 @@ export function HomeBoard({ searchParams }: Props) {
 }
 
 async function ResolvedHomeBoard({ searchParams }: Props) {
-  const selection = parseSelection(await searchParams, STATION_IDS);
+  const selection = parseSelection(await searchParams, STATION_ENTRIES);
   const station = getStation(selection.stationId);
   if (!station) return null;
 

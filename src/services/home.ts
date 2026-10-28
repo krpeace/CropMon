@@ -1,6 +1,6 @@
 import { koreanClock } from "@/domain/datetime";
 import { gddNumbers, leadVerdict } from "@/domain/heat";
-import type { Selection } from "@/domain/selection";
+import { sunlightStatusLabel, type Selection } from "@/domain/selection";
 import { koreanDate, observedBasis } from "@/domain/water-outlook";
 import {
   todayBadge,
@@ -60,6 +60,8 @@ export type HomeRow = {
 const MIN_FILL_PCT = 2;
 const NO_DATA = "자료 없음";
 const DB_FAILED = "DB에서 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.";
+const NON_REP_GUIDE =
+  "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요";
 
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
 const mm = (v: number) => Math.round(v);
@@ -101,12 +103,17 @@ function sunShort(s: SunLatest | undefined): string | null {
 function growthCard(
   h: HeatLatest | undefined,
   ok: boolean,
+  isRepresentative: boolean,
 ): HomeView["growth"] {
   const verdict = h ? leadVerdict(h.lead, h.cum, h.annualNormal) : NO_DATA;
   if (!h || verdict === NO_DATA) {
     return {
       verdict: NO_DATA,
-      numbers: ok ? "이 지역의 적산온도 자료가 아직 없어요" : DB_FAILED,
+      numbers: !ok
+        ? DB_FAILED
+        : isRepresentative
+          ? "이 지역의 적산온도 자료가 아직 없어요"
+          : NON_REP_GUIDE,
       missing: true,
     };
   }
@@ -123,13 +130,19 @@ function growthCard(
 function sunCard(
   s: SunLatest | undefined,
   ok: boolean,
-  stationName: string,
+  station: { name: string; measuresSunlight: boolean | null },
 ): HomeView["sunlight"] {
   const pct = sunPercent(s?.cum ?? null, s?.normal ?? null);
   if (!s || pct == null || s.cum == null || s.normal == null) {
+    const note =
+      station.measuresSunlight === true
+        ? ""
+        : ` (${sunlightStatusLabel(station.measuresSunlight)})`;
     return {
       verdict: NO_DATA,
-      numbers: ok ? `${stationName} 관측소의 햇빛 자료가 없어요` : DB_FAILED,
+      numbers: ok
+        ? `${station.name} 관측소의 햇빛 자료가 없어요${note}`
+        : DB_FAILED,
       missing: true,
     };
   }
@@ -148,10 +161,11 @@ function tomorrowStatus(w: StationWater, today: string): WaterStatus {
 }
 
 function waterCard(
-  w: StationWater | null,
+  w: StationWater | null | undefined,
   selection: Selection,
   today: string,
   ok: boolean,
+  isRepresentative: boolean,
 ): HomeView["water"] {
   if (!w) {
     return {
@@ -159,7 +173,11 @@ function waterCard(
       tone: "dormant",
       badge: null,
       grayBadge: NO_DATA,
-      numbers: ok ? "이 지역의 물 판정 자료가 아직 없어요" : DB_FAILED,
+      numbers: !ok
+        ? DB_FAILED
+        : isRepresentative
+          ? "이 지역의 물 판정 자료가 아직 없어요"
+          : NON_REP_GUIDE,
       gauge: null,
     };
   }
@@ -213,8 +231,9 @@ export function getHomeView(
   const today = koreanDate(now().toISOString());
   const { crop } = selection;
   const repStations = STATIONS.filter((s) => s.isRepresentative);
+  const activeStations = STATIONS.filter((s) => s.isActive);
   const station =
-    repStations.find((s) => s.id === selection.stationId) ?? repStations[0];
+    activeStations.find((s) => s.id === selection.stationId) ?? repStations[0];
 
   const rows = repStations.map((s): HomeRow => {
     const w = board.water[crop][s.id];
@@ -241,9 +260,19 @@ export function getHomeView(
 
   return {
     meta: metaLine(board, station),
-    water: waterCard(board.water[crop][station.id], selection, today, board.ok),
-    growth: growthCard(growth.heat[station.id], growth.heatOk),
-    sunlight: sunCard(growth.sun[station.id], growth.sunOk, station.name),
+    water: waterCard(
+      board.water[crop][station.id],
+      selection,
+      today,
+      board.ok,
+      station.isRepresentative,
+    ),
+    growth: growthCard(
+      growth.heat[station.id],
+      growth.heatOk,
+      station.isRepresentative,
+    ),
+    sunlight: sunCard(growth.sun[station.id], growth.sunOk, station),
     rows,
   };
 }

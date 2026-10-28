@@ -124,6 +124,30 @@ describe("종합 화면 물 카드 (DB)", () => {
     expect(view(119).meta).toBe("자료 없음 · 기상청 ASOS 수원(119)");
   });
 
+  it("대표 밖 지점(홍천 212)을 고르면 물·온도 카드에 '자료 없음'과 한 줄 안내, 일사는 확인 안 됨", () => {
+    const v = view(212);
+    expect(v.meta).toBe("자료 없음 · 기상청 ASOS 홍천(212)");
+    expect(v.water).toMatchObject({
+      verdict: "자료 없음",
+      badge: null,
+      grayBadge: "자료 없음",
+      numbers:
+        "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+      gauge: null,
+    });
+    expect(v.growth).toEqual({
+      verdict: "자료 없음",
+      numbers:
+        "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+      missing: true,
+    });
+    expect(v.sunlight).toEqual({
+      verdict: "자료 없음",
+      numbers: "홍천 관측소의 햇빛 자료가 없어요 (확인 안 됨)",
+      missing: true,
+    });
+  });
+
   it("DB 를 읽지 못했으면 그 사실을 적는다", () => {
     const v = view(101, "apple", {
       ...BOARD,

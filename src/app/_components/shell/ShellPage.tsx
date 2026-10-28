@@ -6,7 +6,7 @@ import {
   getComingSoon,
   getPageMeta,
   getStation,
-  STATION_IDS,
+  STATION_ENTRIES,
   type PageKey,
 } from "@/services/shell";
 import { getObserved } from "@/services/station-status";
@@ -37,7 +37,7 @@ export function ShellPage({ page, searchParams }: Props) {
 }
 
 async function ResolvedShellPage({ page, searchParams }: Props) {
-  const selection = parseSelection(await searchParams, STATION_IDS);
+  const selection = parseSelection(await searchParams, STATION_ENTRIES);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page={page} meta={null} />;
   // 토양·도매시장·내 농장은 관측 시각이 필요 없다 (온도·햇빛은 각 보드가 cachedObserved 를 쓴다)

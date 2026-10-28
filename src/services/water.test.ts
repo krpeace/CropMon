@@ -352,10 +352,32 @@ describe("작기 돌아보기와 실패", () => {
     expect(v.problem).toBeNull();
   });
 
-  it("계산 조건이 없으면 '자료 없음'과 이유", async () => {
+  it("계산 조건이 없으면 '자료 없음'과 이유, 대표 밖 지점이면 대표 지점 안내", async () => {
     const v = await view(TODAY, { scenarios: async () => [] });
     expect(v.now).toBeNull();
     expect(v.problem).toBe("이 지역·작물의 2026 계산 조건이 아직 없어요.");
+
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      isRepresentative: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const vOut = await getWaterView(
+      { stationId: 212, crop: "apple" },
+      hongcheon,
+      TODAY,
+      {
+        createSource: () => fake({ scenarios: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(vOut.now).toBeNull();
+    expect(vOut.problem).toBe(
+      "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+    );
   });
 
   it("DB를 읽지 못하면 던지지 않고 '자료 없음'으로 돌려준다", async () => {

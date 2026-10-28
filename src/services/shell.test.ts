@@ -4,6 +4,7 @@ import {
   getComingSoon,
   getPageMeta,
   getStation,
+  listRegionPicker,
   listStationChips,
   STATION_IDS,
 } from "./shell";
@@ -45,8 +46,65 @@ describe("listStationChips", () => {
 });
 
 describe("getStation", () => {
-  it("없는 지점 번호는 null 이다", () => {
+  it("없는 지점 번호나 폐지 지점(isActive=false)은 null 이다", () => {
     expect(getStation(999)).toBeNull();
+    expect(getStation(175)).toBeNull(); // 진도(첨찰산) 폐지
+    expect(getStation(116)).toBeNull(); // 관악산 폐지
+  });
+
+  it("대표 밖 운영 지점(홍천 212)도 찾아 돌려준다", () => {
+    expect(getStation(212)).toMatchObject({
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      isRepresentative: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    });
+  });
+});
+
+describe("listRegionPicker", () => {
+  it("검색어가 없으면 '대표 지점 10곳' + '전체 ASOS 지점 97곳 · 가나다순'을 돌려준다", () => {
+    const statuses = {
+      apple: { 101: "caution" as const, 131: "need" as const },
+      cabbage: {},
+    };
+    const picker = listRegionPicker("apple", statuses, "");
+    expect(picker.isEmpty).toBe(false);
+    expect(picker.sections.map((s) => s.label)).toEqual([
+      "대표 지점 10곳",
+      "전체 ASOS 지점 97곳 · 가나다순",
+    ]);
+    expect(picker.sections[0].items).toHaveLength(10);
+    expect(picker.sections[1].items).toHaveLength(97);
+
+    // 시안 대비 변경: 폐지된 175 진도(첨찰산)는 빠지고, 181 서청주·296 북부산이 들어간다
+    const allIds = picker.sections[1].items.map((x) => x.id);
+    expect(allIds).not.toContain(175);
+    expect(allIds).toContain(181);
+    expect(allIds).toContain(296);
+
+    // 대표 지점은 DB 판정을 읽고, 대표 밖 지점은 null ("자료 없음")
+    expect(picker.sections[0].items.find((x) => x.id === 101)?.status).toBe(
+      "caution",
+    );
+    expect(
+      picker.sections[1].items.find((x) => x.id === 212)?.status,
+    ).toBeNull();
+  });
+
+  it("이름·번호·시도로 거르고 결과가 없으면 isEmpty=true", () => {
+    const byName = listRegionPicker("apple", null, "홍천");
+    expect(byName.sections[0].label).toBe("검색 결과 1곳");
+    expect(byName.sections[0].items.map((x) => x.id)).toEqual([212]);
+
+    const byId = listRegionPicker("apple", null, "212");
+    expect(byId.sections[0].items.map((x) => x.name)).toEqual(["홍천"]);
+
+    const empty = listRegionPicker("apple", null, "없는지역");
+    expect(empty.isEmpty).toBe(true);
+    expect(empty.sections[0].label).toBe("검색 결과 0곳");
   });
 });
 

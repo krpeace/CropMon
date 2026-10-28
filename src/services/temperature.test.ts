@@ -190,7 +190,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     expect(v.numbers?.thisYear).toBe("4,158");
   });
 
-  it("그해 자료가 없으면 이유를 적고 멈추지 않는다", async () => {
+  it("그해 자료가 없으면 이유를 적고 멈추지 않는다 (대표 밖 지점은 대표 지점 안내)", async () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source({ year: async () => [] }),
       now: NOW,
@@ -198,6 +198,27 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     expect(v.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
     expect(v.verdict).toBe("자료 없음");
     expect(v.compare).toHaveLength(10);
+
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      isRepresentative: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const vOut = await getTemperatureView(
+      { stationId: 212, crop: "apple" },
+      hongcheon,
+      {
+        createSource: () => source({ year: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(vOut.problem).toBe(
+      "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+    );
+    expect(vOut.verdict).toBe("자료 없음");
   });
 
   it("DB 가 오류를 주면 '자료 없음'과 쉬운 이유, 지역 비교는 따로 보인다", async () => {

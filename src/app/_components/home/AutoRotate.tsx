@@ -20,9 +20,10 @@ const INTERVAL_MS = 5000;
 /** 종합 화면 자동 전환: 5초마다 다음 지역(사과 10곳 → 배추 10곳)으로 바꾼다. 창이 열리면 쉰다. */
 export function AutoRotate({ selection }: { selection: Selection }) {
   const router = useRouter();
-  const { sheet } = useSheet();
+  const { sheet, popover } = useSheet();
   const [auto, setAuto] = useState(true);
-  const running = auto && !sheet;
+  const pos = rotationPosition(selection, STATION_IDS);
+  const running = auto && !sheet && !popover && pos !== null;
   const { stationId, crop } = selection;
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export function AutoRotate({ selection }: { selection: Selection }) {
     <div className="flex flex-col items-end gap-2">
       <div className="flex items-center gap-2.5">
         <span className="text-14 text-ink-2/80 whitespace-nowrap">
-          {rotationPosition(selection, STATION_IDS)} / {total}
+          {pos === null ? "대표 지점 밖" : `${pos} / ${total}`}
         </span>
         <button
           type="button"

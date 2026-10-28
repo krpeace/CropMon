@@ -1,5 +1,10 @@
 import { koreanClock } from "@/domain/datetime";
-import { CROP_LABEL, type Crop } from "@/domain/selection";
+import {
+  buildRegionSections,
+  CROP_LABEL,
+  type Crop,
+  type RegionSectionsResult,
+} from "@/domain/selection";
 import type { WaterStatus } from "@/domain/water-status";
 import { STATIONS } from "@/infra/stations";
 import { MOCK_META } from "@/mocks/meta";
@@ -12,9 +17,22 @@ import { MOCK_META } from "@/mocks/meta";
 export type PageKey =
   "home" | "water" | "temperature" | "sunlight" | "soil" | "market" | "my-farm";
 
-export type Station = { id: number; name: string; measuresSunlight: boolean };
+export type Station = {
+  id: number;
+  name: string;
+  sido?: string;
+  isRepresentative?: boolean;
+  measuresSunlight: boolean;
+  sunlightMeasured?: boolean | null;
+};
 /** status 가 null 이면 "자료 없음". */
 export type StationChip = Station & { status: WaterStatus | null };
+
+export type PickerStation = StationChip & {
+  sido: string;
+  isRepresentative: boolean;
+  isActive: boolean;
+};
 
 /** 자료·발표·갱신 세 줄과, 쪽 제목 옆 짧은 표시. */
 export type PageMeta = {
@@ -27,25 +45,34 @@ export type PageMeta = {
 const NO_DATA = "자료 없음";
 
 const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
+const ACTIVE_STATIONS = STATIONS.filter((s) => s.isActive);
 
+/** 대표 지점 10곳 번호 (자동 전환·기본 지점). */
 export const STATION_IDS: readonly number[] = REP_STATIONS.map((s) => s.id);
+
+/** 주소창 ?st= 읽기에 쓰는 전체 지점 사전 (105곳, 운영 여부는 parseSelection 이 거른다). */
+export const STATION_ENTRIES = STATIONS;
 
 function toStation(s: (typeof STATIONS)[number]): Station {
   return {
     id: s.id,
     name: s.name,
+    sido: s.sido,
+    isRepresentative: s.isRepresentative,
     measuresSunlight: s.measuresSunlight === true,
+    sunlightMeasured: s.measuresSunlight,
   };
 }
 
+/** 운영 중인 지점(isActive=true, 97곳)에서 번호로 찾는다. 없거나 폐지 지점이면 null. */
 export function getStation(id: number): Station | null {
-  const found = REP_STATIONS.find((s) => s.id === id);
+  const found = ACTIVE_STATIONS.find((s) => s.id === id);
   return found ? toStation(found) : null;
 }
 
 type Statuses = Record<Crop, Partial<Record<number, WaterStatus | null>>>;
 
-/** 지역 칩 목록. 점 색은 고른 작물의 오늘 물 판정(DB). 판정을 아직 모르면 null. */
+/** 대표 10곳 지역 칩 목록. 점 색은 고른 작물의 오늘 물 판정(DB). 판정을 아직 모르면 null. */
 export function listStationChips(
   crop: Crop,
   statuses: Statuses | null,
@@ -54,6 +81,25 @@ export function listStationChips(
     ...toStation(s),
     status: statuses?.[crop][s.id] ?? null,
   }));
+}
+
+/**
+ * 지역 고르기(팝오버·시트) 목록.
+ * 서버에서 받은 105곳 사전 중 운영 중인 97곳을 쓰고, 배지는 DB 판정만 붙인다(없으면 null = "자료 없음").
+ */
+export function listRegionPicker(
+  crop: Crop,
+  statuses: Statuses | null,
+  query = "",
+): RegionSectionsResult<PickerStation> {
+  const withStatus: PickerStation[] = STATIONS.map((s) => ({
+    ...toStation(s),
+    sido: s.sido,
+    isRepresentative: s.isRepresentative,
+    isActive: s.isActive,
+    status: statuses?.[crop][s.id] ?? null,
+  }));
+  return buildRegionSections(withStatus, query);
 }
 
 export type Observed = { date: string; fetchedAt: string } | null;
