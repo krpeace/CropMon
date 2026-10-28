@@ -8,12 +8,18 @@ import { useEffect, useRef, useState } from "react";
 import {
   CROPS,
   CROP_LABEL,
+  DEFAULT_SOIL,
   parseSelection,
   withSelection,
   type Crop,
   type Selection,
 } from "@/domain/selection";
-import { WATER_STATUS_LABEL } from "@/domain/water-status";
+import {
+  SOIL_WATER_LABEL,
+  soilLegendStatuses,
+  type SoilWaterStatus,
+} from "@/domain/soil-water";
+import { WATER_STATUS_LABEL, type WaterStatus } from "@/domain/water-status";
 import {
   getStation,
   listRegionPicker,
@@ -21,12 +27,55 @@ import {
   STATION_ENTRIES,
   STATION_IDS,
 } from "@/services/shell";
-import type { StationStatuses } from "@/services/station-status";
+import type {
+  AnyWaterStatus,
+  StationStatuses,
+} from "@/services/station-status";
 
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { TABS } from "./pages";
 import { useSheet } from "./sheet-context";
+
+function anyStatusLabel(st: AnyWaterStatus): string {
+  return st in SOIL_WATER_LABEL
+    ? SOIL_WATER_LABEL[st as SoilWaterStatus]
+    : WATER_STATUS_LABEL[st as WaterStatus];
+}
+
+function cropInfo(
+  crop: Crop,
+  statuses: StationStatuses | null,
+  stationId: number = STATION_IDS[0],
+) {
+  if (crop === "common") {
+    return {
+      sub: "토양 물 상태",
+      short: "토양 물",
+      type: "작물 구분 없이 토양의 물 상태 보기",
+      txt: "기준 증발산 ETo로 계산",
+      badge: "",
+    };
+  }
+  if (crop === "apple") {
+    const dormant = statuses?.apple?.[stationId] === "dormant";
+    return {
+      sub: dormant ? "휴면기" : "생육기",
+      short: dormant ? "휴면기" : "생육기",
+      type: "과수 · 후지 기준 · 4월 1일 생육 시작",
+      txt: dormant ? "" : "지금 생육기",
+      badge: dormant ? "휴면기" : "",
+    };
+  }
+  const dormant = statuses?.cabbage?.[stationId] === "dormant";
+  return {
+    sub: dormant ? "작기 아님" : "생육기",
+    short: dormant ? "작기 아님" : "생육기",
+    type: "봄배추 3월 20일 · 가을배추 8월 5일 정식",
+    txt: dormant ? "" : "지금 생육기",
+    badge: dormant ? "작기 아님" : "",
+  };
+}
 
 /**
  * 주소창의 지역·작물을 읽는 헤더. layout 에서 <Suspense> 안에 둔다.
@@ -117,6 +166,14 @@ function SiteHeaderView({
           onClose={close}
         />
       )}
+      {sheet === "crop" && (
+        <CropSheet
+          pathname={pathname}
+          selection={selection}
+          statuses={statuses}
+          onClose={close}
+        />
+      )}
     </>
   );
 }
@@ -131,21 +188,37 @@ function SelectionBar({
   statuses: StationStatuses | null;
 }) {
   const crop = selection?.crop ?? CROPS[0];
-  const chips = listStationChips(crop, statuses);
+  const soil = selection?.soil ?? DEFAULT_SOIL;
+  const chips = listStationChips(crop, statuses, soil);
   const station = selection ? getStation(selection.stationId) : null;
-  const selectedStatus = station
-    ? (statuses?.[crop]?.[station.id] ?? null)
+  const selectedStatus: AnyWaterStatus | null = station
+    ? crop === "common"
+      ? (statuses?.soil?.[soil]?.[station.id] ?? null)
+      : (statuses?.[crop]?.[station.id] ?? null)
     : null;
   const isNonRepSelected = Boolean(station && !station.isRepresentative);
 
   const { open, popover, setPopover } = useSheet();
   const [anchor, setAnchor] = useState<"wide" | "compact">("wide");
   const groupRef = useRef<HTMLDivElement>(null);
+  const cropGroupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (popover !== "region") return;
+    if (!popover) return;
     const onMouseDown = (e: MouseEvent) => {
-      if (groupRef.current && !groupRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        popover === "region" &&
+        groupRef.current &&
+        !groupRef.current.contains(target)
+      ) {
+        setPopover(null);
+      }
+      if (
+        popover === "crop" &&
+        cropGroupRef.current &&
+        !cropGroupRef.current.contains(target)
+      ) {
         setPopover(null);
       }
     };
@@ -160,12 +233,85 @@ function SelectionBar({
     };
   }, [popover, setPopover]);
 
+  const info = cropInfo(crop, statuses, selection?.stationId);
+  const isWinterNow =
+    crop === "common" &&
+    Object.values(statuses?.soil?.[soil] ?? {}).some((v) => v === "winter");
+  const legendItems: { status: AnyWaterStatus; label: string }[] =
+    crop === "common"
+      ? soilLegendStatuses(isWinterNow).map((st) => ({
+          status: st,
+          label: SOIL_WATER_LABEL[st],
+        }))
+      : (["need", "caution", "normal", "wet"] as const).map((st) => ({
+          status: st,
+          label: WATER_STATUS_LABEL[st],
+        }));
+
   return (
     <div className="border-ink-2/12 bg-bg/70 border-t-(length:--hairline)">
       <div className="mx-auto flex max-w-(--page-max) flex-wrap items-center gap-3 px-(--page-gutter) py-2.5">
+        <div
+          ref={cropGroupRef}
+          role="group"
+          aria-label="작물"
+          className="relative flex flex-wrap items-center gap-1.5"
+        >
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={popover === "crop"}
+            onClick={() => {
+              if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                setPopover(null);
+                open("crop");
+              } else {
+                setPopover(popover === "crop" ? null : "crop");
+              }
+            }}
+            className="bg-card text-17 text-ink shadow-hairline flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-bold whitespace-nowrap"
+          >
+            <Icon
+              name="crop"
+              size={20}
+              strokeWidth={2}
+              className="text-brand shrink-0"
+            />
+            <span>{CROP_LABEL[crop]}</span>
+            <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
+              · {info.sub}
+            </span>
+            <span className="text-14 text-ink-2/85 desktop:hidden truncate font-medium">
+              {info.short}
+            </span>
+            <Icon
+              name="chevronDown"
+              size={18}
+              strokeWidth={2.2}
+              className="text-ink-2/70 ml-0.5 shrink-0"
+            />
+          </button>
+          {popover === "crop" && (
+            <div className="rounded-panel bg-card shadow-popover absolute top-[calc(100%+8px)] left-0 z-30 flex w-80 flex-col overflow-hidden p-1.5">
+              <div className="text-13 text-ink-2/85 px-3 pt-2 pb-1 font-bold">
+                작물 고르기
+              </div>
+              <CropPickerBody
+                pathname={pathname}
+                selection={selection}
+                statuses={statuses}
+                onClose={() => setPopover(null)}
+              />
+            </div>
+          )}
+        </div>
+        <span
+          aria-hidden="true"
+          className="bg-ink-2/20 wide:inline mx-0.5 hidden h-6 w-px"
+        />
         <span
           id="region-label"
-          className="text-15 text-ink-2/85 wide:inline hidden font-semibold"
+          className="text-15 text-ink-2/85 sr-only font-semibold"
         >
           지역
         </span>
@@ -185,7 +331,8 @@ function SelectionBar({
                   href={withSelection(pathname, {
                     stationId: chip.id,
                     crop,
-                    kc: selection?.kc, // 지역만 바꾸면 재배 방식은 그대로
+                    kc: selection?.kc,
+                    soil: selection?.soil,
                   })}
                   scroll={false}
                   onClick={() => setPopover(null)}
@@ -203,9 +350,7 @@ function SelectionBar({
                   {chip.name}
                   {/* 색만으로 말하지 않는다: 화면 읽기 도구에는 판정 이름을 읽어 준다 */}
                   <span className="sr-only">
-                    {chip.status
-                      ? WATER_STATUS_LABEL[chip.status]
-                      : "자료 없음"}
+                    {chip.status ? anyStatusLabel(chip.status) : "자료 없음"}
                   </span>
                 </Link>
               );
@@ -243,7 +388,7 @@ function SelectionBar({
                       </span>
                       <span className="sr-only">
                         {selectedStatus
-                          ? WATER_STATUS_LABEL[selectedStatus]
+                          ? anyStatusLabel(selectedStatus)
                           : "자료 없음"}
                       </span>
                     </>
@@ -315,7 +460,7 @@ function SelectionBar({
                 </span>
                 <span className="sr-only">
                   {selectedStatus
-                    ? WATER_STATUS_LABEL[selectedStatus]
+                    ? anyStatusLabel(selectedStatus)
                     : "자료 없음"}
                 </span>
                 <Icon
@@ -340,45 +485,29 @@ function SelectionBar({
             )}
           </div>
         </div>
-        <span
-          aria-hidden="true"
-          className="bg-ink-2/20 wide:inline mx-1.5 hidden h-6 w-px"
-        />
-        <span
-          id="crop-label"
-          className="text-15 text-ink-2/85 wide:inline hidden font-semibold"
-        >
-          작물
-        </span>
-        <div
-          role="group"
-          aria-label="작물"
-          className="bg-fill/14 flex h-10 gap-0.5 rounded-full p-0.75"
-        >
-          {CROPS.map((c) => {
-            const selected = c === selection?.crop;
-            return (
-              <Link
-                key={c}
-                href={withSelection(pathname, {
-                  stationId: selection?.stationId ?? STATION_IDS[0],
-                  crop: c,
-                })}
-                scroll={false}
-                aria-current={selected ? "true" : undefined}
-                className={`text-15 flex items-center rounded-full px-4 font-semibold ${
-                  selected ? "bg-card text-ink shadow-segment" : "text-ink-2/85"
-                }`}
-              >
-                {CROP_LABEL[c]}
-              </Link>
-            );
-          })}
-        </div>
         <span className="flex-1" />
-        <span className="text-13 text-ink-2/75 desktop:inline hidden">
-          점 색은 오늘 물 판정 · 한 번 고르면 모든 메뉴에 적용돼요
-        </span>
+        <div
+          aria-label={`오늘 ${CROP_LABEL[crop]} 물 관리`}
+          className="desktop:flex hidden flex-col items-start gap-0.5"
+        >
+          <span className="text-13 text-ink-2/85 leading-none font-bold whitespace-nowrap">
+            오늘 {CROP_LABEL[crop]} 물 관리
+          </span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            {legendItems.map((lg) => (
+              <span
+                key={lg.status}
+                className="text-12 text-ink-2/85 flex items-center gap-1 whitespace-nowrap"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`size-2 rounded-full ${STATUS_DOT[lg.status]}`}
+                />
+                {lg.label}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -475,8 +604,9 @@ function RegionPickerBody({
   const [activeIndex, setActiveIndex] = useState(0);
 
   const crop: Crop = selection?.crop ?? CROPS[0];
+  const soil = selection?.soil ?? DEFAULT_SOIL;
   const selectedId = selection?.stationId ?? STATION_IDS[0];
-  const { sections } = listRegionPicker(crop, statuses, query);
+  const { sections } = listRegionPicker(crop, statuses, query, soil);
   const flatItems = sections.flatMap((s) => s.items);
 
   useEffect(() => {
@@ -489,6 +619,7 @@ function RegionPickerBody({
         stationId,
         crop,
         kc: selection?.kc,
+        soil: selection?.soil,
       }),
       { scroll: false },
     );
@@ -608,7 +739,7 @@ function RegionPickerBody({
                       <span className="text-13 text-ink-2/75">
                         {item.sido} ·{" "}
                         {item.status
-                          ? WATER_STATUS_LABEL[item.status]
+                          ? anyStatusLabel(item.status)
                           : "자료 없음"}
                       </span>
                       {selected && (
@@ -630,6 +761,133 @@ function RegionPickerBody({
 
       <div className="border-ink-2/12 bg-bg/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2">
         기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중
+      </div>
+    </>
+  );
+}
+
+function CropSheet({
+  pathname,
+  selection,
+  statuses,
+  onClose,
+}: {
+  pathname: string;
+  selection: Selection | null;
+  statuses: StationStatuses | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      className="bg-scrim/28 fixed inset-0 z-40 flex flex-col justify-end"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="작물 고르기"
+        onClick={(e) => e.stopPropagation()}
+        className="rounded-t-sheet bg-card shadow-panel flex max-h-[82vh] w-full flex-col overflow-hidden pt-2 pb-5"
+      >
+        <div className="bg-ink-2/30 mx-auto mt-1 mb-2.5 h-1.25 w-9 rounded-full" />
+        <div className="flex items-center justify-between px-4 pb-2">
+          <span className="text-20 font-bold">작물 고르기</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-16 text-brand min-h-11 cursor-pointer px-2 font-semibold"
+          >
+            닫기
+          </button>
+        </div>
+        <div className="px-2">
+          <CropPickerBody
+            pathname={pathname}
+            selection={selection}
+            statuses={statuses}
+            onClose={onClose}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CropPickerBody({
+  pathname,
+  selection,
+  statuses,
+  onClose,
+}: {
+  pathname: string;
+  selection: Selection | null;
+  statuses: StationStatuses | null;
+  onClose: () => void;
+}) {
+  const currentCrop = selection?.crop ?? CROPS[0];
+  const stationId = selection?.stationId ?? STATION_IDS[0];
+
+  return (
+    <>
+      <div
+        role="listbox"
+        aria-label="작물 목록"
+        className="flex flex-col gap-0.5"
+      >
+        {CROPS.map((c) => {
+          const selected = c === currentCrop;
+          const info = cropInfo(c, statuses, stationId);
+          return (
+            <Link
+              key={c}
+              href={withSelection(pathname, {
+                stationId,
+                crop: c,
+                soil: c === "common" ? selection?.soil : undefined,
+              })}
+              scroll={false}
+              onClick={onClose}
+              aria-current={selected ? "true" : undefined}
+              className={`rounded-input flex items-center justify-between gap-2 px-3 py-2.5 text-left ${
+                selected ? "bg-emerald/14" : "hover:bg-fill/12"
+              }`}
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-17 text-ink font-bold">
+                  {CROP_LABEL[c]}
+                </span>
+                <span className="text-14 text-ink-2/85">{info.type}</span>
+                {info.txt && (
+                  <span className="text-14 text-ink font-semibold">
+                    {info.txt}
+                  </span>
+                )}
+                {info.badge && (
+                  <span className="bg-dormant-bg text-dormant-fg text-13 mt-0.5 self-start rounded-full px-2.25 py-0.5 font-bold whitespace-nowrap">
+                    {info.badge}
+                  </span>
+                )}
+              </div>
+              {selected && (
+                <Icon
+                  name="check"
+                  size={18}
+                  strokeWidth={2.5}
+                  className="text-brand shrink-0"
+                />
+              )}
+            </Link>
+          );
+        })}
+      </div>
+      <div className="border-ink-2/12 text-13 text-ink-2/85 mt-1 border-t-(length:--hairline) px-3 pt-2.5 pb-1.5">
+        한 번 고르면 모든 메뉴에 적용돼요
       </div>
     </>
   );

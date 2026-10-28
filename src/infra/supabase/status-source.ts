@@ -49,6 +49,16 @@ export type WeatherFetchRow = {
   date: string;
   fetched_at: string;
 };
+export type SoilWaterStatusRow = {
+  stn_id: string;
+  soil_code: string;
+  date: string;
+  dr_mm: number | null;
+  taw_mm: number;
+  raw_mm: number;
+  aw_pct: number | null;
+  status: string | null;
+};
 export type ObservedRow = { date: string; fetched_at: string };
 
 export type StatusSource = {
@@ -71,6 +81,8 @@ export type StatusSource = {
   ): Promise<OutlookDayRow[]>;
   /** since 이후 지점별 ASOS 관측 받은 시각 (예보가 없는 지점의 갱신 시각). */
   recentWeather(since: string): Promise<WeatherFetchRow[]>;
+  /** since 이후 지점·토성별 작물 공통 토양 물 상태 (새것부터). */
+  recentSoilWater(since: string): Promise<SoilWaterStatusRow[]>;
   /** 이 지점의 마지막 ASOS 관측일과 받은 시각. 없으면 null. */
   lastObserved(stnId: string): Promise<ObservedRow | null>;
 };
@@ -78,7 +90,7 @@ export type StatusSource = {
 const TIMEOUT_MS = 8000;
 type Result<T> = { data: T | null; error: { message: string } | null };
 
-const NUMERIC = ["raw_mm", "taw_mm", "dr_start_mm", "dr_mm"];
+const NUMERIC = ["raw_mm", "taw_mm", "dr_start_mm", "dr_mm", "aw_pct"];
 
 /** numeric 열이 문자로 와도 수로 바꾼다. */
 function nums<T>(data: T): T {
@@ -173,6 +185,18 @@ export function createStatusSource(
           .select("stn_id,date,fetched_at")
           .gte("date", since)
           .order("date", { ascending: false })
+          .retry(false)
+          .abortSignal(signal()),
+      ),
+    recentSoilWater: (since) =>
+      read<SoilWaterStatusRow[]>(
+        "soil_water_daily",
+        client
+          .from("soil_water_daily")
+          .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")
+          .gte("date", since)
+          .order("date", { ascending: false })
+          .limit(1000)
           .retry(false)
           .abortSignal(signal()),
       ),

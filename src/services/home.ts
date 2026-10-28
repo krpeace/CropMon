@@ -1,34 +1,44 @@
 import { koreanClock } from "@/domain/datetime";
 import { gddNumbers, leadVerdict } from "@/domain/heat";
-import { sunlightStatusLabel, type Selection } from "@/domain/selection";
-import { koreanDate, observedBasis } from "@/domain/water-outlook";
 import {
-  todayBadge,
-  type StatusBadge,
-  type WaterStatus,
-} from "@/domain/water-status";
+  DEFAULT_SOIL,
+  SOIL_LABEL,
+  type SoilCode,
+  sunlightStatusLabel,
+  type Selection,
+} from "@/domain/selection";
+import { SOIL_WATER_DESC, SOIL_WATER_LABEL } from "@/domain/soil-water";
+import { koreanDate, observedBasis } from "@/domain/water-outlook";
+import { todayBadge, type WaterStatus } from "@/domain/water-status";
 import { waterVerdict } from "@/domain/water-verdict";
 import { sunPercent } from "@/domain/sun";
 import { STATIONS } from "@/infra/stations";
 
 import type { HeatLatest, HomeGrowth, SunLatest } from "./growth-latest";
-import type { StationBoard, StationWater } from "./station-status";
+import type {
+  AnyWaterStatus,
+  SoilStationWater,
+  StationBoard,
+  StationWater,
+} from "./station-status";
 
 /**
  * 종합 화면에 필요한 값을 화면용 문구로 정리한다 (결정 0011).
  * 물 판정은 DB 지점 판정 표, 온도·햇빛은 DB 의 마지막 관측일 적산온도·적산일사 (결정 0011·0017).
  */
 
-export type Gauge = { status: WaterStatus; fillPct: number; rawPct: number };
+export type AnyStatusBadge = { status: AnyWaterStatus; label: string };
+
+export type Gauge = { status: AnyWaterStatus; fillPct: number; rawPct: number };
 
 export type HomeView = {
   /** 첫 줄 아래 "갱신 · 지점 · 자료" 한 줄. */
   meta: string;
   water: {
     verdict: string;
-    tone: WaterStatus;
+    tone: AnyWaterStatus;
     /** 판정 배지. 자료가 없으면 null 이고 grayBadge 를 쓴다. */
-    badge: StatusBadge | null;
+    badge: AnyStatusBadge | null;
     grayBadge: string | null;
     /** 숫자 줄. 작기가 아니면 안내 문구. */
     numbers: string;
@@ -45,10 +55,10 @@ export type HomeRow = {
   name: string;
   selected: boolean;
   /** 자료가 없으면 null ("자료 없음"). */
-  badge: StatusBadge | null;
+  badge: AnyStatusBadge | null;
   gauge: Gauge | null;
   drText: string;
-  /** 앞으로 3일. 예보가 없는 지점은 null ("예보 준비 중"). */
+  /** 앞으로 3일. 예보가 없는 지점은 null ("예보 준비 중", 작물 공통은 "—"). */
   days: { label: string; status: WaterStatus }[] | null;
   /** 생육 (적산온도): "3일 빠름". 자료가 없으면 null ("자료 없음"). */
   lead: string | null;
@@ -72,6 +82,15 @@ function gauge(w: StationWater): Gauge | null {
     status: w.status,
     fillPct: Math.max(MIN_FILL_PCT, (w.drMm / w.tawMm) * 100),
     rawPct: (w.rawMm / w.tawMm) * 100,
+  };
+}
+
+function soilGauge(sw: SoilStationWater): Gauge | null {
+  if (sw.awPct == null || sw.status === "winter" || sw.tawMm <= 0) return null;
+  return {
+    status: sw.status,
+    fillPct: Math.max(MIN_FILL_PCT, Math.min(100, sw.awPct)),
+    rawPct: 60,
   };
 }
 
@@ -160,9 +179,58 @@ function tomorrowStatus(w: StationWater, today: string): WaterStatus {
   return w.forecast?.days.find((d) => d.date === t)?.status ?? w.status;
 }
 
+function soilWaterCard(
+  sw: SoilStationWater | null | undefined,
+  soil: SoilCode,
+  ok: boolean,
+  isRepresentative: boolean,
+): HomeView["water"] {
+  if (!sw) {
+    return {
+      verdict: NO_DATA,
+      tone: "dormant",
+      badge: null,
+      grayBadge: NO_DATA,
+      numbers: !ok
+        ? DB_FAILED
+        : isRepresentative
+          ? "이 지역의 물 판정 자료가 아직 없어요"
+          : NON_REP_GUIDE,
+      gauge: null,
+    };
+  }
+  const soilLabel = SOIL_LABEL[soil];
+  if (sw.status === "winter") {
+    return {
+      verdict: SOIL_WATER_DESC.winter,
+      tone: "winter",
+      badge: { status: "winter", label: SOIL_WATER_LABEL.winter },
+      grayBadge: null,
+      numbers: `${soilLabel} 기준`,
+      gauge: null,
+    };
+  }
+  const verdict =
+    sw.awPct != null
+      ? `토양 속 남은 물 ${Math.round(sw.awPct)}%`
+      : SOIL_WATER_DESC[sw.status];
+  const numbers =
+    sw.drMm != null
+      ? `${soilLabel} 기준 · 남은 물 ${mm(sw.tawMm - sw.drMm)} / 담을 수 있는 물 ${mm(sw.tawMm)} mm`
+      : `${soilLabel} 기준`;
+  return {
+    verdict,
+    tone: sw.status,
+    badge: { status: sw.status, label: SOIL_WATER_LABEL[sw.status] },
+    grayBadge: null,
+    numbers,
+    gauge: soilGauge(sw),
+  };
+}
+
 function waterCard(
   w: StationWater | null | undefined,
-  selection: Selection,
+  selection: Selection & { crop: "apple" | "cabbage" },
   today: string,
   ok: boolean,
   isRepresentative: boolean,
@@ -230,12 +298,32 @@ export function getHomeView(
 ): HomeView {
   const today = koreanDate(now().toISOString());
   const { crop } = selection;
+  const soil = selection.soil ?? DEFAULT_SOIL;
   const repStations = STATIONS.filter((s) => s.isRepresentative);
   const activeStations = STATIONS.filter((s) => s.isActive);
   const station =
     activeStations.find((s) => s.id === selection.stationId) ?? repStations[0];
 
   const rows = repStations.map((s): HomeRow => {
+    if (crop === "common") {
+      const sw = board.soil[soil][s.id];
+      return {
+        id: s.id,
+        name: s.name,
+        selected: s.id === station.id,
+        badge: sw
+          ? { status: sw.status, label: SOIL_WATER_LABEL[sw.status] }
+          : null,
+        gauge: sw ? soilGauge(sw) : null,
+        drText:
+          sw?.drMm == null || sw.status === "winter"
+            ? "—"
+            : `${mm(sw.tawMm - sw.drMm)} / ${mm(sw.tawMm)} mm`,
+        days: null,
+        lead: leadShort(growth.heat[s.id]),
+        sunlight: sunShort(growth.sun[s.id]),
+      };
+    }
     const w = board.water[crop][s.id];
     return {
       id: s.id,
@@ -258,15 +346,25 @@ export function getHomeView(
     };
   });
 
+  const water =
+    crop === "common"
+      ? soilWaterCard(
+          board.soil[soil][station.id],
+          soil,
+          board.ok,
+          station.isRepresentative,
+        )
+      : waterCard(
+          board.water[crop][station.id],
+          { ...selection, crop },
+          today,
+          board.ok,
+          station.isRepresentative,
+        );
+
   return {
     meta: metaLine(board, station),
-    water: waterCard(
-      board.water[crop][station.id],
-      selection,
-      today,
-      board.ok,
-      station.isRepresentative,
-    ),
+    water,
     growth: growthCard(
       growth.heat[station.id],
       growth.heatOk,

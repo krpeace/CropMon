@@ -2,6 +2,7 @@ import type { PageKey } from "@/services/shell";
 
 /** 아이콘 선 모양 (시안 그대로, 24×24). */
 export const ICON_PATH = {
+  crop: "M12 20.5V11M12 13c0-4 2.8-7 7.5-7 0 4.2-3 7-7.5 7zM12 14.5c0-3.2-2.4-5.6-6.3-5.6 0 3.3 2.5 5.6 6.3 5.6z",
   home: "M3 10.5 12 3l9 7.5M5.5 8.8V20h4.5v-5.5h4V20h4.5V8.8",
   temperature: "M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0zM12 10v7.5",
   sunlight:

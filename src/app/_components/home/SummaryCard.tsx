@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-import type { StatusBadge as Badge } from "@/domain/water-status";
-import type { Gauge as GaugeValue } from "@/services/home";
+import type { AnyStatusBadge, Gauge as GaugeValue } from "@/services/home";
 
 import { Badge as GrayBadge } from "../ui/Badge";
 import { Gauge } from "../ui/Gauge";
@@ -16,7 +15,7 @@ type Props = {
   numbers: string;
   /** 카드 바탕. 물 카드만 상태 색, 나머지는 흰색. */
   background: string;
-  badge?: Badge;
+  badge?: AnyStatusBadge;
   /** "자료 없음" 처럼 회색 배지. */
   grayBadge?: string;
   gauge?: GaugeValue | null;

@@ -1,4 +1,4 @@
-import type { Crop } from "./selection";
+import { DEFAULT_SOIL, type Crop, type Selection } from "./selection";
 
 /**
  * 물 화면의 3일 전망 표시 규칙. 계산은 croplib-dp 가 하고, 여기서는 DB 값에 이름과 날짜만 붙인다.
@@ -13,6 +13,7 @@ export const FORECAST_CALIBRATED: readonly number[] = [101];
 
 /** 주소창 작물 이름 → DB 작물 번호(crops.crop_id). */
 export const CROP_DB_ID: Record<Crop, string> = {
+  common: "common",
   apple: "apple",
   cabbage: "kimchi_cabbage",
 };
@@ -146,15 +147,19 @@ export function parseWaterQuery(
   };
 }
 
-/** 물 화면 링크: 지역·작물·재배 방식 + 기준 날짜·회차. */
+/** 물 화면 링크: 지역·작물·재배 방식(또는 토성) + 기준 날짜·회차. */
 export function withWaterQuery(
-  s: { stationId: number; crop: Crop; kc?: number },
+  s: Selection,
   q: { date?: string | null; run?: RunHour | null },
 ): string {
-  const kc = s.kc ? `&kc=${s.kc}` : "";
+  const kc = s.crop !== "common" && s.kc ? `&kc=${s.kc}` : "";
+  const soil =
+    s.crop === "common" && s.soil && s.soil !== DEFAULT_SOIL
+      ? `&soil=${s.soil}`
+      : "";
   const d = q.date ? `&d=${q.date}` : "";
   const run = q.run ? `&run=${q.run}` : "";
-  return `/water?st=${s.stationId}&crop=${s.crop}${kc}${d}${run}`;
+  return `/water?st=${s.stationId}&crop=${s.crop}${kc}${soil}${d}${run}`;
 }
 
 /** "2026-10-25" → "10월 25일 (일)" */

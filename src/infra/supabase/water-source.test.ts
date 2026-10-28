@@ -24,6 +24,7 @@ function fakeClient(answer: {
     "select",
     "eq",
     "neq",
+    "gte",
     "lte",
     "order",
     "limit",
@@ -104,5 +105,61 @@ describe("water-source", () => {
     await expect(createWaterSource(client).kcSets("apple")).rejects.toThrow(
       "crop_kc_sets 읽기 실패: permission denied",
     );
+  });
+
+  it("토성 12종(soil_types)을 sort_order 순으로 읽고, 작물 공통 토양 물 상태(soil_water_daily)를 읽는다", async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        {
+          date: "2026-10-24",
+          eto_mm: "3.2",
+          rain_mm: "0",
+          eto_7d_mm: "24.1",
+          rain_7d_mm: "3.0",
+          dp_mm: "0",
+          dr_mm: "33.8",
+          taw_mm: "65",
+          raw_mm: "26",
+          aw_pct: "48",
+          status: "fair",
+          days_to_dry: "4",
+          filled: false,
+        },
+      ],
+      error: null,
+    });
+    const db = createWaterSource(client);
+    await db.soilTypes();
+    const rows = await db.soilWater("101", "loam", "2026-03-01", "2026-10-25");
+    expect(rows).toEqual([
+      {
+        date: "2026-10-24",
+        eto_mm: 3.2,
+        rain_mm: 0,
+        eto_7d_mm: 24.1,
+        rain_7d_mm: 3,
+        dp_mm: 0,
+        dr_mm: 33.8,
+        taw_mm: 65,
+        raw_mm: 26,
+        aw_pct: 48,
+        status: "fair",
+        days_to_dry: 4,
+        filled: false,
+      },
+    ]);
+    expect(calls).toEqual([
+      "from(soil_types)",
+      `select(${JSON.stringify(COLUMNS.soil_types)})`,
+      'order("sort_order")',
+      "from(soil_water_daily)",
+      `select(${JSON.stringify(COLUMNS.soil_water_daily)})`,
+      'eq("stn_id","101")',
+      'eq("soil_code","loam")',
+      'gte("date","2026-03-01")',
+      'lte("date","2026-10-25")',
+      'order("date")',
+      "limit(400)",
+    ]);
   });
 });

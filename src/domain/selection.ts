@@ -1,10 +1,45 @@
-/** 화면에서 고를 수 있는 작물. 주소창에는 영문 값으로 남는다. */
-export const CROPS = ["apple", "cabbage"] as const;
+/** 화면에서 고를 수 있는 작물. 주소창에는 영문 값으로 남는다 (기본값: common 작물 공통). */
+export const CROPS = ["common", "apple", "cabbage"] as const;
 export type Crop = (typeof CROPS)[number];
 
 export const CROP_LABEL: Record<Crop, string> = {
+  common: "작물 공통",
   apple: "사과",
   cabbage: "배추",
+};
+
+/** 작물 공통에서 고를 수 있는 토성 12종 (DB soil_types.sort_order 순). */
+export const SOIL_CODES = [
+  "sand",
+  "loamy_sand",
+  "sandy_loam",
+  "sandy_clay_loam",
+  "loam",
+  "silt_loam",
+  "silt",
+  "clay_loam",
+  "silty_clay_loam",
+  "sandy_clay",
+  "silty_clay",
+  "clay",
+] as const;
+export type SoilCode = (typeof SOIL_CODES)[number];
+
+export const DEFAULT_SOIL: SoilCode = "loam";
+
+export const SOIL_LABEL: Record<SoilCode, string> = {
+  sand: "사토",
+  loamy_sand: "양질사토",
+  sandy_loam: "사양토",
+  sandy_clay_loam: "사질식양토",
+  loam: "양토",
+  silt_loam: "미사질양토",
+  silt: "미사토",
+  clay_loam: "식양토",
+  silty_clay_loam: "미사질식양토",
+  sandy_clay: "사질식토",
+  silty_clay: "미사질식토",
+  clay: "식토",
 };
 
 /**
@@ -20,10 +55,16 @@ export type StationOption = {
 };
 
 /**
- * 지역(관측 지점)과 작물. 주소창 ?st=101&crop=apple 로 모든 메뉴에 이어진다.
- * kc 는 재배 방식 번호(FAO-56 Table 12 순서, DB crop_kc_sets.set_no). 고르지 않았으면 없다(기본 재배 방식).
+ * 지역(관측 지점)과 작물. 주소창 ?st=101&crop=common 로 모든 메뉴에 이어진다.
+ * kc 는 재배 방식 번호(사과·배추에서만, DB crop_kc_sets.set_no).
+ * soil 은 토성 코드(작물 공통에서만, 기본은 양토 loam).
  */
-export type Selection = { stationId: number; crop: Crop; kc?: number };
+export type Selection = {
+  stationId: number;
+  crop: Crop;
+  kc?: number;
+  soil?: SoilCode;
+};
 
 type QueryValue = string | string[] | undefined;
 type Query = URLSearchParams | Record<string, QueryValue>;
@@ -36,6 +77,10 @@ function first(query: Query, key: string): string | undefined {
 
 function isCrop(value: string | undefined): value is Crop {
   return CROPS.some((crop) => crop === value);
+}
+
+export function isSoilCode(value: string | undefined): value is SoilCode {
+  return SOIL_CODES.some((code) => code === value);
 }
 
 function activeAndDefaultIds(stations: readonly (number | StationOption)[]): {
@@ -61,34 +106,58 @@ function activeAndDefaultIds(stations: readonly (number | StationOption)[]): {
 
 /**
  * 주소창 값을 읽는다. 대표 밖 운영 지점(isActive=true)도 그대로 읽고,
- * 사전에 없거나 폐지된 지점(isActive=false)이면 기본 지점(춘천 101)과 사과로 돌린다.
+ * 사전에 없거나 폐지된 지점(isActive=false)이면 기본 지점(춘천 101)과 작물 공통(양토)으로 돌린다.
  */
 export function parseSelection(
   query: Query,
   stations: readonly (number | StationOption)[],
 ): Selection {
   const st = Number(first(query, "st"));
-  const crop = first(query, "crop");
+  const rawCrop = first(query, "crop");
+  const crop: Crop = isCrop(rawCrop) ? rawCrop : CROPS[0];
   const kc = Number(first(query, "kc"));
+  const rawSoil = first(query, "soil");
   const { activeIds, defaultId } = activeAndDefaultIds(stations);
   return {
     stationId: activeIds.includes(st) ? st : defaultId,
-    crop: isCrop(crop) ? crop : CROPS[0],
-    ...(Number.isInteger(kc) && kc >= 1 ? { kc } : {}),
+    crop,
+    ...(crop === "common"
+      ? { soil: isSoilCode(rawSoil) ? rawSoil : DEFAULT_SOIL }
+      : Number.isInteger(kc) && kc >= 1
+        ? { kc }
+        : {}),
   };
 }
 
 /** 주소 뒤에 선택값을 붙인다. 선택값을 아직 모르면 주소만 돌려준다. */
 export function withSelection(path: string, selection: Selection | null) {
   if (!selection) return path;
-  const kc = selection.kc ? `&kc=${selection.kc}` : "";
-  return `${path}?st=${selection.stationId}&crop=${selection.crop}${kc}`;
+  const kc =
+    selection.crop !== "common" && selection.kc ? `&kc=${selection.kc}` : "";
+  const soil =
+    selection.crop === "common" &&
+    selection.soil &&
+    selection.soil !== DEFAULT_SOIL
+      ? `&soil=${selection.soil}`
+      : "";
+  return `${path}?st=${selection.stationId}&crop=${selection.crop}${kc}${soil}`;
 }
 
-/** 자동 전환 순서: 사과로 모든 대표 지점 → 배추로 모든 대표 지점 → 처음으로. */
-function rotationIndex(selection: Selection, stationIds: readonly number[]) {
-  const station = Math.max(0, stationIds.indexOf(selection.stationId));
-  return CROPS.indexOf(selection.crop) * stationIds.length + station;
+/** 마지막 글자의 받침 유무에 따라 보조사 "은"(받침 있음) 또는 "는"(받침 없음)을 돌려준다. */
+export function topicParticle(word: string): "은" | "는" {
+  const trimmed = word.trim();
+  if (!trimmed) return "는";
+  const code = trimmed.charCodeAt(trimmed.length - 1) - 0xac00;
+  return code >= 0 && code <= 11171 && code % 28 !== 0 ? "은" : "는";
+}
+
+/** 종합 화면 첫 질문: 작물 공통이면 "오늘 {지점}은/는 어떤가요?", 작물이면 "오늘 {지점} {작물}은/는 어떤가요?". */
+export function homeQuestion(stationName: string, crop: Crop): string {
+  if (crop === "common") {
+    return `오늘 ${stationName}${topicParticle(stationName)} 어떤가요?`;
+  }
+  const cropName = CROP_LABEL[crop];
+  return `오늘 ${stationName} ${cropName}${topicParticle(cropName)} 어떤가요?`;
 }
 
 /** 대표 10곳 안이면 1부터 순번을 돌려주고, 대표 지점 밖이면 null 이다. */
@@ -96,19 +165,20 @@ export function rotationPosition(
   selection: Selection,
   stationIds: readonly number[],
 ): number | null {
-  if (!stationIds.includes(selection.stationId)) return null;
-  return rotationIndex(selection, stationIds) + 1;
+  const idx = stationIds.indexOf(selection.stationId);
+  return idx < 0 ? null : idx + 1;
 }
 
+/** 자동 전환 순서: 고른 작물·토양·재배 방식은 그대로 두고 대표 지점만 차례로 돈다. */
 export function nextInRotation(
   selection: Selection,
   stationIds: readonly number[],
 ): Selection {
-  const total = CROPS.length * stationIds.length;
-  const next = (rotationIndex(selection, stationIds) + 1) % total;
+  const idx = stationIds.indexOf(selection.stationId);
+  const nextIdx = idx < 0 ? 0 : (idx + 1) % stationIds.length;
   return {
-    stationId: stationIds[next % stationIds.length],
-    crop: CROPS[Math.floor(next / stationIds.length)],
+    ...selection,
+    stationId: stationIds[nextIdx],
   };
 }
 

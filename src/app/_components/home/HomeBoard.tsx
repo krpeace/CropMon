@@ -1,6 +1,10 @@
 import { Suspense } from "react";
 
-import { CROP_LABEL, parseSelection, withSelection } from "@/domain/selection";
+import {
+  homeQuestion,
+  parseSelection,
+  withSelection,
+} from "@/domain/selection";
 import { getHomeView } from "@/services/home";
 import { getStation, STATION_ENTRIES } from "@/services/shell";
 
@@ -51,7 +55,7 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
           className="flex min-w-65 flex-1 flex-col gap-2"
         >
           <h1 className="text-hero leading-hero tracking-hero m-0 font-bold text-pretty">
-            오늘 {station.name} {CROP_LABEL[selection.crop]}는 어떤가요?
+            {homeQuestion(station.name, selection.crop)}
           </h1>
           <div className="text-15 text-ink-2/85 font-semibold">{view.meta}</div>
         </FlipItem>
@@ -115,7 +119,11 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
         </FlipItem>
       </Grid>
 
-      <NationalTable rows={view.rows} crop={selection.crop} />
+      <NationalTable
+        rows={view.rows}
+        crop={selection.crop}
+        soil={selection.soil}
+      />
 
       <FarmPromo href={href("/my-farm")} />
     </>

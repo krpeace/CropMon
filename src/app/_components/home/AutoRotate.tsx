@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
-  CROPS,
   nextInRotation,
   rotationPosition,
   withSelection,
@@ -17,25 +16,25 @@ import { Icon } from "../ui/Icon";
 
 const INTERVAL_MS = 5000;
 
-/** 종합 화면 자동 전환: 5초마다 다음 지역(사과 10곳 → 배추 10곳)으로 바꾼다. 창이 열리면 쉰다. */
+/** 종합 화면 자동 전환: 고른 작물은 그대로 두고 5초마다 다음 대표 지역(10곳)으로 바꾼다. 창이 열리면 쉰다. */
 export function AutoRotate({ selection }: { selection: Selection }) {
   const router = useRouter();
   const { sheet, popover } = useSheet();
   const [auto, setAuto] = useState(true);
   const pos = rotationPosition(selection, STATION_IDS);
   const running = auto && !sheet && !popover && pos !== null;
-  const { stationId, crop } = selection;
+  const { stationId, crop, soil, kc } = selection;
 
   useEffect(() => {
     if (!running) return;
     const timer = setTimeout(() => {
-      const next = nextInRotation({ stationId, crop }, STATION_IDS);
+      const next = nextInRotation({ stationId, crop, soil, kc }, STATION_IDS);
       router.replace(withSelection("/", next), { scroll: false });
     }, INTERVAL_MS);
     return () => clearTimeout(timer);
-  }, [running, stationId, crop, router]);
+  }, [running, stationId, crop, soil, kc, router]);
 
-  const total = CROPS.length * STATION_IDS.length;
+  const total = STATION_IDS.length;
 
   return (
     <div className="flex flex-col items-end gap-2">

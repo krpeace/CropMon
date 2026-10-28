@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { SOIL_CODES, type Crop, type SoilCode } from "@/domain/selection";
 import type { HomeGrowth } from "./growth-latest";
 import { getHomeView } from "./home";
-import type { StationBoard, StationWater } from "./station-status";
+import type {
+  SoilStationWater,
+  StationBoard,
+  StationWater,
+} from "./station-status";
 
 /** 가짜 판정 표. 값은 지어낸 것이다. 오늘 = 2026-10-25. */
 const base: Omit<StationWater, "status" | "drMm" | "forecast"> = {
@@ -35,6 +40,11 @@ const blank = () =>
   Object.fromEntries(
     [101, 216, 119, 131, 129, 146, 156, 136, 192, 189].map((id) => [id, null]),
   );
+const blankSoil = () =>
+  Object.fromEntries(SOIL_CODES.map((c) => [c, blank()])) as Record<
+    SoilCode,
+    Record<number, SoilStationWater | null>
+  >;
 const BOARD: StationBoard = {
   ok: true,
   water: {
@@ -48,6 +58,39 @@ const BOARD: StationBoard = {
         forecast: null,
         seasonStart: "2026-06-01",
         seasonEnd: "2026-09-08",
+      },
+    },
+  },
+  soil: {
+    ...blankSoil(),
+    loam: {
+      ...blank(),
+      101: {
+        status: "fair",
+        awPct: 48,
+        drMm: 33.8,
+        tawMm: 65,
+        rawMm: 26,
+        observedDate: "2026-10-24",
+      },
+      136: {
+        status: "dry",
+        awPct: 25,
+        drMm: 48.75,
+        tawMm: 65,
+        rawMm: 26,
+        observedDate: "2026-10-24",
+      },
+    },
+    sand: {
+      ...blank(),
+      101: {
+        status: "very_dry",
+        awPct: 10,
+        drMm: 27,
+        tawMm: 30,
+        rawMm: 12,
+        observedDate: "2026-10-24",
       },
     },
   },
@@ -74,10 +117,11 @@ const GROWTH: HomeGrowth = {
 };
 const view = (
   stationId: number,
-  crop: "apple" | "cabbage" = "apple",
+  crop: Crop = "apple",
   board = BOARD,
   growth = GROWTH,
-) => getHomeView({ stationId, crop }, board, growth, NOW);
+  soil?: SoilCode,
+) => getHomeView({ stationId, crop, soil }, board, growth, NOW);
 
 describe("종합 화면 물 카드 (DB)", () => {
   it("예보 지점: 판정 문구·배지·숫자·게이지, 첫 줄 갱신은 회차", () => {
@@ -273,6 +317,36 @@ describe("전국 표 생육 칸 (DB)", () => {
     expect(rows.find((r) => r.id === 216)).toMatchObject({
       lead: "한 해 치 넘음",
       sunlight: "105%",
+    });
+  });
+});
+
+describe("종합 화면 작물 공통 (토양 물 상태)", () => {
+  it("물 카드: 토양 5단계 배지 + '토양 속 남은 물 48%' + '양토 기준 · 남은 물 31 / 담을 수 있는 물 65 mm'", () => {
+    const v = view(101, "common");
+    expect(v.water).toEqual({
+      verdict: "토양 속 남은 물 48%",
+      tone: "fair",
+      badge: { status: "fair", label: "보통" },
+      grayBadge: null,
+      numbers: "양토 기준 · 남은 물 31 / 담을 수 있는 물 65 mm",
+      gauge: { status: "fair", fillPct: 48, rawPct: 60 },
+    });
+    expect(v.rows[0]).toMatchObject({
+      id: 101,
+      badge: { status: "fair", label: "보통" },
+      drText: "31 / 65 mm",
+      days: null,
+    });
+  });
+
+  it("토양을 사토(sand)로 바꾸면 사토 기준으로 바뀐다", () => {
+    const v = view(101, "common", BOARD, GROWTH, "sand");
+    expect(v.water).toMatchObject({
+      verdict: "토양 속 남은 물 10%",
+      tone: "very_dry",
+      badge: { status: "very_dry", label: "매우 건조" },
+      numbers: "사토 기준 · 남은 물 3 / 담을 수 있는 물 30 mm",
     });
   });
 });

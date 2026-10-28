@@ -107,3 +107,77 @@ test("물: 춘천 밖 예보 지점은 예보 범위가 검증 전이라고 알�
   await expect(outlook(page)).toContainText("02시 예보 기준");
   await expect(outlook(page)).not.toContainText("검증 전");
 });
+
+test("물(작물 공통): 토양 물 상태 카드·건조 예상일·토양 변경·추정값·겨울철·390폭", async ({
+  page,
+}) => {
+  await page.goto("/water?st=101&crop=common");
+
+  await expect(now(page)).toContainText("보통");
+  await expect(now(page)).toContainText("토양 속 남은 물 48%");
+  await expect(now(page)).toContainText("남은 물 31 / 담을 수 있는 물 65 mm");
+  await expect(now(page)).toContainText(
+    "물이 줄고 있지만 아직 부족하지 않아요.",
+  );
+  await expect(now(page)).toContainText(
+    "비가 오지 않으면 약 6일 뒤 건조 단계에 들어가요.",
+  );
+  await expect(now(page)).toContainText("최근 7일: 비 3 mm · 증발 수요 24 mm");
+  await expect(
+    page.getByText(
+      "※ 작물과 관계없이 겉토양 50 cm만 본 값이에요. 작물별 관수 판단은 작물을 고르세요.",
+    ),
+  ).toBeVisible();
+  await expect(outlook(page)).toContainText(
+    "작물 공통은 앞으로 3일 전망을 아직 제공하지 않아요.",
+  );
+
+  // 토양을 사토로 바꾸면 값이 바뀐다
+  await now(page)
+    .getByRole("button", { name: /계산에 쓴 토양: 양토/ })
+    .click();
+  const soilList = now(page).getByRole("listbox", { name: "토양 고르기" });
+  await expect(
+    soilList.getByRole("option", { name: /사질식양토.*추정값/ }),
+  ).toBeVisible();
+  await soilList.getByRole("option", { name: /^사토$/ }).click();
+
+  await expect(page).toHaveURL(/\/water\?st=101&crop=common&soil=sand$/);
+  await expect(now(page)).toContainText("건조");
+  await expect(now(page)).toContainText("토양 속 남은 물 20%");
+  await expect(now(page)).toContainText("남은 물 6 / 담을 수 있는 물 30 mm");
+
+  // 추정값 토양(사질식양토)을 고르면 '추정값' 배지와 Saxton & Rawls 문구가 보인다
+  await now(page)
+    .getByRole("button", { name: /계산에 쓴 토양: 사토/ })
+    .click();
+  await now(page)
+    .getByRole("listbox", { name: "토양 고르기" })
+    .getByRole("option", { name: /^사질식양토/ })
+    .click();
+  await expect(page).toHaveURL(
+    /\/water\?st=101&crop=common&soil=sandy_clay_loam$/,
+  );
+  await expect(
+    now(page).getByRole("button", {
+      name: /계산에 쓴 토양: 사질식양토.*추정값/,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Saxton & Rawls \(2006\) 식으로 추정한 값이에요/),
+  ).toBeVisible();
+
+  // 겨울 날짜(1월)로 가면 '겨울철' 판정이 나온다
+  await page.goto("/water?st=101&crop=common&d=2026-01-15");
+  await expect(now(page)).toContainText("겨울철");
+  await expect(now(page)).toContainText("12~2월은 판정하지 않아요.");
+
+  // 휴대폰 폭(390)에서 옆으로 넘치지 않는다
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/water?st=101&crop=common");
+  await expect(now(page)).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

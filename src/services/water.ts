@@ -1,5 +1,20 @@
 import { koreanClock } from "@/domain/datetime";
-import type { Selection } from "@/domain/selection";
+import {
+  DEFAULT_SOIL,
+  isSoilCode,
+  SOIL_CODES,
+  SOIL_LABEL,
+  type Selection,
+  type SoilCode,
+} from "@/domain/selection";
+import {
+  isSoilWaterStatus,
+  isWinterDate,
+  soilBasisText,
+  soilDaysToDryText,
+  soilWaterStatusInfo,
+  type SoilWaterStatus,
+} from "@/domain/soil-water";
 import {
   addDays,
   CROP_DB_ID,
@@ -33,6 +48,8 @@ import {
   type BalanceRow,
   type OutlookRow,
   type RunRow,
+  type SoilTypeRow,
+  type SoilWaterRow,
   type WaterSource,
 } from "@/infra/supabase/water-source";
 
@@ -131,12 +148,39 @@ export type SeasonDay = {
   status: WaterStatus;
 };
 
+export type SoilOption = {
+  code: SoilCode;
+  name: string;
+  isEstimated: boolean;
+  selected: boolean;
+};
+
+export type CommonNowCard = {
+  basis: string;
+  status: SoilWaterStatus | null;
+  badgeLabel: string;
+  headline: string;
+  description: string;
+  active: boolean;
+  awPct: number | null;
+  remainMm: number | null;
+  tawMm: number;
+  recent7dText: string | null;
+  daysToDryText: string | null;
+  soilCode: SoilCode;
+  soilName: string;
+  isEstimated: boolean;
+  basisText: string;
+};
+
 export type WaterView = {
   meta: PageMeta;
   cultivation: Cultivation[];
+  soils: SoilOption[];
   scenarioId: string | null;
   day: DayNav | null;
   now: NowCard | null;
+  commonNow: CommonNowCard | null;
   outlook: OutlookCard | null;
   season: SeasonDay[];
   months: MonthRow[];
@@ -224,9 +268,11 @@ function empty(meta: PageMeta, problem: string | null): WaterView {
   return {
     meta,
     cultivation: [],
+    soils: [],
     scenarioId: null,
     day: null,
     now: null,
+    commonNow: null,
     outlook: null,
     season: [],
     months: [],
@@ -268,6 +314,159 @@ function pickRun(runs: RunRow[], today: string, want: RunHour | null) {
   return { run, todays };
 }
 
+function buildSoils(rows: SoilTypeRow[], selected: SoilCode): SoilOption[] {
+  if (rows.length > 0) {
+    return rows
+      .filter((r): r is SoilTypeRow & { soil_code: SoilCode } =>
+        isSoilCode(r.soil_code),
+      )
+      .map((r) => ({
+        code: r.soil_code,
+        name: r.name_ko,
+        isEstimated: r.is_estimated,
+        selected: r.soil_code === selected,
+      }));
+  }
+  const estimated = new Set<SoilCode>([
+    "sandy_clay_loam",
+    "clay_loam",
+    "sandy_clay",
+  ]);
+  return SOIL_CODES.map((code) => ({
+    code,
+    name: SOIL_LABEL[code],
+    isEstimated: estimated.has(code),
+    selected: code === selected,
+  }));
+}
+
+function buildCommonNow(
+  row: SoilWaterRow | undefined,
+  date: string,
+  today: string,
+  soilCode: SoilCode,
+  soils: SoilOption[],
+): CommonNowCard {
+  const selectedSoil = soils.find((s) => s.selected);
+  const soilName = selectedSoil?.name ?? SOIL_LABEL[soilCode];
+  const isEstimated = selectedSoil?.isEstimated ?? false;
+  const basisText = soilBasisText(isEstimated);
+  const isToday = date === today;
+  const rawStatus = row && isSoilWaterStatus(row.status) ? row.status : null;
+  const st: SoilWaterStatus | null =
+    rawStatus ?? (isWinterDate(date) ? "winter" : null);
+  const info = soilWaterStatusInfo(st);
+  const basis = row
+    ? isToday
+      ? observedBasis(row.date, today)
+      : "관측 물수지"
+    : "관측 물수지";
+  const active =
+    st != null &&
+    st !== "winter" &&
+    row != null &&
+    row.aw_pct != null &&
+    row.dr_mm != null;
+  const headline =
+    st === "winter"
+      ? info.description
+      : active && row?.aw_pct != null
+        ? `토양 속 남은 물 ${mm(row.aw_pct)}%`
+        : info.label;
+  const remainMm =
+    active && row?.dr_mm != null ? mm(row.taw_mm - row.dr_mm) : null;
+  const recent7dText =
+    active && row && (row.rain_7d_mm != null || row.eto_7d_mm != null)
+      ? `최근 7일: 비 ${orDash(row.rain_7d_mm, (v) => `${mm(v)} mm`)} · 증발 수요 ${orDash(row.eto_7d_mm, (v) => `${mm(v)} mm`)}`
+      : null;
+  return {
+    basis,
+    status: st,
+    badgeLabel: info.label,
+    headline,
+    description: info.description,
+    active,
+    awPct: active && row?.aw_pct != null ? mm(row.aw_pct) : null,
+    remainMm,
+    tawMm: row ? mm(row.taw_mm) : 65,
+    recent7dText,
+    daysToDryText: soilDaysToDryText(st, row?.days_to_dry ?? null),
+    soilCode,
+    soilName,
+    isEstimated,
+    basisText,
+  };
+}
+
+async function readCommonView(
+  selection: Selection,
+  station: Station,
+  query: WaterQuery,
+  db: WaterSource,
+  at: Date,
+): Promise<WaterView> {
+  const today = koreanDate(at.toISOString());
+  const year = Number(today.slice(0, 4));
+  const stnId = String(station.id);
+  const soilCode = selection.soil ?? DEFAULT_SOIL;
+
+  const [soilTypeRows, soilRows, runs] = await Promise.all([
+    db.soilTypes(),
+    db.soilWater(stnId, soilCode, `${year}-01-01`, today),
+    db.recentRuns(stnId, 4),
+  ]);
+  const { run } = pickRun(runs, today, query.run);
+  const meta = waterMeta(station, run);
+  const soils = buildSoils(soilTypeRows, soilCode);
+
+  if (soilRows.length === 0) {
+    return {
+      ...empty(
+        meta,
+        station.isRepresentative === false
+          ? "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요"
+          : `이 지역·토양의 ${year} 물 계산 자료가 아직 없어요.`,
+      ),
+      soils,
+    };
+  }
+
+  const byDate = new Map(soilRows.map((r) => [r.date, r]));
+  const min = soilRows[0]!.date;
+  const date =
+    query.date && query.date >= min ? query.date : query.date ? min : today;
+  const isToday = date === today;
+  const day: DayNav = {
+    date,
+    today,
+    isToday,
+    label: `${dayLabel(date)}${isToday ? " 오늘" : ""}`,
+    prev: date > min ? addDays(date, -1) : null,
+    next: isToday ? null : addDays(date, 1),
+    min,
+  };
+  const targetRow = isToday
+    ? (byDate.get(today) ?? soilRows.at(-1))
+    : byDate.get(date);
+  const commonNow = buildCommonNow(targetRow, date, today, soilCode, soils);
+
+  return {
+    meta,
+    cultivation: [],
+    soils,
+    scenarioId: null,
+    day,
+    now: null,
+    commonNow,
+    outlook: null,
+    season: [],
+    months: [],
+    rawMm: targetRow?.raw_mm ?? null,
+    tawMm: targetRow?.taw_mm ?? null,
+    problem: null,
+  };
+}
+
 async function readView(
   selection: Selection,
   station: Station,
@@ -275,6 +474,9 @@ async function readView(
   db: WaterSource,
   at: Date,
 ): Promise<WaterView> {
+  if (selection.crop === "common") {
+    return readCommonView(selection, station, query, db, at);
+  }
   const today = koreanDate(at.toISOString());
   const year = Number(today.slice(0, 4));
   const stnId = String(station.id);
@@ -356,9 +558,13 @@ async function readView(
   return {
     meta,
     cultivation,
+    soils: [],
     scenarioId: id,
     day,
-    now: isToday ? nowToday(ctx) : nowPast(ctx),
+    now: isToday
+      ? nowToday({ ...ctx, crop: selection.crop })
+      : nowPast({ ...ctx, crop: selection.crop }),
+    commonNow: null,
     outlook: isToday ? outlookToday(ctx) : outlookPast(ctx),
     season,
     months: monthlySummary(season),
@@ -370,6 +576,7 @@ async function readView(
 
 type Ctx = {
   selection: Selection;
+  crop?: "apple" | "cabbage";
   scenario: { season_start: string; season_end: string };
   raw: number;
   taw: number;
@@ -408,7 +615,7 @@ function card(
     needIn,
     forecast,
     past: c.date !== c.today,
-    crop: c.selection.crop,
+    crop: c.crop ?? "apple",
     seasonStart: c.scenario.season_start,
     seasonEnd: c.scenario.season_end,
     date: c.date,
