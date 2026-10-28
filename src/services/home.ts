@@ -212,10 +212,11 @@ export function getHomeView(
 ): HomeView {
   const today = koreanDate(now().toISOString());
   const { crop } = selection;
+  const repStations = STATIONS.filter((s) => s.isRepresentative);
   const station =
-    STATIONS.find((s) => s.id === selection.stationId) ?? STATIONS[0];
+    repStations.find((s) => s.id === selection.stationId) ?? repStations[0];
 
-  const rows = STATIONS.map((s): HomeRow => {
+  const rows = repStations.map((s): HomeRow => {
     const w = board.water[crop][s.id];
     return {
       id: s.id,

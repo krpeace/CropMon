@@ -16,6 +16,7 @@ const read = (name: string) =>
   readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8");
 const SEED_V1 = read("20261024010000_seed_dictionaries.sql");
 const SEED_V1_1 = read("20261024030000_seed_kc_sets.sql");
+const SEED_V1_6 = read("20261028030000_seed_stations_asos.sql");
 const SEED = `${SEED_V1}\n${SEED_V1_1}`;
 
 type Value = string | number | boolean | null;
@@ -62,8 +63,8 @@ function parseTuple(text: string): Value[] {
 }
 
 /** insert into public.<table> (열...) values (...), (...) on conflict ... 를 행 목록으로. */
-function rowsOf(table: string): Row[] {
-  const m = SEED.match(
+function rowsOf(table: string, sql = SEED): Row[] {
+  const m = sql.match(
     new RegExp(
       `insert into public\\.${table} \\(([^)]*)\\)\\s*values\\s*([\\s\\S]*?)\\non conflict`,
     ),
@@ -81,7 +82,8 @@ function rowsOf(table: string): Row[] {
     });
 }
 
-const stations = rowsOf("stations");
+const stations = rowsOf("stations", SEED_V1);
+const asosStations = rowsOf("stations", SEED_V1_6);
 const crops = rowsOf("crops");
 const seasons = rowsOf("crop_seasons");
 const soils = rowsOf("soil_types");
@@ -94,12 +96,133 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const VALID_SIDOS = new Set([
+  "서울",
+  "부산",
+  "대구",
+  "인천",
+  "광주",
+  "대전",
+  "울산",
+  "세종",
+  "경기",
+  "강원",
+  "충북",
+  "충남",
+  "전북",
+  "전남",
+  "경북",
+  "경남",
+  "제주",
+]);
+
 describe("사전 자료: 지점", () => {
-  it("화면 지점 사전(src/infra/stations.ts)과 같은 10곳을 같은 이름·순서로 넣는다", () => {
+  it("초기 사전 자료(v1)는 화면 지점 사전의 대표 10곳과 같은 이름·순서로 넣는다", () => {
     const rows = [...stations]
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
       .map((r) => [r.stn_id, r.name_ko]);
-    expect(rows).toEqual(STATIONS.map((s) => [String(s.id), s.name]));
+    expect(rows).toEqual(
+      STATIONS.filter((s) => s.isRepresentative).map((s) => [
+        String(s.id),
+        s.name,
+      ]),
+    );
+  });
+
+  it("v1.6: 마이그레이션 SQL ↔ stations.ts 105곳의 번호·이름·시도·대표·운영·일사 여부가 순서대로 일치한다", () => {
+    expect(STATIONS).toHaveLength(105);
+    expect(asosStations).toHaveLength(105);
+    const sorted = [...asosStations].sort(
+      (a, b) => Number(a.sort_order) - Number(b.sort_order),
+    );
+    expect(
+      sorted.map((r) => [
+        r.stn_id,
+        r.name_ko,
+        r.sido,
+        r.is_representative,
+        r.is_active,
+        r.measures_sunlight,
+      ]),
+    ).toEqual(
+      STATIONS.map((s) => [
+        String(s.id),
+        s.name,
+        s.sido,
+        s.isRepresentative,
+        s.isActive,
+        s.measuresSunlight,
+      ]),
+    );
+  });
+
+  it("v1.6: 중복 번호가 없고 대표 지점은 정확히 10곳이며, 나머지는 가나다순이다", () => {
+    expect(new Set(STATIONS.map((s) => s.id)).size).toBe(105);
+    expect(new Set(asosStations.map((r) => r.stn_id)).size).toBe(105);
+    expect(
+      [...asosStations].map((r) => Number(r.sort_order)).sort((a, b) => a - b),
+    ).toEqual(Array.from({ length: 105 }, (_, i) => i + 1));
+
+    const reps = STATIONS.slice(0, 10);
+    const others = STATIONS.slice(10);
+    expect(reps.every((s) => s.isRepresentative)).toBe(true);
+    expect(others.every((s) => !s.isRepresentative)).toBe(true);
+    expect(STATIONS.filter((s) => s.isRepresentative)).toHaveLength(10);
+
+    const sortedOthers = [...others].sort(
+      (a, b) => a.name.localeCompare(b.name, "ko") || a.id - b.id,
+    );
+    expect(others.map((s) => s.id)).toEqual(sortedOthers.map((s) => s.id));
+  });
+
+  it("v1.6: 현행 운영 지점은 97곳, 폐지·휴지 보존 지점은 8곳이다", () => {
+    expect(STATIONS.filter((s) => s.isActive)).toHaveLength(97);
+    expect(
+      STATIONS.filter((s) => !s.isActive)
+        .map((s) => s.id)
+        .sort((a, b) => a - b),
+    ).toEqual([116, 164, 175, 176, 187, 214, 256, 265]);
+  });
+
+  it("v1.6: 기존 대표 10곳의 좌표·고도·풍속계 높이·격자·예보 수집 여부는 그대로 유지된다", () => {
+    for (const r0 of stations) {
+      const r1 = asosStations.find((x) => x.stn_id === r0.stn_id);
+      expect(r1, String(r0.stn_id)).toBeDefined();
+      expect([
+        r1?.name_ko,
+        r1?.lat,
+        r1?.lon,
+        r1?.elev_m,
+        r1?.wind_height_m,
+        r1?.grid_nx,
+        r1?.grid_ny,
+        r1?.has_forecast,
+        r1?.is_representative,
+        r1?.is_active,
+        r1?.sort_order,
+      ]).toEqual([
+        r0.name_ko,
+        r0.lat,
+        r0.lon,
+        r0.elev_m,
+        r0.wind_height_m,
+        r0.grid_nx,
+        r0.grid_ny,
+        true,
+        true,
+        true,
+        r0.sort_order,
+      ]);
+    }
+    for (const r of asosStations.filter((x) => !x.is_representative)) {
+      expect([
+        r.stn_id,
+        r.grid_nx,
+        r.grid_ny,
+        r.has_forecast,
+        r.measures_sunlight,
+      ]).toEqual([r.stn_id, null, null, false, null]);
+    }
   });
 
   it("처음 사전 자료에서는 예보 수집이 춘천(101)만이다", () => {
@@ -128,14 +251,21 @@ describe("사전 자료: 지점", () => {
     expect([chuncheon?.grid_nx, chuncheon?.grid_ny]).toEqual([73, 134]);
   });
 
-  it("좌표는 한국 안, 풍속계 높이는 0보다 크다", () => {
-    for (const r of stations) {
-      expect(Number(r.lat)).toBeGreaterThan(33);
-      expect(Number(r.lat)).toBeLessThan(39);
-      expect(Number(r.lon)).toBeGreaterThan(124);
-      expect(Number(r.lon)).toBeLessThan(132);
-      expect(Number(r.wind_height_m)).toBeGreaterThan(0);
+  it("좌표는 한국 안, 풍속계 높이는 0보다 크고, 시·도 약칭과 동기화 시각이 있다", () => {
+    for (const r of [...stations, ...asosStations]) {
+      expect(Number(r.lat), String(r.stn_id)).toBeGreaterThan(33);
+      expect(Number(r.lat), String(r.stn_id)).toBeLessThan(39);
+      expect(Number(r.lon), String(r.stn_id)).toBeGreaterThan(124);
+      expect(Number(r.lon), String(r.stn_id)).toBeLessThan(132);
+      expect(Number(r.wind_height_m), String(r.stn_id)).toBeGreaterThan(0);
     }
+    for (const r of asosStations) {
+      expect(VALID_SIDOS.has(String(r.sido)), String(r.stn_id)).toBe(true);
+      expect(String(r.synced_at)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    }
+    expect(SEED_V1_6).toMatch(
+      /insert into public\.stations [\s\S]*?on conflict \(stn_id\) do update set/,
+    );
   });
 });
 

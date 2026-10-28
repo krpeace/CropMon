@@ -71,8 +71,35 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.5 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.5\b/);
+  it("계약서의 현재 버전이 v1.6 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.6\b/);
+  });
+
+  it("지점 사전에 시도·대표 여부·운영 여부·일사 관측·동기화 시각 열이 있다 (v1.6)", () => {
+    expect(SQL).toMatch(
+      /alter table public\.stations\s+add column if not exists sido text/,
+    );
+    expect(SQL).toMatch(
+      /alter table public\.stations\s+add column if not exists is_representative boolean not null default false/,
+    );
+    expect(SQL).toMatch(
+      /alter table public\.stations\s+add column if not exists is_active boolean not null default true/,
+    );
+    expect(SQL).toMatch(
+      /alter table public\.stations\s+add column if not exists measures_sunlight boolean/,
+    );
+    expect(SQL).toMatch(
+      /alter table public\.stations\s+add column if not exists synced_at timestamptz/,
+    );
+    for (const col of [
+      "sido",
+      "is_representative",
+      "is_active",
+      "measures_sunlight",
+      "synced_at",
+    ]) {
+      expect(CONTRACT).toContain(`\`${col}\``);
+    }
   });
 
   const bodyOf = (table: string) =>

@@ -37,6 +37,7 @@ export type HomeGrowth = {
 
 /** 어제 값이 없는 지점은 이만큼 거슬러 올라가 마지막 관측일을 찾는다. */
 const LOOKBACK_DAYS = 14;
+const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
 
 /** 어제 + 빠진 지점 보충. 지점마다 올해 값(has)이 있는 마지막 줄을 남긴다. */
 async function latestRows<T extends { stn_id: string }>(
@@ -46,7 +47,7 @@ async function latestRows<T extends { stn_id: string }>(
   recent: (ids: string[], from: string, until: string) => Promise<T[]>,
 ): Promise<Map<string, T>> {
   const yesterday = addDays(today, -1);
-  const ids = STATIONS.map((s) => String(s.id));
+  const ids = REP_STATIONS.map((s) => String(s.id));
   const found = new Map<string, T>();
   for (const r of await onDate(ids, yesterday))
     if (has(r)) found.set(r.stn_id, r);
@@ -67,7 +68,7 @@ export async function readHeatLatest(
   today: string,
   { annual = false }: { annual?: boolean } = {},
 ): Promise<Record<number, HeatLatest>> {
-  const ids = STATIONS.map((s) => String(s.id));
+  const ids = REP_STATIONS.map((s) => String(s.id));
   const [rows, yearEnd] = await Promise.all([
     latestRows<HeatLatestRow>(
       today,

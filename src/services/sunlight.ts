@@ -170,7 +170,7 @@ async function readCompare(
     if (!db) throw new Error("DB 연결 정보 없음");
     const found = await readSunLatest(db, today);
     return {
-      compare: STATIONS.map((s) => {
+      compare: STATIONS.filter((s) => s.isRepresentative).map((s) => {
         const r = found[s.id];
         const pct = sunPercent(r?.cum ?? null, r?.normal ?? null);
         return {

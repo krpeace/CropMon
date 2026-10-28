@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### 추가 (데이터 계약 v1.6 — 기상청 ASOS 105곳 지점 사전 현행화 — 이슈 #38)
+
+- DB 구조(데이터 계약)를 v1.5 → v1.6으로 판올림:
+  - `public.stations`에 지역 고르기·현행화용 열 5개 추가 (`sido`, `is_representative`, `is_active`, `measures_sunlight`, `synced_at`) — `supabase/migrations/20261028020000_data_contract_v1_6.sql`
+  - 기상청 ASOS 105곳(현행 운영 97곳 + 폐지·휴지 보존 8곳, `krpeace/croplib-dp#30` 결과) 사전 자료 반영 — `supabase/migrations/20261028030000_seed_stations_asos.sql`
+  - 대표 10곳은 기존 순서(1~10)·좌표·고도·풍속계 높이·예보 격자·`has_forecast = true`를 그대로 유지하고, 나머지 95곳은 가나다순(11~105)으로 등록(`has_forecast = false`, 격자·일사 여부 빈 칸)
+- 화면 지점 사전(`src/infra/stations.ts`)을 105곳(`id, name, sido, isRepresentative, isActive, measuresSunlight`)으로 확장하고, 대표 10곳만 필요한 화면(지역 칩·자동 전환·종합 표·온도/햇빛 지역 비교·기본 지점)은 `isRepresentative`로 거름
+- 계약·사전 검증 테스트(`contract.test.ts`, `seed.test.ts`, `shell.test.ts`) 갱신 및 결정 기록 `docs/decisions/0021-station-sync.md` 추가
+
 ### 추가 (데이터 계약 v1.5 — 작물 공통 토양 물 상태 표와 추정 토성 3종 — 이슈 #35)
 
 - DB 구조(데이터 계약)를 v1.4 → v1.5로 판올림:
