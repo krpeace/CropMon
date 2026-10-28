@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 import { parseSelection, withSelection } from "@/domain/selection";
-import { STATION_IDS } from "@/services/shell";
+import { STATION_ENTRIES } from "@/services/shell";
 
 import { useSheet } from "./sheet-context";
 
@@ -28,13 +28,13 @@ export function Sheets() {
   const { sheet, close } = useSheet();
 
   useEffect(() => {
-    if (!sheet) return;
+    if (!sheet || sheet === "station") return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [sheet, close]);
 
-  if (!sheet) return null;
+  if (!sheet || sheet === "station") return null;
 
   return (
     <div
@@ -70,7 +70,7 @@ function CloseButton() {
 
 function LoginSheet() {
   const { close } = useSheet();
-  const selection = parseSelection(useSearchParams(), STATION_IDS);
+  const selection = parseSelection(useSearchParams(), STATION_ENTRIES);
   return (
     <div className="flex flex-col items-center gap-3 pt-2 pb-1 text-center">
       <Image

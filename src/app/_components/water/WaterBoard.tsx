@@ -8,7 +8,7 @@ import {
   parseWaterQuery,
   withWaterQuery,
 } from "@/domain/water-outlook";
-import { getStation, STATION_IDS } from "@/services/shell";
+import { getStation, STATION_ENTRIES } from "@/services/shell";
 import { getWaterView, type WaterView } from "@/services/water";
 
 import { MetaBox } from "../shell/MetaBox";
@@ -39,7 +39,7 @@ export function WaterBoard({ searchParams }: Props) {
 
 async function ResolvedWaterBoard({ searchParams }: Props) {
   const params = await searchParams;
-  const selection = parseSelection(params, STATION_IDS);
+  const selection = parseSelection(params, STATION_ENTRIES);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page="water" meta={null} />;
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)

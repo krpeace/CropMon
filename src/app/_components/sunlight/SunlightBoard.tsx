@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { parseSelection } from "@/domain/selection";
-import { getPageMeta, getStation, STATION_IDS } from "@/services/shell";
+import { getPageMeta, getStation, STATION_ENTRIES } from "@/services/shell";
 import { getSunlightView } from "@/services/sunlight";
 
 import { MetaBox } from "../shell/MetaBox";
@@ -35,7 +35,7 @@ export function SunlightBoard({ searchParams }: Props) {
 }
 
 async function ResolvedSunlightBoard({ searchParams }: Props) {
-  const selection = parseSelection(await searchParams, STATION_IDS);
+  const selection = parseSelection(await searchParams, STATION_ENTRIES);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page="sunlight" meta={null} />;
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)

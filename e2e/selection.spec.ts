@@ -103,3 +103,104 @@ test("온도 화면 자료 상자는 ASOS 관측을 받은 실제 시각", async
     "자료 없음",
   );
 });
+
+test("지역 고르기에서 비대표 지점(홍천 212)을 검색해 고르고 새로고침해도 유지된다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/?st=101&crop=apple");
+
+  const pickerBtn = region(page).getByRole("button", { name: /지역 고르기/ });
+  await expect(pickerBtn).toBeVisible();
+  await pickerBtn.click();
+
+  const searchInput = page.getByRole("searchbox", { name: "지역 검색" });
+  await expect(searchInput).toBeFocused();
+  await searchInput.fill("홍천");
+  await searchInput.press("Enter");
+
+  await expect(page).toHaveURL(/\/\?st=212&crop=apple$/);
+  const selectedBtn = region(page).getByRole("button", { name: /홍천 212/ });
+  await expect(selectedBtn).toHaveAttribute("aria-current", "true");
+
+  await page.reload();
+  await expect(
+    region(page).getByRole("button", { name: /홍천 212/ }),
+  ).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "오늘 홍천 사과는 어떤가요?",
+  );
+  await expect(page.getByText("대표 지점 밖")).toBeVisible();
+
+  await expect(
+    page.getByText("이 지점은 아직 물 계산을 하지 않아요").first(),
+  ).toBeVisible();
+
+  await page.goto("/water?st=212&crop=apple");
+  await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(
+    "자료 없음",
+  );
+  await expect(
+    page.getByText("이 지점은 아직 물 계산을 하지 않아요"),
+  ).toBeVisible();
+
+  await page.goto("/temperature?st=212&crop=apple");
+  await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(
+    "자료 없음",
+  );
+  await expect(
+    page.getByText("이 지점은 아직 물 계산을 하지 않아요"),
+  ).toBeVisible();
+
+  await region(page).getByRole("link", { name: "춘천" }).click();
+  await expect(page).toHaveURL(/\/temperature\?st=101&crop=apple$/);
+  await expect(
+    region(page).getByRole("button", { name: /지역 고르기/ }),
+  ).toBeVisible();
+});
+
+test("1280 미만 뷰포트에서는 대표 10개 칩이 숨고 단일 지역 버튼이 열린다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto("/?st=101&crop=apple");
+
+  await expect(region(page).getByRole("link", { name: "춘천" })).toBeHidden();
+  const compactBtn = region(page).getByRole("button", {
+    name: /지역 · 춘천 101/,
+  });
+  await expect(compactBtn).toBeVisible();
+  await compactBtn.click();
+  await expect(
+    page.getByRole("listbox", { name: "관측 지점 목록" }),
+  ).toBeVisible();
+});
+
+test("모바일 390×844 뷰포트에서 바닥 시트로 지역을 고르고 가로 넘침이 없다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?st=101&crop=apple");
+
+  const hasOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(hasOverflow).toBe(false);
+
+  const compactBtn = region(page).getByRole("button", {
+    name: /지역 · 춘천 101/,
+  });
+  await expect(compactBtn).toBeVisible();
+  await compactBtn.click();
+
+  const dialog = page.getByRole("dialog", { name: "지역 고르기" });
+  await expect(dialog).toBeVisible();
+  const listbox = dialog.getByRole("listbox", { name: "관측 지점 목록" });
+  await expect(listbox).toBeVisible();
+
+  await dialog.getByRole("searchbox", { name: "지역 검색" }).fill("홍천");
+  await listbox.getByRole("option", { name: /홍천/ }).click();
+
+  await expect(page).toHaveURL(/\/\?st=212&crop=apple$/);
+  await expect(dialog).toBeHidden();
+});

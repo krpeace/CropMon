@@ -1,6 +1,8 @@
 // 화면 테스트용 가짜 Supabase (PostgREST 흉내). 값은 지어낸 것이다. 실제 농가·키 없음.
 // 오늘(한국 날짜)을 기준으로 춘천(101) 사과·배추 자료와 지점 10곳의 적산온도를 만든다. 태백(216)만 묻는 읽기는 일부러 오류를 돌려준다.
+import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
 
 const PORT = Number(process.env.FAKE_SUPABASE_PORT ?? 54321);
 const DAY = 86_400_000;
@@ -8,6 +10,36 @@ const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
 const year = Number(today.slice(0, 4));
 const add = (iso, n) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
+
+// 지점 사전 105곳 (데이터 계약 v1.6 마이그레이션 SQL 에서 그대로 읽는다)
+const stationsSql = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "supabase/migrations/20261028030000_seed_stations_asos.sql",
+  ),
+  "utf8",
+);
+const stations = [
+  ...stationsSql.matchAll(
+    /\(\s*'(\d+)',\s*'([^']+)',\s*'([^']+)',\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*(null|\d+),\s*(null|\d+),\s*(true|false),\s*(true|false),\s*(true|false),\s*(true|false|null),\s*'([^']+)',\s*(\d+)\s*\)/g,
+  ),
+].map((m) => ({
+  stn_id: m[1],
+  name_ko: m[2],
+  sido: m[3],
+  lat: Number(m[4]),
+  lon: Number(m[5]),
+  elev_m: Number(m[6]),
+  wind_height_m: Number(m[7]),
+  grid_nx: m[8] === "null" ? null : Number(m[8]),
+  grid_ny: m[9] === "null" ? null : Number(m[9]),
+  has_forecast: m[10] === "true",
+  is_representative: m[11] === "true",
+  is_active: m[12] === "true",
+  measures_sunlight: m[13] === "null" ? null : m[13] === "true",
+  synced_at: m[14],
+  sort_order: Number(m[15]),
+}));
 
 const kcSets = [
   ["apple-k3", "apple", 3, "초생 재배, 서리 지역", true, 1],
@@ -260,6 +292,7 @@ for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
 }
 
 const TABLES = {
+  stations,
   crops,
   heat_daily,
   sun_daily,

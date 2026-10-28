@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { parseSelection } from "@/domain/selection";
-import { getPageMeta, getStation, STATION_IDS } from "@/services/shell";
+import { getPageMeta, getStation, STATION_ENTRIES } from "@/services/shell";
 import { getTemperatureView } from "@/services/temperature";
 
 import { MetaBox } from "../shell/MetaBox";
@@ -31,7 +31,7 @@ export function TemperatureBoard({ searchParams }: Props) {
 }
 
 async function ResolvedTemperatureBoard({ searchParams }: Props) {
-  const selection = parseSelection(await searchParams, STATION_IDS);
+  const selection = parseSelection(await searchParams, STATION_ENTRIES);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page="temperature" meta={null} />;
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
