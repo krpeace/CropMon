@@ -126,6 +126,16 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(codes).toEqual([...WATER_STATUSES].sort());
   });
 
+  it("3일 전망 요약 status_start 설명에 휴면기 판정 기준(회차 발표 날짜)이 기술되어 있다", () => {
+    expect(CONTRACT).toContain("휴면기는 회차 발표 날짜 기준");
+    expect(CONTRACT).toContain(
+      "3일 전망 요약(`status_start`)의 휴면기는 회차 발표 날짜(한국 날짜)의 Kc로 판정합니다. 작기 마지막 다음 날 아침에 관수를 권하거나, 작기 첫날 아침에 휴면기로 나오는 하루 어긋남을 막기 위해서입니다 (croplib-dp 결정 0015).",
+    );
+    expect(CONTRACT).toContain(
+      "(구조 그대로, 문구만) `status_start` 휴면기 판정 기준 = 회차 발표 날짜",
+    );
+  });
+
   it("3일 전망의 선행일은 0~4 (아침 D+0~D+3, 저녁 D+1~D+4, v1.2)", () => {
     const checks = [
       ...SQL.matchAll(/check \(lead_day between (\d) and (\d)\)/g),
