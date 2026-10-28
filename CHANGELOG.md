@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 변경 (데이터 계약서 status_start 휴면기 판정 기준 문구 — 이슈 #37)
+
+- `docs/DATA_CONTRACT.md`:
+  - `water_outlook_summary.status_start`: 오늘 아침 흙 상태 설명 보강 (부족한 물은 출발 날짜 끝 값, 휴면기는 회차 발표 날짜 기준, 과습은 출발 날짜 작기 안 관측 물수지 날일 때만)
+  - 토양수분 상태 판정 절에 `status_start` 휴면기 기준(회차 발표 날짜의 Kc로 판정하여 작기 전환 시 하루 어긋남 방지, croplib-dp 결정 0015) 추가
+  - 변경 기록 v1.4에 `(구조 그대로, 문구만) status_start 휴면기 판정 기준 = 회차 발표 날짜` 반영
+- 계약서 검증 테스트(`src/infra/supabase/contract.test.ts`)에 해당 문구 존재 확인 테스트 추가
+
 ### 추가 (자동 검사에 비밀키 검사 gitleaks 추가 — 이슈 #33)
 
 - GitHub Actions CI(`.github/workflows/ci.yml`)에 `secrets` 작업 추가:
