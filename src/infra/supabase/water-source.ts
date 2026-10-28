@@ -76,6 +76,30 @@ export type BalanceRow = {
   filled: boolean;
 };
 
+export type SoilTypeRow = {
+  soil_code: string;
+  name_ko: string;
+  is_default: boolean;
+  is_estimated: boolean;
+  sort_order: number;
+};
+
+export type SoilWaterRow = {
+  date: string;
+  eto_mm: number | null;
+  rain_mm: number | null;
+  eto_7d_mm: number | null;
+  rain_7d_mm: number | null;
+  dp_mm: number | null;
+  dr_mm: number | null;
+  taw_mm: number;
+  raw_mm: number;
+  aw_pct: number | null;
+  status: string | null;
+  days_to_dry: number | null;
+  filled: boolean;
+};
+
 /** 물 화면에 필요한 읽기. 서비스는 이 모양만 알고, 테스트에서는 가짜를 넣는다. */
 export type WaterSource = {
   kcSets(cropId: string): Promise<KcSetRow[]>;
@@ -90,6 +114,15 @@ export type WaterSource = {
   summary(runId: number, scenarioId: string): Promise<SummaryRow | null>;
   /** 작기 시작부터 그날까지의 관측 물수지, 날짜 순. */
   balance(scenarioId: string, until: string): Promise<BalanceRow[]>;
+  /** 토성 12종 사전 (sort_order 순). */
+  soilTypes(): Promise<SoilTypeRow[]>;
+  /** 작물 공통 토양 물 상태 (날짜 순). */
+  soilWater(
+    stnId: string,
+    soilCode: string,
+    from: string,
+    until: string,
+  ): Promise<SoilWaterRow[]>;
 };
 
 export const COLUMNS = {
@@ -101,6 +134,9 @@ export const COLUMNS = {
   water_outlook_summary:
     "horizon_days,start_date,dr_start_mm,status_start,need_center_in,need_early_in,need_late_in,advice_net_mm,advice_gross_mm,etc_sum_mm,etc_sum_err_mm,rain_sum_mm,rain_expected_sum_mm",
   water_balance_daily: "date,kc,eto_mm,etc_mm,rain_mm,dr_mm,status,filled",
+  soil_types: "soil_code,name_ko,is_default,is_estimated,sort_order",
+  soil_water_daily:
+    "date,eto_mm,rain_mm,eto_7d_mm,rain_7d_mm,dp_mm,dr_mm,taw_mm,raw_mm,aw_pct,status,days_to_dry,filled",
 } as const;
 
 /**
@@ -137,6 +173,7 @@ export function nums<T extends object>(
 const TEXT = [
   "kc_set_id",
   "scenario_id",
+  "soil_code",
   "name_ko",
   "note",
   "date",
@@ -144,6 +181,7 @@ const TEXT = [
   "start_date",
   "season_start",
   "season_end",
+  "status",
 ];
 
 export function createWaterSource(
@@ -231,6 +269,31 @@ export function createWaterSource(
           .from("water_balance_daily")
           .select(COLUMNS.water_balance_daily)
           .eq("scenario_id", scenarioId)
+          .lte("date", until)
+          .order("date")
+          .limit(400)
+          .retry(false)
+          .abortSignal(signal()),
+      ),
+    soilTypes: () =>
+      many<SoilTypeRow>(
+        "soil_types",
+        client
+          .from("soil_types")
+          .select(COLUMNS.soil_types)
+          .order("sort_order")
+          .retry(false)
+          .abortSignal(signal()),
+      ),
+    soilWater: (stnId, soilCode, from, until) =>
+      many<SoilWaterRow>(
+        "soil_water_daily",
+        client
+          .from("soil_water_daily")
+          .select(COLUMNS.soil_water_daily)
+          .eq("stn_id", stnId)
+          .eq("soil_code", soilCode)
+          .gte("date", from)
           .lte("date", until)
           .order("date")
           .limit(400)

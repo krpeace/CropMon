@@ -132,13 +132,48 @@ function fake(
       date: "2026-10-24",
       fetched_at: "2026-10-24T17:20:00+00:00",
     }),
+    recentSoilWater: async (since) => (
+      calls.push(`recentSoilWater ${since}`),
+      [
+        {
+          stn_id: "101",
+          soil_code: "loam",
+          date: "2026-10-24",
+          dr_mm: 33.8,
+          taw_mm: 65,
+          raw_mm: 26,
+          aw_pct: 48,
+          status: "fair",
+        },
+        {
+          stn_id: "101",
+          soil_code: "loam",
+          date: "2026-10-23",
+          dr_mm: 30,
+          taw_mm: 65,
+          raw_mm: 26,
+          aw_pct: 53.8,
+          status: "fair",
+        },
+        {
+          stn_id: "101",
+          soil_code: "sand",
+          date: "2026-10-24",
+          dr_mm: 21,
+          taw_mm: 30,
+          raw_mm: 12,
+          aw_pct: 30,
+          status: "dry",
+        },
+      ]
+    ),
     ...over,
   };
 }
 const NOW = () => new Date("2026-10-25T18:00:00+09:00");
 
 describe("getStationBoard", () => {
-  it("한 번에 여섯 번 읽는다", async () => {
+  it("한 번에 일곱 번 읽는다", async () => {
     const calls: string[] = [];
     await getStationBoard({ createSource: () => fake({}, calls), now: NOW });
     expect(calls).toEqual([
@@ -148,6 +183,7 @@ describe("getStationBoard", () => {
       "recentBalance 3 2026-10-18",
       "outlookDays 9 3",
       "recentWeather 2026-10-18",
+      "recentSoilWater 2026-10-18",
     ]);
   });
 
@@ -193,16 +229,26 @@ describe("getStationBoard", () => {
     expect(b.updated[119]).toBeNull();
   });
 
-  it("헤더 점 색은 상태만", async () => {
-    const s = statusesOf(
-      await getStationBoard({ createSource: () => fake(), now: NOW }),
-    );
-    expect([s.apple[101], s.apple[216], s.apple[119], s.cabbage[101]]).toEqual([
-      "caution",
-      "normal",
-      null,
-      "dormant",
-    ]);
+  it("헤더 점 색은 상태만 (작물·토양별)", async () => {
+    const b = await getStationBoard({ createSource: () => fake(), now: NOW });
+    expect(b.soil.loam[101]).toEqual({
+      status: "fair",
+      awPct: 48,
+      drMm: 33.8,
+      tawMm: 65,
+      rawMm: 26,
+      observedDate: "2026-10-24",
+    });
+    expect(b.soil.sand[101]?.status).toBe("dry");
+    const s = statusesOf(b);
+    expect([
+      s.apple[101],
+      s.apple[216],
+      s.apple[119],
+      s.cabbage[101],
+      s.soil.loam[101],
+      s.soil.sand[101],
+    ]).toEqual(["caution", "normal", null, "dormant", "fair", "dry"]);
   });
 
   it("DB 를 읽지 못하면 던지지 않고 모두 null", async () => {

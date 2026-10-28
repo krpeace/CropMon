@@ -32,7 +32,11 @@ export function OutlookCard({
         )}
       </div>
 
-      {!outlook ? (
+      {selection.crop === "common" ? (
+        <p className="text-16 text-ink-2/85 m-0">
+          작물 공통은 앞으로 3일 전망을 아직 제공하지 않아요.
+        </p>
+      ) : !outlook ? (
         <p className="text-16 text-gray-ink m-0">
           <span className="bg-dormant-bg text-dormant-fg mr-2 rounded-full px-2.5 py-1 font-bold">
             자료 없음

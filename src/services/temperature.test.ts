@@ -157,7 +157,7 @@ describe("getTemperatureView — 정상", () => {
     expect(by.get("안동")).toMatchObject({ lead: null, text: "자료 없음" });
   });
 
-  it("배추는 DB 에서 kimchi_cabbage 로 묻는다", async () => {
+  it("배추는 DB 에서 kimchi_cabbage 로, 작물 공통은 common 으로 묻는다", async () => {
     const asked: string[] = [];
     await getTemperatureView({ stationId: 101, crop: "cabbage" }, CHUNCHEON, {
       createSource: () =>
@@ -168,6 +168,17 @@ describe("getTemperatureView — 정상", () => {
       now: NOW,
     });
     expect(asked).toEqual(["kimchi_cabbage", "kimchi_cabbage"]);
+
+    const askedCommon: string[] = [];
+    await getTemperatureView({ stationId: 101, crop: "common" }, CHUNCHEON, {
+      createSource: () =>
+        source({
+          year: async (_s, crop) => (askedCommon.push(crop), yearRows()),
+          stages: async (crop) => (askedCommon.push(crop), [1000, 2000]),
+        }),
+      now: NOW,
+    });
+    expect(askedCommon).toEqual(["common", "common"]);
   });
 });
 

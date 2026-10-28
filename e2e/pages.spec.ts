@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const PAGES = [
-  { path: "/", heading: "오늘 춘천 사과는 어떤가요?" },
+  { path: "/", heading: "오늘 춘천은 어떤가요?" },
   { path: "/temperature", heading: "온도" },
   { path: "/sunlight", heading: "햇빛" },
   { path: "/water", heading: "물" },
@@ -77,13 +77,24 @@ test("도매시장: 같은 모양에 글만 다르고, 사과/배추에 따라 �
   );
   await expect(body).toContainText("지금은 자료 없음");
 
+  await page.getByRole("group", { name: "작물" }).getByRole("button").click();
   await page
-    .getByRole("group", { name: "작물" })
-    .getByRole("link", { name: "배추" })
+    .getByRole("listbox", { name: "작물 목록" })
+    .getByRole("link", { name: /^배추/ })
     .click();
   await expect(page).toHaveURL(/\/market\?st=101&crop=cabbage$/);
   await expect(soon(page).getByRole("listitem").nth(0)).toContainText(
     "오늘 배추 도매 가격",
+  );
+
+  await page.getByRole("group", { name: "작물" }).getByRole("button").click();
+  await page
+    .getByRole("listbox", { name: "작물 목록" })
+    .getByRole("link", { name: /^작물 공통/ })
+    .click();
+  await expect(page).toHaveURL(/\/market\?st=101&crop=common$/);
+  await expect(soon(page).getByRole("listitem").nth(0)).toContainText(
+    "오늘 주요 작물 도매 가격",
   );
 });
 

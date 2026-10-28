@@ -28,7 +28,9 @@ export function ChillCard({ crop }: { crop: Crop }) {
       ) : (
         <>
           <span className="text-18 text-gray-ink font-semibold">
-            배추는 저온요구량을 따지지 않아요
+            {crop === "common"
+              ? "작물 공통에서는 저온요구량을 따지지 않아요"
+              : "배추는 저온요구량을 따지지 않아요"}
           </span>
           <span className="text-15 text-ink-2/85">
             사과를 고르면 볼 수 있어요

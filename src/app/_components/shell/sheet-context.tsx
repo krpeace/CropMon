@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useMemo, useState } from "react";
 
-export type SheetKind = "login" | "about" | "station";
-export type PopoverKind = "region" | null;
+export type SheetKind = "login" | "about" | "station" | "crop";
+export type PopoverKind = "region" | "crop" | null;
 
 type SheetState = {
   sheet: SheetKind | null;

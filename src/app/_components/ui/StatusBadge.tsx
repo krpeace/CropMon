@@ -1,13 +1,11 @@
-import type { StatusBadge as Badge } from "@/domain/water-status";
-
-import { STATUS_BADGE } from "./status";
+import { type AnyWaterStatus, STATUS_BADGE } from "./status";
 
 /** 물 판정 배지. 상태는 색만으로 말하지 않고 항상 글자를 넣는다. */
 export function StatusBadge({
   badge,
   className = "",
 }: {
-  badge: Badge;
+  badge: { status: AnyWaterStatus; label: string };
   className?: string;
 }) {
   return (

@@ -1,6 +1,12 @@
 import Link from "next/link";
 
-import { CROP_LABEL, withSelection, type Crop } from "@/domain/selection";
+import {
+  CROP_LABEL,
+  withSelection,
+  type Crop,
+  type SoilCode,
+} from "@/domain/selection";
+import { SOIL_WATER_LABEL, SOIL_WATER_STATUSES } from "@/domain/soil-water";
 import { WATER_STATUSES, WATER_STATUS_LABEL } from "@/domain/water-status";
 import type { HomeRow } from "@/services/home";
 
@@ -12,7 +18,16 @@ import { STATUS_DOT } from "../ui/status";
 const COLS = "grid grid-cols-(--national-cols) gap-4";
 
 /** 전국 물·기상·생육 종합 표. 줄을 누르면 그 지역으로 바뀐다. 데스크톱에서만 보인다. */
-export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
+export function NationalTable({
+  rows,
+  crop,
+  soil,
+}: {
+  rows: HomeRow[];
+  crop: Crop;
+  soil?: SoilCode;
+}) {
+  const isCommon = crop === "common";
   return (
     <section
       aria-labelledby="national-title"
@@ -31,10 +46,14 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
       >
         <span>지점</span>
         <span>오늘</span>
-        <span>
-          부족한 물 / 관수 시작점{" "}
-          <span className="text-ink-2/60 font-normal">Dr / RAW</span>
-        </span>
+        {isCommon ? (
+          <span>남은 물 / 담을 수 있는 물</span>
+        ) : (
+          <span>
+            부족한 물 / 관수 시작점{" "}
+            <span className="text-ink-2/60 font-normal">Dr / RAW</span>
+          </span>
+        )}
         <span>앞으로 3일</span>
         <span>생육 (적산온도)</span>
         <span>생육 (적산일사)</span>
@@ -42,7 +61,7 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
       {rows.map((row) => (
         <Link
           key={row.id}
-          href={withSelection("/", { stationId: row.id, crop })}
+          href={withSelection("/", { stationId: row.id, crop, soil })}
           scroll={false}
           aria-current={row.selected ? "true" : undefined}
           className={`${COLS} rounded-row border-ink-2/10 text-ink hover:bg-fill/8 items-center border-b-(length:--hairline) p-3 ${
@@ -68,7 +87,9 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
           </div>
           <div className="flex gap-1.5">
             {!row.days && (
-              <span className="text-14 text-gray-ink">예보 준비 중</span>
+              <span className="text-14 text-gray-ink">
+                {isCommon ? "—" : "예보 준비 중"}
+              </span>
             )}
             {row.days?.map((day) => (
               <span
@@ -96,12 +117,23 @@ export function NationalTable({ rows, crop }: { rows: HomeRow[]; crop: Crop }) {
         </Link>
       ))}
       <div className="text-13 text-ink-2/80 flex flex-wrap gap-4 px-3 pt-3.5 pb-1.5">
-        {WATER_STATUSES.map((status) => (
-          <span key={status} className="flex items-center gap-1.5">
-            <span className={`h-2 w-4 rounded-full ${STATUS_DOT[status]}`} />
-            {WATER_STATUS_LABEL[status]}
-          </span>
-        ))}
+        {isCommon
+          ? SOIL_WATER_STATUSES.map((status) => (
+              <span key={status} className="flex items-center gap-1.5">
+                <span
+                  className={`h-2 w-4 rounded-full ${STATUS_DOT[status]}`}
+                />
+                {SOIL_WATER_LABEL[status]}
+              </span>
+            ))
+          : WATER_STATUSES.map((status) => (
+              <span key={status} className="flex items-center gap-1.5">
+                <span
+                  className={`h-2 w-4 rounded-full ${STATUS_DOT[status]}`}
+                />
+                {WATER_STATUS_LABEL[status]}
+              </span>
+            ))}
       </div>
     </section>
   );

@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildRegionSections,
   filterStations,
+  homeQuestion,
   nextInRotation,
   parseSelection,
   rotationPosition,
   sortStationsKo,
   sunlightStatusLabel,
+  topicParticle,
   withSelection,
   type StationOption,
 } from "./selection";
@@ -81,8 +83,12 @@ const SAMPLE_STATIONS: readonly StationOption[] = [
 ];
 
 describe("parseSelection", () => {
-  it("주소창에 값이 없으면 첫 지점과 사과를 고른다", () => {
-    expect(parseSelection({}, IDS)).toEqual({ stationId: 101, crop: "apple" });
+  it("주소창에 값이 없으면 첫 지점과 작물 공통(양토)을 고른다", () => {
+    expect(parseSelection({}, IDS)).toEqual({
+      stationId: 101,
+      crop: "common",
+      soil: "loam",
+    });
   });
 
   it("주소창의 지점 번호와 작물을 읽는다", () => {
@@ -100,23 +106,70 @@ describe("parseSelection", () => {
     });
   });
 
-  it("없는 지점이나 작물은 기본값으로 돌린다", () => {
+  it("없는 지점이나 작물은 기본값(춘천·작물 공통·양토)으로 돌린다", () => {
     expect(parseSelection({ st: "999", crop: "rice" }, IDS)).toEqual({
       stationId: 101,
-      crop: "apple",
+      crop: "common",
+      soil: "loam",
     });
     expect(parseSelection({ st: "춘천", crop: "" }, IDS)).toEqual({
       stationId: 101,
-      crop: "apple",
+      crop: "common",
+      soil: "loam",
     });
   });
 
-  it("재배 방식 번호(kc)는 1 이상 정수일 때만 읽는다", () => {
+  it("작물 공통일 때 soil 을 읽고, 없거나 잘못된 토양이면 양토(loam)로 돌린다", () => {
+    expect(
+      parseSelection({ st: "101", crop: "common", soil: "sand" }, IDS),
+    ).toEqual({
+      stationId: 101,
+      crop: "common",
+      soil: "sand",
+    });
+    expect(
+      parseSelection(
+        { st: "101", crop: "common", soil: "sandy_clay_loam" },
+        IDS,
+      ),
+    ).toEqual({
+      stationId: 101,
+      crop: "common",
+      soil: "sandy_clay_loam",
+    });
+    expect(
+      parseSelection({ st: "101", crop: "common", soil: "mud" }, IDS),
+    ).toEqual({
+      stationId: 101,
+      crop: "common",
+      soil: "loam",
+    });
+  });
+
+  it("사과·배추일 때는 주소창에 soil 이 있어도 무시한다", () => {
+    expect(
+      parseSelection({ st: "101", crop: "apple", soil: "sand" }, IDS),
+    ).toEqual({
+      stationId: 101,
+      crop: "apple",
+    });
+    expect(
+      parseSelection({ st: "101", crop: "cabbage", soil: "clay" }, IDS),
+    ).toEqual({
+      stationId: 101,
+      crop: "cabbage",
+    });
+  });
+
+  it("재배 방식 번호(kc)는 사과·배추에서 1 이상 정수일 때만 읽는다", () => {
     expect(parseSelection({ st: "216", crop: "apple", kc: "1" }, IDS)).toEqual({
       stationId: 216,
       crop: "apple",
       kc: 1,
     });
+    expect(
+      parseSelection({ st: "101", crop: "common", kc: "1" }, IDS),
+    ).not.toHaveProperty("kc");
     expect(parseSelection({ kc: "0" }, IDS)).not.toHaveProperty("kc");
     expect(parseSelection({ kc: "1.5" }, IDS)).not.toHaveProperty("kc");
     expect(parseSelection({ kc: "가" }, IDS)).not.toHaveProperty("kc");
@@ -169,10 +222,37 @@ describe("withSelection", () => {
     );
   });
 
-  it("재배 방식을 골랐으면 kc 도 붙인다", () => {
+  it("작물 공통에서 양토가 아닌 토양을 고르면 soil 을 붙이고, 양토이거나 사과·배추로 바꾸면 soil 을 제거한다", () => {
+    expect(
+      withSelection("/water", {
+        stationId: 101,
+        crop: "common",
+        soil: "sand",
+      }),
+    ).toBe("/water?st=101&crop=common&soil=sand");
+    expect(
+      withSelection("/water", {
+        stationId: 101,
+        crop: "common",
+        soil: "loam",
+      }),
+    ).toBe("/water?st=101&crop=common");
+    expect(
+      withSelection("/water", {
+        stationId: 101,
+        crop: "apple",
+        soil: "sand",
+      }),
+    ).toBe("/water?st=101&crop=apple");
+  });
+
+  it("재배 방식을 골랐으면 kc 도 붙인다 (작물 공통이면 붙이지 않는다)", () => {
     expect(
       withSelection("/water", { stationId: 101, crop: "apple", kc: 1 }),
     ).toBe("/water?st=101&crop=apple&kc=1");
+    expect(
+      withSelection("/water", { stationId: 101, crop: "common", kc: 1 }),
+    ).toBe("/water?st=101&crop=common");
   });
 
   it("선택값이 아직 없으면 주소만 돌려준다", () => {
@@ -180,33 +260,63 @@ describe("withSelection", () => {
   });
 });
 
+describe("받침(은/는) 및 종합 화면 첫 질문", () => {
+  it("받침 유무에 따라 은/는을 고른다", () => {
+    expect(topicParticle("춘천")).toBe("은");
+    expect(topicParticle("태백")).toBe("은");
+    expect(topicParticle("수원")).toBe("은");
+    expect(topicParticle("서산")).toBe("은");
+    expect(topicParticle("안동")).toBe("은");
+    expect(topicParticle("홍천")).toBe("은");
+    expect(topicParticle("청주")).toBe("는");
+    expect(topicParticle("전주")).toBe("는");
+    expect(topicParticle("광주")).toBe("는");
+    expect(topicParticle("진주")).toBe("는");
+    expect(topicParticle("서귀포")).toBe("는");
+  });
+
+  it("작물 공통이면 '오늘 {지점}은/는 어떤가요?', 작물이면 '오늘 {지점} {작물}은/는 어떤가요?'를 만든다", () => {
+    expect(homeQuestion("춘천", "common")).toBe("오늘 춘천은 어떤가요?");
+    expect(homeQuestion("청주", "common")).toBe("오늘 청주는 어떤가요?");
+    expect(homeQuestion("서귀포", "common")).toBe("오늘 서귀포는 어떤가요?");
+    expect(homeQuestion("춘천", "apple")).toBe("오늘 춘천 사과는 어떤가요?");
+    expect(homeQuestion("안동", "cabbage")).toBe("오늘 안동 배추는 어떤가요?");
+  });
+});
+
 describe("자동 전환 순서", () => {
-  it("사과로 지점을 차례로 돌고, 끝나면 배추로 넘어간다", () => {
-    expect(nextInRotation({ stationId: 101, crop: "apple" }, IDS)).toEqual({
+  it("고른 작물과 토양은 그대로 두고 대표 지점만 차례로 돈다", () => {
+    expect(
+      nextInRotation({ stationId: 101, crop: "common", soil: "sand" }, IDS),
+    ).toEqual({
       stationId: 216,
-      crop: "apple",
+      crop: "common",
+      soil: "sand",
+    });
+    expect(nextInRotation({ stationId: 119, crop: "common" }, IDS)).toEqual({
+      stationId: 101,
+      crop: "common",
     });
     expect(nextInRotation({ stationId: 119, crop: "apple" }, IDS)).toEqual({
+      stationId: 101,
+      crop: "apple",
+    });
+    expect(nextInRotation({ stationId: 119, crop: "cabbage" }, IDS)).toEqual({
       stationId: 101,
       crop: "cabbage",
     });
   });
 
-  it("배추 마지막 지점 다음은 사과 첫 지점이다", () => {
-    expect(nextInRotation({ stationId: 119, crop: "cabbage" }, IDS)).toEqual({
-      stationId: 101,
-      crop: "apple",
-    });
-  });
-
-  it("몇 번째인지 1부터 센다 (사과 먼저, 배추 나중)", () => {
-    expect(rotationPosition({ stationId: 101, crop: "apple" }, IDS)).toBe(1);
+  it("작물과 관계없이 대표 지점 순번만 1부터 센다", () => {
+    expect(rotationPosition({ stationId: 101, crop: "common" }, IDS)).toBe(1);
     expect(rotationPosition({ stationId: 119, crop: "apple" }, IDS)).toBe(3);
-    expect(rotationPosition({ stationId: 216, crop: "cabbage" }, IDS)).toBe(5);
+    expect(rotationPosition({ stationId: 216, crop: "cabbage" }, IDS)).toBe(2);
   });
 
   it("대표 지점 밖을 골랐으면 순번은 null 이다 (자동 전환 중지)", () => {
-    expect(rotationPosition({ stationId: 212, crop: "apple" }, IDS)).toBeNull();
+    expect(
+      rotationPosition({ stationId: 212, crop: "common" }, IDS),
+    ).toBeNull();
   });
 });
 

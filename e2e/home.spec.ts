@@ -124,3 +124,24 @@ test("종합: 햇빛 자료가 없는 지점은 회색 '자료 없음' (진주)"
   await expect(sun).toContainText("자료 없음");
   await expect(sun).toContainText("진주 관측소의 햇빛 자료가 없어요");
 });
+
+test("종합(작물 공통): 첫 질문·물 카드·전국 표가 토양 물 상태로 나온다", async ({
+  page,
+}) => {
+  await openHome(page, "?st=101&crop=common");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "오늘 춘천은 어떤가요?",
+  );
+  const water = main(page).getByRole("link", { name: /^물/ });
+  await expect(water).toContainText("보통");
+  await expect(water).toContainText("토양 속 남은 물 48%");
+  await expect(water).toContainText(
+    "양토 기준 · 남은 물 31 / 담을 수 있는 물 65 mm",
+  );
+
+  const table = page.getByRole("region", { name: "전국 물·기상·생육 종합" });
+  await expect(table).toContainText("남은 물 / 담을 수 있는 물");
+  const chuncheon = table.getByRole("link", { name: /^춘천/ });
+  await expect(chuncheon).toContainText("보통");
+  await expect(chuncheon).toContainText("31 / 65 mm");
+});

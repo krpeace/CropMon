@@ -11,7 +11,11 @@ import {
 
 describe("CROP_DB_ID", () => {
   it("주소창 작물 이름을 DB 작물 번호로 바꾼다", () => {
-    expect(CROP_DB_ID).toEqual({ apple: "apple", cabbage: "kimchi_cabbage" });
+    expect(CROP_DB_ID).toEqual({
+      common: "common",
+      apple: "apple",
+      cabbage: "kimchi_cabbage",
+    });
   });
 });
 
@@ -143,6 +147,21 @@ describe("물 화면 주소창 (기준 날짜·발표 회차)", () => {
       "/water?st=101&crop=apple&kc=1&run=17",
     );
     expect(withWaterQuery(s, {})).toBe("/water?st=101&crop=apple&kc=1");
+
+    const commonSand = {
+      stationId: 101,
+      crop: "common" as const,
+      soil: "sand" as const,
+    };
+    expect(withWaterQuery(commonSand, { date: "2026-10-20" })).toBe(
+      "/water?st=101&crop=common&soil=sand&d=2026-10-20",
+    );
+    expect(
+      withWaterQuery(
+        { stationId: 101, crop: "common", soil: "loam" },
+        { date: "2026-10-20" },
+      ),
+    ).toBe("/water?st=101&crop=common&d=2026-10-20");
   });
 
   it("날짜 표기", async () => {

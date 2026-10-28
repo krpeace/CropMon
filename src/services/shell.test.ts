@@ -29,15 +29,23 @@ describe("listStationChips", () => {
     ]);
   });
 
-  it("작물마다 DB 의 오늘 물 판정을 붙이고, 없으면 null", () => {
+  it("작물·토양마다 DB 의 오늘 물 판정을 붙이고, 없으면 null", () => {
     const statuses = {
       apple: { 131: "need" as const },
       cabbage: { 131: "caution" as const },
+      soil: {
+        loam: { 131: "fair" as const },
+        sand: { 131: "dry" as const },
+      },
     };
     const apple = listStationChips("apple", statuses);
     const cabbage = listStationChips("cabbage", statuses);
+    const commonLoam = listStationChips("common", statuses);
+    const commonSand = listStationChips("common", statuses, "sand");
     expect(apple.find((c) => c.id === 131)?.status).toBe("need");
     expect(cabbage.find((c) => c.id === 131)?.status).toBe("caution");
+    expect(commonLoam.find((c) => c.id === 131)?.status).toBe("fair");
+    expect(commonSand.find((c) => c.id === 131)?.status).toBe("dry");
     expect(apple.find((c) => c.id === 101)?.status).toBeNull();
     expect(
       listStationChips("apple", null).every((c) => c.status === null),
@@ -187,9 +195,10 @@ describe("getComingSoon — 토양·도매시장 '준비 중' 본문 글 (시안
     );
   });
 
-  it("도매시장: ①은 고른 작물 이름 (사과/배추)", () => {
+  it("도매시장: ①은 고른 작물 이름 (사과/배추), 작물 공통이면 '오늘 주요 작물 도매 가격'", () => {
     const apple = getComingSoon("market", "apple");
     const cabbage = getComingSoon("market", "cabbage");
+    const common = getComingSoon("market", "common");
     expect(apple.items).toEqual([
       "오늘 사과 도매 가격",
       "지난해·평년 같은 때와 비교",
@@ -197,6 +206,7 @@ describe("getComingSoon — 토양·도매시장 '준비 중' 본문 글 (시안
       "앞으로의 가격 전망",
     ]);
     expect(cabbage.items[0]).toBe("오늘 배추 도매 가격");
+    expect(common.items[0]).toBe("오늘 주요 작물 도매 가격");
     expect(apple.source).toBe(
       "aT 농산물유통정보 · 한국농촌경제연구원(KREI) 농업관측",
     );

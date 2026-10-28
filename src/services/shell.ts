@@ -3,11 +3,15 @@ import {
   buildRegionSections,
   CROP_LABEL,
   type Crop,
+  DEFAULT_SOIL,
   type RegionSectionsResult,
+  type SoilCode,
 } from "@/domain/selection";
+import type { SoilWaterStatus } from "@/domain/soil-water";
 import type { WaterStatus } from "@/domain/water-status";
 import { STATIONS } from "@/infra/stations";
 import { MOCK_META } from "@/mocks/meta";
+import type { AnyWaterStatus } from "./station-status";
 
 /**
  * 공통 틀(헤더·쪽 제목·자료 상자)에 필요한 값을 화면용으로 정리한다.
@@ -26,7 +30,7 @@ export type Station = {
   sunlightMeasured?: boolean | null;
 };
 /** status 가 null 이면 "자료 없음". */
-export type StationChip = Station & { status: WaterStatus | null };
+export type StationChip = Station & { status: AnyWaterStatus | null };
 
 export type PickerStation = StationChip & {
   sido: string;
@@ -70,16 +74,34 @@ export function getStation(id: number): Station | null {
   return found ? toStation(found) : null;
 }
 
-type Statuses = Record<Crop, Partial<Record<number, WaterStatus | null>>>;
+type Statuses = {
+  apple: Partial<Record<number, WaterStatus | null>>;
+  cabbage: Partial<Record<number, WaterStatus | null>>;
+  soil?: Partial<
+    Record<SoilCode, Partial<Record<number, SoilWaterStatus | null>>>
+  >;
+};
+
+function statusAt(
+  crop: Crop,
+  statuses: Statuses | null,
+  stationId: number,
+  soil: SoilCode = DEFAULT_SOIL,
+): AnyWaterStatus | null {
+  if (!statuses) return null;
+  if (crop === "common") return statuses.soil?.[soil]?.[stationId] ?? null;
+  return statuses[crop][stationId] ?? null;
+}
 
 /** 대표 10곳 지역 칩 목록. 점 색은 고른 작물의 오늘 물 판정(DB). 판정을 아직 모르면 null. */
 export function listStationChips(
   crop: Crop,
   statuses: Statuses | null,
+  soil: SoilCode = DEFAULT_SOIL,
 ): StationChip[] {
   return REP_STATIONS.map((s) => ({
     ...toStation(s),
-    status: statuses?.[crop][s.id] ?? null,
+    status: statusAt(crop, statuses, s.id, soil),
   }));
 }
 
@@ -91,13 +113,14 @@ export function listRegionPicker(
   crop: Crop,
   statuses: Statuses | null,
   query = "",
+  soil: SoilCode = DEFAULT_SOIL,
 ): RegionSectionsResult<PickerStation> {
   const withStatus: PickerStation[] = STATIONS.map((s) => ({
     ...toStation(s),
     sido: s.sido,
     isRepresentative: s.isRepresentative,
     isActive: s.isActive,
-    status: statuses?.[crop][s.id] ?? null,
+    status: statusAt(crop, statuses, s.id, soil),
   }));
   return buildRegionSections(withStatus, query);
 }
@@ -186,9 +209,13 @@ export function getComingSoon(page: "soil" | "market", crop: Crop): ComingSoon {
       source: "농촌진흥청 흙토람 (토양 정보)",
     };
   }
+  const firstItem =
+    crop === "common"
+      ? "오늘 주요 작물 도매 가격"
+      : `오늘 ${CROP_LABEL[crop]} 도매 가격`;
   return {
     items: [
-      `오늘 ${CROP_LABEL[crop]} 도매 가격`,
+      firstItem,
       "지난해·평년 같은 때와 비교",
       "도매시장에 들어온 양(반입량) 흐름",
       "앞으로의 가격 전망",

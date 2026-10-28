@@ -1,4 +1,11 @@
-import { CROPS, type Crop } from "@/domain/selection";
+import {
+  DEFAULT_SOIL,
+  isSoilCode,
+  type Selection,
+  SOIL_CODES,
+  type SoilCode,
+} from "@/domain/selection";
+import { isSoilWaterStatus, type SoilWaterStatus } from "@/domain/soil-water";
 import {
   addDays,
   CROP_DB_ID,
@@ -36,16 +43,33 @@ export type StationWater = {
   } | null;
 };
 
+/** 작물 공통(토양 물 상태): 지점 × 토양의 최근 관측 토양 물수지. */
+export type SoilStationWater = {
+  status: SoilWaterStatus;
+  awPct: number | null;
+  drMm: number | null;
+  rawMm: number;
+  tawMm: number;
+  observedDate: string;
+};
+
+export type AnyWaterStatus = WaterStatus | SoilWaterStatus;
+
 /** 갱신 시각: 예보 지점은 회차가 끝난 시각과 발표 시(02·17), 그 밖은 ASOS 받은 시각. */
 export type StationUpdated = { at: string; runHour: "02" | "17" | null } | null;
 
 export type StationBoard = {
   ok: boolean;
-  water: Record<Crop, Record<number, StationWater | null>>;
+  water: Record<"apple" | "cabbage", Record<number, StationWater | null>>;
+  soil: Record<SoilCode, Record<number, SoilStationWater | null>>;
   updated: Record<number, StationUpdated>;
 };
 
-export type StationStatuses = Record<Crop, Record<number, WaterStatus | null>>;
+export type StationStatuses = {
+  apple: Record<number, WaterStatus | null>;
+  cabbage: Record<number, WaterStatus | null>;
+  soil: Record<SoilCode, Record<number, SoilWaterStatus | null>>;
+};
 
 type Deps = { createSource?: () => StatusSource; now?: () => Date };
 
@@ -54,6 +78,7 @@ const RECENT_DAYS = 7;
 /** 이보다 오래된 회차는 예보로 쓰지 않는다 (관측 기준으로 돌린다). */
 const RUN_MAX_AGE_H = 36;
 const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
+const SPECIFIC_CROPS = ["apple", "cabbage"] as const;
 
 function code(v: string | undefined): WaterStatus | null {
   return (WATER_STATUSES as readonly string[]).includes(v ?? "")
@@ -67,9 +92,13 @@ function emptyBoard(ok: boolean): StationBoard {
       number,
       T | null
     >;
+  const soil = Object.fromEntries(
+    SOIL_CODES.map((c) => [c, blank<SoilStationWater>()]),
+  ) as Record<SoilCode, Record<number, SoilStationWater | null>>;
   return {
     ok,
     water: { apple: blank<StationWater>(), cabbage: blank<StationWater>() },
+    soil,
     updated: blank<NonNullable<StationUpdated>>(),
   };
 }
@@ -98,11 +127,12 @@ export async function getStationBoard({
     const runIds = [...latest.values()].map((r) => r.run_id);
     const ids = scen.map((s) => s.scenario_id);
     const none = Promise.resolve([]);
-    const [sums, bal, days, weather] = await Promise.all([
+    const [sums, bal, days, weather, soilRows] = await Promise.all([
       runIds.length && ids.length ? db.summaries(runIds, ids) : none,
       ids.length ? db.recentBalance(ids, since) : none,
       runIds.length && ids.length ? db.outlookDays(runIds, ids) : none,
       db.recentWeather(since),
+      db.recentSoilWater(since),
     ]);
     const newestFirst = <T extends { date: string }>(xs: T[]) =>
       [...xs].sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -119,7 +149,21 @@ export async function getStationBoard({
         board.updated[s.id] = w ? { at: w.fetched_at, runHour: null } : null;
       }
     }
-    for (const crop of CROPS) {
+    for (const r of newestFirst(soilRows)) {
+      if (!isSoilCode(r.soil_code) || !isSoilWaterStatus(r.status)) continue;
+      const stn = Number(r.stn_id);
+      if (!(stn in board.soil[r.soil_code])) continue;
+      if (board.soil[r.soil_code][stn] !== null) continue;
+      board.soil[r.soil_code][stn] = {
+        status: r.status,
+        awPct: r.aw_pct,
+        drMm: r.dr_mm,
+        rawMm: r.raw_mm,
+        tawMm: r.taw_mm,
+        observedDate: r.date,
+      };
+    }
+    for (const crop of SPECIFIC_CROPS) {
       for (const sc of scen.filter((x) => x.crop_id === CROP_DB_ID[crop])) {
         const stn = Number(sc.stn_id);
         if (!(stn in board.water[crop])) continue;
@@ -176,11 +220,31 @@ export async function getStationBoard({
 
 /** 헤더 지역 칩 점 색: 상태만. */
 export function statusesOf(board: StationBoard): StationStatuses {
-  const pick = (crop: Crop) =>
+  const pick = (crop: "apple" | "cabbage") =>
     Object.fromEntries(
       REP_STATIONS.map((s) => [s.id, board.water[crop][s.id]?.status ?? null]),
     ) as Record<number, WaterStatus | null>;
-  return { apple: pick("apple"), cabbage: pick("cabbage") };
+  const soil = Object.fromEntries(
+    SOIL_CODES.map((c) => [
+      c,
+      Object.fromEntries(
+        REP_STATIONS.map((s) => [s.id, board.soil[c][s.id]?.status ?? null]),
+      ) as Record<number, SoilWaterStatus | null>,
+    ]),
+  ) as Record<SoilCode, Record<number, SoilWaterStatus | null>>;
+  return { apple: pick("apple"), cabbage: pick("cabbage"), soil };
+}
+
+/** 현재 선택한 작물(및 토양)의 지점별 물 상태 맵을 돌려준다. */
+export function statusMapFor(
+  statuses: StationStatuses | undefined,
+  selection: Pick<Selection, "crop" | "soil">,
+): Record<number, AnyWaterStatus | null> | undefined {
+  if (!statuses) return undefined;
+  if (selection.crop === "common") {
+    return statuses.soil[selection.soil ?? DEFAULT_SOIL];
+  }
+  return statuses[selection.crop];
 }
 
 /** 이 지점의 마지막 ASOS 관측일과 받은 시각 (온도·햇빛 자료 상자). 실패하면 null. */

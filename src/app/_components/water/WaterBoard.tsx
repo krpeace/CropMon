@@ -16,7 +16,7 @@ import { PageHead } from "../shell/PageHead";
 import { Grid } from "../ui/Grid";
 import { Icon } from "../ui/Icon";
 import { DayPicker } from "./DayPicker";
-import { NowCard, SoilBubble } from "./NowCard";
+import { CommonNowCard, NowCard, SoilBubble } from "./NowCard";
 import { OutlookCard } from "./OutlookCard";
 import { SeasonCard } from "./SeasonCard";
 
@@ -71,7 +71,15 @@ async function ResolvedWaterBoard({ searchParams }: Props) {
       ) : (
         <Grid min="wide">
           <div className="flex flex-col gap-3">
-            {view.now ? (
+            {view.commonNow ? (
+              <CommonNowCard
+                commonNow={view.commonNow}
+                dayLabel={view.day.label}
+                soils={view.soils}
+                selection={selection}
+                date={query.date}
+              />
+            ) : view.now ? (
               <NowCard now={view.now} dayLabel={view.day.label} />
             ) : (
               <section
@@ -84,24 +92,30 @@ async function ResolvedWaterBoard({ searchParams }: Props) {
                 이 날의 물수지 자료가 없어요.
               </section>
             )}
-            <SoilBubble farmHref={withSelection("/my-farm", selection)} />
+            <SoilBubble
+              farmHref={withSelection("/my-farm", selection)}
+              text={view.commonNow?.basisText}
+            />
           </div>
           <OutlookCard outlook={view.outlook} selection={selection} />
         </Grid>
       )}
 
-      {view.day && view.rawMm != null && view.tawMm != null && (
-        <SeasonCard
-          season={view.season}
-          months={view.months}
-          raw={view.rawMm}
-          taw={view.tawMm}
-          selected={view.day.date}
-          crop={selection.crop}
-          base={base}
-          today={view.day.today}
-        />
-      )}
+      {selection.crop !== "common" &&
+        view.day &&
+        view.rawMm != null &&
+        view.tawMm != null && (
+          <SeasonCard
+            season={view.season}
+            months={view.months}
+            raw={view.rawMm}
+            taw={view.tawMm}
+            selected={view.day.date}
+            crop={selection.crop}
+            base={base}
+            today={view.day.today}
+          />
+        )}
 
       <MetaBox meta={view.meta} />
     </>

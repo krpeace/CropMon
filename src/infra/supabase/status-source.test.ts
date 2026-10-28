@@ -44,6 +44,7 @@ describe("status-source", () => {
     await db.recentRuns(40);
     await db.summaries([9], ["a", "b"]);
     await db.recentBalance(["a"], "2026-10-18");
+    await db.recentSoilWater("2026-10-18");
     expect(calls).toEqual([
       "from(scenarios)",
       'select("scenario_id,stn_id,crop_id,raw_mm,taw_mm,season_start,season_end")',
@@ -64,6 +65,11 @@ describe("status-source", () => {
       'in("scenario_id",["a"])',
       'gte("date","2026-10-18")',
       'order("date",{"ascending":false})',
+      "from(soil_water_daily)",
+      'select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")',
+      'gte("date","2026-10-18")',
+      'order("date",{"ascending":false})',
+      "limit(1000)",
     ]);
   });
 

@@ -177,7 +177,7 @@ const weather_daily = ["101", "119"].map((stn_id) => ({
   fetched_at: new Date(Date.parse(runAt) + 20 * 60_000).toISOString(), // 02:20
 }));
 
-// 작물 사전: 적산온도 기준온도와 단계 (계약 v1.4)
+// 작물 사전: 적산온도 기준온도와 단계 (계약 v1.4·v1.5)
 const crops = [
   {
     crop_id: "apple",
@@ -185,7 +185,99 @@ const crops = [
     gdd_stages: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000],
   },
   { crop_id: "kimchi_cabbage", t_base_c: 4, gdd_stages: [300, 600, 900, 1200] },
+  { crop_id: "common", t_base_c: 5, gdd_stages: [1000, 2000] },
 ];
+
+// 토성 사전 12종 (계약 v1.5)
+const soil_types = [
+  ["sand", "사토", false, false, 1],
+  ["loamy_sand", "양질사토", false, false, 2],
+  ["sandy_loam", "사양토", false, false, 3],
+  ["silt", "미사토", false, false, 4],
+  ["silt_loam", "미사질양토", false, false, 5],
+  ["loam", "양토", true, false, 6],
+  ["sandy_clay_loam", "사질식양토", false, true, 7],
+  ["clay_loam", "식양토", false, true, 8],
+  ["silty_clay_loam", "미사질식양토", false, false, 9],
+  ["sandy_clay", "사질식토", false, true, 10],
+  ["silty_clay", "미사질식토", false, false, 11],
+  ["clay", "식토", false, false, 12],
+].map(([soil_code, name_ko, is_default, is_estimated, sort_order]) => ({
+  soil_code,
+  name_ko,
+  is_default,
+  is_estimated,
+  sort_order,
+}));
+
+// 작물 공통 토양 물 상태 (계약 v1.5)
+const soil_water_daily = [];
+const SOIL_CONFIGS = [
+  {
+    stn_id: "101",
+    soil_code: "loam",
+    taw_mm: 65,
+    raw_mm: 26,
+    dr_mm: 33.8,
+    aw_pct: 48,
+    status: "fair",
+    days_to_dry: 6,
+  },
+  {
+    stn_id: "101",
+    soil_code: "sand",
+    taw_mm: 30,
+    raw_mm: 12,
+    dr_mm: 24,
+    aw_pct: 20,
+    status: "dry",
+    days_to_dry: null,
+  },
+  {
+    stn_id: "101",
+    soil_code: "sandy_clay_loam",
+    taw_mm: 55,
+    raw_mm: 22,
+    dr_mm: 16.5,
+    aw_pct: 70,
+    status: "ample",
+    days_to_dry: null,
+  },
+  {
+    stn_id: "119",
+    soil_code: "loam",
+    taw_mm: 65,
+    raw_mm: 26,
+    dr_mm: 46.8,
+    aw_pct: 28,
+    status: "dry",
+    days_to_dry: null,
+  },
+];
+for (const cfg of SOIL_CONFIGS) {
+  for (let d = `${year}-01-01`; d < today; d = add(d, 1)) {
+    const m = Number(d.slice(5, 7));
+    const winter = m === 12 || m === 1 || m === 2;
+    soil_water_daily.push({
+      stn_id: cfg.stn_id,
+      soil_code: cfg.soil_code,
+      date: d,
+      eto_mm: 3.4,
+      rain_mm: 0,
+      eto_7d_mm: 24,
+      rain_7d_mm: 3,
+      dp_mm: 0,
+      dr_mm: winter ? null : cfg.dr_mm,
+      taw_mm: cfg.taw_mm,
+      raw_mm: cfg.raw_mm,
+      aw_pct: winter ? null : cfg.aw_pct,
+      status: winter ? "winter" : cfg.status,
+      days_to_dry: winter ? null : cfg.days_to_dry,
+      filled: false,
+      calc_version: "fake",
+    });
+  }
+}
 
 // 적산온도 (온도 화면). 지점마다 어제의 [올해 누적, 평년 누적, 며칠 빠른가]를 정해 두고,
 // 1년 모양은 같은 곡선을 늘리고 줄인다. 춘천은 4,165 / 3,973 (+192), 수원은 다음 단계(2,500)에 아직 못 닿음.
@@ -217,7 +309,7 @@ const yIdx = Math.max(0, yearDays.indexOf(yesterday));
 const r1 = (v) => Math.round(v * 10) / 10;
 const heat_daily = [];
 for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
-  for (const crop_id of ["apple", "kimchi_cabbage"]) {
+  for (const crop_id of ["apple", "kimchi_cabbage", "common"]) {
     yearDays.forEach((date, i) => {
       const observed = date <= yesterday;
       const cum = observed ? r1((cumY * shape[i]) / shape[yIdx]) : null;
@@ -225,7 +317,7 @@ for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
         stn_id,
         crop_id,
         date,
-        t_base_c: 4,
+        t_base_c: crop_id === "common" ? 5 : 4,
         gdd_day: observed
           ? r1((cumY * (shape[i] - (shape[i - 1] ?? 0))) / shape[yIdx])
           : null,
@@ -294,6 +386,8 @@ for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
 const TABLES = {
   stations,
   crops,
+  soil_types,
+  soil_water_daily,
   heat_daily,
   sun_daily,
   weather_daily,

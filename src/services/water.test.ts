@@ -4,6 +4,8 @@ import type {
   BalanceRow,
   OutlookRow,
   RunRow,
+  SoilTypeRow,
+  SoilWaterRow,
   SummaryRow,
   WaterSource,
 } from "@/infra/supabase/water-source";
@@ -117,6 +119,62 @@ const BALANCE: BalanceRow[] = [
   },
 ];
 
+const SOIL_TYPES: SoilTypeRow[] = [
+  {
+    soil_code: "sand",
+    name_ko: "사토",
+    is_default: false,
+    is_estimated: false,
+    sort_order: 1,
+  },
+  {
+    soil_code: "loam",
+    name_ko: "양토",
+    is_default: true,
+    is_estimated: false,
+    sort_order: 6,
+  },
+  {
+    soil_code: "sandy_clay_loam",
+    name_ko: "사질식양토",
+    is_default: false,
+    is_estimated: true,
+    sort_order: 7,
+  },
+];
+const SOIL_WATER: SoilWaterRow[] = [
+  {
+    date: "2026-10-23",
+    eto_mm: 3.2,
+    rain_mm: 0,
+    eto_7d_mm: 22,
+    rain_7d_mm: 3,
+    dp_mm: 0,
+    dr_mm: 31.2,
+    taw_mm: 65,
+    raw_mm: 26,
+    aw_pct: 52,
+    status: "fair",
+    days_to_dry: 7,
+    filled: false,
+  },
+  {
+    date: "2026-10-24",
+    eto_mm: 3.4,
+    rain_mm: 0,
+    eto_7d_mm: 24,
+    rain_7d_mm: 3,
+    dp_mm: 0,
+    dr_mm: 33.8,
+    taw_mm: 65,
+    raw_mm: 26,
+    aw_pct: 48,
+    status: "fair",
+    days_to_dry: 6,
+    filled: false,
+  },
+];
+
 type Calls = string[];
 function fake(over: Partial<WaterSource> = {}, calls: Calls = []): WaterSource {
   return {
@@ -129,6 +187,11 @@ function fake(over: Partial<WaterSource> = {}, calls: Calls = []): WaterSource {
     outlook: async (r, s) => (calls.push(`outlook ${r} ${s}`), OUTLOOK),
     summary: async (r, s) => (calls.push(`summary ${r} ${s}`), SUMMARY),
     balance: async (s, u) => (calls.push(`balance ${s} ${u}`), BALANCE),
+    soilTypes: async () => (calls.push("soilTypes"), SOIL_TYPES),
+    soilWater: async (stn, soil, f, u) => (
+      calls.push(`soilWater ${stn} ${soil} ${f} ${u}`),
+      SOIL_WATER
+    ),
     ...over,
   };
 }
@@ -396,5 +459,81 @@ describe("작기 돌아보기와 실패", () => {
       },
     });
     expect(noEnv.problem).not.toBeNull();
+  });
+});
+
+describe("작물 공통 (토양 물 상태)", () => {
+  it("양토 기본값으로 토양 물수지를 읽고 ① 지금 토양 상태 카드를 만든다", async () => {
+    const calls: Calls = [];
+    const v = await view(TODAY, {}, calls, {
+      stationId: 101,
+      crop: "common",
+    });
+    expect(calls).toEqual([
+      "soilTypes",
+      "soilWater 101 loam 2026-01-01 2026-10-25",
+      "recentRuns 101 4",
+    ]);
+    expect(
+      v.soils.map((s) => [s.code, s.name, s.isEstimated, s.selected]),
+    ).toEqual([
+      ["sand", "사토", false, false],
+      ["loam", "양토", false, true],
+      ["sandy_clay_loam", "사질식양토", true, false],
+    ]);
+    expect(v.commonNow).toEqual({
+      basis: "어제까지 관측 기준",
+      status: "fair",
+      badgeLabel: "보통",
+      headline: "토양 속 남은 물 48%",
+      description: "물이 줄고 있지만 아직 부족하지 않아요.",
+      active: true,
+      awPct: 48,
+      remainMm: 31,
+      tawMm: 65,
+      recent7dText: "최근 7일: 비 3 mm · 증발 수요 24 mm",
+      daysToDryText: "비가 오지 않으면 약 6일 뒤 건조 단계에 들어가요.",
+      soilCode: "loam",
+      soilName: "양토",
+      isEstimated: false,
+      basisText:
+        "토양 깊이 50 cm, 비가 없으면 하루 증발 수요(ETo)만큼 물이 빠진다고 가정했어요. 경사지 유출과 지하수는 반영하지 않았어요. 토양 속 남은 물 = (TAW − Dr) ÷ TAW × 100, FAO-56 식(84)~(88)·Table 19.",
+    });
+    expect(v.outlook).toBeNull();
+    expect(v.season).toEqual([]);
+  });
+
+  it("추정값 토양(사질식양토)을 고르면 추정값 안내 문구가 붙고 겨울철이면 수치를 숨긴다", async () => {
+    const v = await view(
+      TODAY,
+      {
+        soilWater: async () => [
+          {
+            ...SOIL_WATER[1]!,
+            date: "2026-01-15",
+            status: "winter",
+            aw_pct: null,
+            dr_mm: null,
+            days_to_dry: null,
+          },
+        ],
+      },
+      [],
+      { stationId: 101, crop: "common", soil: "sandy_clay_loam" },
+    );
+    expect(v.commonNow).toMatchObject({
+      status: "winter",
+      badgeLabel: "겨울철",
+      headline: "12~2월은 판정하지 않아요.",
+      active: false,
+      remainMm: null,
+      daysToDryText: null,
+      soilCode: "sandy_clay_loam",
+      soilName: "사질식양토",
+      isEstimated: true,
+    });
+    expect(v.commonNow?.basisText).toContain(
+      "Saxton & Rawls (2006) 식으로 추정한 값이에요.",
+    );
   });
 });

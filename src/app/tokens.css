@@ -49,6 +49,12 @@
   --color-dormant-dot: rgb(174 174 178);
   --color-dormant-card: #fff;
 
+  /* ── 색: 작물 공통(토양 물 상태) 추가 토큰 (나머지 단계는 위 물 판정 토큰과 같은 색을 쓴다) ── */
+  --color-very-dry-fg: rgb(184 32 16);
+  --color-very-dry-bg: rgb(255 59 48 / 0.18);
+  --color-very-dry-dot: rgb(235 68 44);
+  --color-very-dry-card: rgb(255 235 232);
+
   /* ── 글꼴 ── */
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",

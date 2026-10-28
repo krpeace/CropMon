@@ -75,6 +75,14 @@ test("온도: 저온요구량은 '준비 중'", async ({ page }) => {
 
   await page.goto("/temperature?st=101&crop=cabbage");
   await expect(chill).toContainText("배추는 저온요구량을 따지지 않아요");
+
+  await page.goto("/temperature?st=101&crop=common");
+  await expect(speed(page)).toContainText("기준 온도 5℃ · 1월 1일부터");
+  await expect(stages(page)).toContainText("적산온도 1,000 ℃·일");
+  await expect(stages(page)).toContainText("적산온도 2,000 ℃·일");
+  await expect(chill).toContainText(
+    "작물 공통에서는 저온요구량을 따지지 않아요",
+  );
 });
 
 test("온도: DB 가 오류를 줘도 멈추지 않고 '자료 없음' (태백)", async ({
