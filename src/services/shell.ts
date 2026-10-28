@@ -26,14 +26,20 @@ export type PageMeta = {
 
 const NO_DATA = "자료 없음";
 
-export const STATION_IDS: readonly number[] = STATIONS.map((s) => s.id);
+const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
+
+export const STATION_IDS: readonly number[] = REP_STATIONS.map((s) => s.id);
 
 function toStation(s: (typeof STATIONS)[number]): Station {
-  return { id: s.id, name: s.name, measuresSunlight: s.measuresSunlight };
+  return {
+    id: s.id,
+    name: s.name,
+    measuresSunlight: s.measuresSunlight === true,
+  };
 }
 
 export function getStation(id: number): Station | null {
-  const found = STATIONS.find((s) => s.id === id);
+  const found = REP_STATIONS.find((s) => s.id === id);
   return found ? toStation(found) : null;
 }
 
@@ -44,7 +50,7 @@ export function listStationChips(
   crop: Crop,
   statuses: Statuses | null,
 ): StationChip[] {
-  return STATIONS.map((s) => ({
+  return REP_STATIONS.map((s) => ({
     ...toStation(s),
     status: statuses?.[crop][s.id] ?? null,
   }));

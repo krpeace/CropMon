@@ -186,7 +186,7 @@ async function readCompare(
     if (!db) throw new Error("DB 연결 정보 없음");
     const found = await readHeatLatest(db, cropId, today);
     return {
-      compare: STATIONS.map((s) => {
+      compare: STATIONS.filter((s) => s.isRepresentative).map((s) => {
         const lead = found[s.id]?.lead ?? null;
         return {
           id: s.id,

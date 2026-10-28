@@ -5,6 +5,7 @@ import {
   getPageMeta,
   getStation,
   listStationChips,
+  STATION_IDS,
 } from "./shell";
 
 describe("listStationChips", () => {
@@ -21,6 +22,9 @@ describe("listStationChips", () => {
       "안동",
       "진주",
       "서귀포",
+    ]);
+    expect(STATION_IDS).toEqual([
+      101, 216, 119, 131, 129, 146, 156, 136, 192, 189,
     ]);
   });
 

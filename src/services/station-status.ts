@@ -53,6 +53,7 @@ const RECENT_RUNS = 40; // 지점 10곳 × 하루 2회 × 이틀
 const RECENT_DAYS = 7;
 /** 이보다 오래된 회차는 예보로 쓰지 않는다 (관측 기준으로 돌린다). */
 const RUN_MAX_AGE_H = 36;
+const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
 
 function code(v: string | undefined): WaterStatus | null {
   return (WATER_STATUSES as readonly string[]).includes(v ?? "")
@@ -62,7 +63,7 @@ function code(v: string | undefined): WaterStatus | null {
 
 function emptyBoard(ok: boolean): StationBoard {
   const blank = <T>() =>
-    Object.fromEntries(STATIONS.map((s) => [s.id, null])) as Record<
+    Object.fromEntries(REP_STATIONS.map((s) => [s.id, null])) as Record<
       number,
       T | null
     >;
@@ -107,7 +108,7 @@ export async function getStationBoard({
       [...xs].sort((a, b) => (a.date < b.date ? 1 : -1));
 
     const board = emptyBoard(true);
-    for (const s of STATIONS) {
+    for (const s of REP_STATIONS) {
       const run = latest.get(String(s.id));
       if (run?.finished_at) {
         board.updated[s.id] = { at: run.finished_at, runHour: runHour(run) };
@@ -177,7 +178,7 @@ export async function getStationBoard({
 export function statusesOf(board: StationBoard): StationStatuses {
   const pick = (crop: Crop) =>
     Object.fromEntries(
-      STATIONS.map((s) => [s.id, board.water[crop][s.id]?.status ?? null]),
+      REP_STATIONS.map((s) => [s.id, board.water[crop][s.id]?.status ?? null]),
     ) as Record<number, WaterStatus | null>;
   return { apple: pick("apple"), cabbage: pick("cabbage") };
 }
