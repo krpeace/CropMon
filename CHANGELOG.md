@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### 추가 (데이터 계약 v1.5 — 작물 공통 토양 물 상태 표와 추정 토성 3종 — 이슈 #35)
+
+- DB 구조(데이터 계약)를 v1.4 → v1.5로 판올림:
+  - 새 표 `soil_water_daily`: 지점 × 토성 × 날짜 키 구조, ETo·강수, 최근 7일 합, 심층침투(dp), 부족한 물(dr), TAW·RAW, 남은 물 %(aw_pct), 상태(status), 건조까지 남은 날(days_to_dry) 등 14개 열
+  - 작물 공통 상태 판정 코드 6종: `winter`(겨울철), `pool`(물 고임), `ample`(충분), `fair`(보통), `dry`(건조), `very_dry`(매우 건조)
+  - `soil_types`에 `is_estimated boolean not null default false` 열 추가
+  - 마이그레이션 `20261028000000_data_contract_v1_5.sql`: 새 표 생성, RLS 및 select 정책 설정, `is_estimated` 열 추가
+  - 마이그레이션 `20261028010000_seed_soil_estimates.sql`: FAO-56 Table 19에 없는 토성 3종(사질식양토·식양토·사질식토) Saxton & Rawls (2006) 추정값 반영(`is_estimated = true`), 적산온도 저장용 `common` 작물 행 등록
+- 계약 문서 및 결정 기록:
+  - `docs/DATA_CONTRACT.md`: v1.5 판올림, 공개 테이블 14개(총 15개), 작물 공통 물 상태 판정 절, 테이블 열 명세 및 추정값 근거 정리
+  - `docs/decisions/0020-soil-only-water.md`: 작물 공통 및 추정 토성 3종 결정 기록
+- 계약서 검증 테스트(`src/infra/supabase/contract.test.ts`) 갱신 및 v1.5 검증 테스트 추가
+
 ### 변경 (데이터 계약서 status_start 휴면기 판정 기준 문구 — 이슈 #37)
 
 - `docs/DATA_CONTRACT.md`:
