@@ -91,7 +91,8 @@ test("온도: DB 가 오류를 줘도 멈추지 않고 '자료 없음' (태백)"
   const response = await page.goto("/temperature?st=216&crop=apple");
   expect(response?.status()).toBe(200);
   await expect(speed(page)).toContainText("자료 없음");
-  await expect(speed(page)).toContainText("DB에서 온도 자료를 읽지 못했어요");
+  await expect(speed(page)).toContainText("온도 자료를 불러오지 못했어요");
+  await expect(speed(page)).not.toContainText("DB");
   // 지역 비교는 지점 여러 곳을 한 번에 읽으므로 그대로 보인다
   await expect(compare(page).getByRole("link")).toHaveCount(10);
 });

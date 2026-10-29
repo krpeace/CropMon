@@ -302,7 +302,7 @@ export async function getWaterView(
     console.error("[water] DB 읽기 실패:", error);
     return empty(
       noMeta(station),
-      "DB에서 물 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
   }
 }

@@ -199,7 +199,7 @@ describe("종합 화면 물 카드 (DB)", () => {
       water: { apple: blank(), cabbage: blank() },
     });
     expect(v.water.numbers).toBe(
-      "DB에서 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      "자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
   });
 });
@@ -251,7 +251,7 @@ describe("온도·햇빛 카드 (DB)", () => {
       heat: {},
       sun: {},
     });
-    const failed = "DB에서 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.";
+    const failed = "자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.";
     expect(v.growth).toEqual({
       verdict: "자료 없음",
       numbers: failed,

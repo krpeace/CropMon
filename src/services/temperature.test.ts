@@ -243,7 +243,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
       now: NOW,
     });
     expect(v.problem).toBe(
-      "DB에서 온도 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
     expect(v.verdict).toBe("자료 없음");
     expect(v.numbers).toBeNull();

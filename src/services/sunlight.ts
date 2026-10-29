@@ -120,7 +120,7 @@ async function readMain(
     console.error("[sunlight] DB 읽기 실패:", error);
     return {
       ...EMPTY,
-      problem: "DB에서 햇빛 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     };
   }
 }

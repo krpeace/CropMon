@@ -154,7 +154,7 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
     );
     expect(v.kind).toBe("error");
     expect(v.problem).toBe(
-      "DB에서 햇빛 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
     expect(v.verdict).toBe("자료 없음");
     expect(v.months).toEqual([]);
