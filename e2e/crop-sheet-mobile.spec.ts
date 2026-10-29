@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// 휴대폰(mobile 프로젝트 390×844)에서 작물 고르기 시트만 뜨고 "CropMon 소개" 창이 같이 뜨지 않는다. 가짜 Supabase 자료를 읽는다.
+// 휴대폰(mobile 프로젝트 390×844)에서 작물 고르기 판만 뜨고 "CropMon 소개" 창이 같이 뜨지 않는다. 가짜 Supabase 자료를 읽는다.
 
 const cropDialog = (page: Page) =>
   page.getByRole("dialog", { name: "작물 고르기" });
@@ -15,7 +15,7 @@ async function open(page: Page, path: string) {
 }
 
 for (const crop of ["apple", "common"]) {
-  test(`작물 버튼(crop=${crop}): 작물 고르기 시트만 뜨고 소개 창은 없다`, async ({
+  test(`작물 버튼(crop=${crop}): 작물 고르기 판만 뜨고 소개 창은 없다`, async ({
     page,
   }) => {
     await open(page, `/water?st=101&crop=${crop}`);
@@ -26,7 +26,7 @@ for (const crop of ["apple", "common"]) {
   });
 }
 
-test("목록에서 배추를 누르면 주소가 crop=cabbage 로 바뀌고 시트가 닫힌다", async ({
+test("목록에서 배추를 누르면 주소가 crop=cabbage 로 바뀌고 판이 닫힌다", async ({
   page,
 }) => {
   await open(page, "/water?st=101&crop=apple");
@@ -36,7 +36,7 @@ test("목록에서 배추를 누르면 주소가 crop=cabbage 로 바뀌고 시�
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("지역 고르기 시트와 CropMon 소개 창은 기존처럼 열린다", async ({
+test("지역 고르기 판과 CropMon 소개 창은 기존처럼 열린다", async ({
   page,
 }) => {
   await open(page, "/water?st=101&crop=apple");

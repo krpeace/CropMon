@@ -87,7 +87,7 @@ test.describe("휴대폰", () => {
       .not.toBe(light);
   });
 
-  test("지역 시트를 열면 시트가 탭바 위를 덮는다", async ({ page }) => {
+  test("지역 고르기를 열면 탭바가 덮인다", async ({ page }) => {
     await open(page, "/water?st=101&crop=apple");
     await page
       .getByRole("group", { name: "지역" })
