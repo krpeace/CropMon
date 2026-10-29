@@ -12,6 +12,10 @@
 - `season-chart.ts` 에 `dayIndexAt`·`tipSide`·`yDr`·`hoverInfo` 추가 (`ChartClick` 은 `ChartHover` 로 대체)
 - 테스트: `season-chart.test.ts` 4묶음, `e2e/water.spec.ts` 마우스·휴대폰 각 1건. 결정 0027
 
+### 수정 (로고·캐릭터 이미지 — 이슈 #15 관련)
+
+- 다크모드에서 로고·캐릭터의 눈과 글자 안쪽이 투명하게 뚫려 보이던 이미지를 다시 만들어 교체. mon.png 그림자는 반투명 검정으로 바꿔 다크에서 하얗게 뜨지 않게 함
+
 ### 수정 (휴대폰 작물 고르기 — 이슈 #15)
 
 - 휴대폰에서 작물 버튼을 누르면 "작물 고르기" 시트 위에 "CropMon 소개" 창이 같이 뜨던 문제 수정. `Sheets` 는 `login`·`about` 일 때만 그린다
