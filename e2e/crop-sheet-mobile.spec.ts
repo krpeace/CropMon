@@ -36,9 +36,7 @@ test("목록에서 배추를 누르면 주소가 crop=cabbage 로 바뀌고 판�
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("지역 고르기 판과 CropMon 소개 창은 기존처럼 열린다", async ({
-  page,
-}) => {
+test("지역 고르기 판과 CropMon 소개 창은 기존처럼 열린다", async ({ page }) => {
   await open(page, "/water?st=101&crop=apple");
   await page
     .getByRole("group", { name: "지역" })
