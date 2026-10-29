@@ -64,6 +64,10 @@ export type HomeRow = {
   lead: string | null;
   /** 생육 (적산일사): 평년 대비 "96%". 자료가 없으면 null ("자료 없음"). */
   sunlight: string | null;
+  /** 막대용: 적산온도가 평년보다 앞선 날 수(빠름 +, 늦음 −). 자료가 없거나 한 해 치를 넘으면 null. */
+  leadDays: number | null;
+  /** 막대용: 적산일사 평년 대비 %. 자료가 없으면 null. */
+  sunPct: number | null;
 };
 
 /** 게이지가 너무 짧아 안 보이지 않게 하는 최소 길이(%). 시안 그대로. */
@@ -113,8 +117,12 @@ function leadShort(h: HeatLatest | undefined): string | null {
   return "비슷";
 }
 
+function sunPct(s: SunLatest | undefined): number | null {
+  return sunPercent(s?.cum ?? null, s?.normal ?? null);
+}
+
 function sunShort(s: SunLatest | undefined): string | null {
-  const pct = sunPercent(s?.cum ?? null, s?.normal ?? null);
+  const pct = sunPct(s);
   return pct == null ? null : `${pct}%`;
 }
 
@@ -322,6 +330,8 @@ export function getHomeView(
         days: null,
         lead: leadShort(growth.heat[s.id]),
         sunlight: sunShort(growth.sun[s.id]),
+        leadDays: growth.heat[s.id]?.lead ?? null,
+        sunPct: sunPct(growth.sun[s.id]),
       };
     }
     const w = board.water[crop][s.id];
@@ -343,6 +353,8 @@ export function getHomeView(
         : null,
       lead: leadShort(growth.heat[s.id]),
       sunlight: sunShort(growth.sun[s.id]),
+      leadDays: growth.heat[s.id]?.lead ?? null,
+      sunPct: sunPct(growth.sun[s.id]),
     };
   });
 

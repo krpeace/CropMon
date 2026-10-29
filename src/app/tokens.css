@@ -34,15 +34,19 @@
   --color-scrim: rgb(0 0 0); /* 창 뒤 어둡게 · /28 */
   --color-white: #fff;
 
-  /* ── 색: 물 판정 상태 (물 판정에만). 이름은 DB status 코드와 같다 (주의 = caution, 보통 = normal) ── */
+  /*
+   ── 색: 물 판정 상태 (물 판정에만). 이름은 DB status 코드와 같다 (보통 = normal) ──
+   '주의'(caution)는 전용 색이 없다: need 색의 주황 테두리(속 빈 배지·빈 점), 카드는 흰색 (ui/status.ts).
+   ok-* 는 아직 여유·보통(작물 공통 fair)의 초록.
+*/
   --color-need-fg: rgb(176 74 0);
   --color-need-bg: rgb(255 141 40 / 0.2);
   --color-need-dot: rgb(255 141 40);
   --color-need-card: rgb(255 241 228);
-  --color-caution-fg: rgb(0 122 46);
-  --color-caution-bg: rgb(52 199 89 / 0.18);
-  --color-caution-dot: rgb(52 199 89);
-  --color-caution-card: rgb(234 248 238);
+  --color-ok-fg: rgb(0 122 46);
+  --color-ok-bg: rgb(52 199 89 / 0.18);
+  --color-ok-dot: rgb(52 199 89);
+  --color-ok-card: rgb(234 248 238);
   --color-normal-fg: rgb(20 96 214);
   --color-normal-bg: rgb(0 136 255 / 0.14);
   --color-normal-dot: rgb(0 136 255);
@@ -198,10 +202,10 @@
   --color-need-fg: rgb(255 170 95);
   --color-need-bg: rgb(255 146 48 / 0.22);
   --color-need-card: rgb(51 33 17);
-  --color-caution-dot: rgb(48 209 88);
-  --color-caution-fg: rgb(90 220 125);
-  --color-caution-bg: rgb(48 209 88 / 0.2);
-  --color-caution-card: rgb(17 41 24);
+  --color-ok-dot: rgb(48 209 88);
+  --color-ok-fg: rgb(90 220 125);
+  --color-ok-bg: rgb(48 209 88 / 0.2);
+  --color-ok-card: rgb(17 41 24);
   --color-normal-dot: rgb(0 145 255);
   --color-normal-fg: rgb(120 185 255);
   --color-normal-bg: rgb(0 145 255 / 0.22);

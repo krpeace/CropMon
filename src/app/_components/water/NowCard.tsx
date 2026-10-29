@@ -8,7 +8,7 @@ import type {
   SoilOption,
 } from "@/services/water";
 
-import { STATUS_CARD, STATUS_DOT } from "../ui/status";
+import { STATUS_CARD, STATUS_FILL } from "../ui/status";
 import { StatusBadge } from "../ui/StatusBadge";
 import { SoilPicker } from "./SoilPicker";
 
@@ -53,7 +53,7 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
                 style={{ left: `${now.gauge.rawPct}%` }}
               />
               <div
-                className={`absolute inset-y-0 left-0 rounded-full ${STATUS_DOT[now.gauge.status]}`}
+                className={`absolute inset-y-0 left-0 rounded-full ${STATUS_FILL[now.gauge.status]}`}
                 style={{ width: `${now.gauge.fillPct}%` }}
               />
               <div
@@ -211,7 +211,7 @@ export function CommonNowCard({
                   className="shadow-hairline relative h-4.5 rounded-full bg-white/95 dark:bg-white/14"
                 >
                   <div
-                    className={`absolute inset-y-0 left-0 rounded-full ${STATUS_DOT[tone]}`}
+                    className={`absolute inset-y-0 left-0 rounded-full ${STATUS_FILL[tone]}`}
                     style={{ width: `${fillPct}%` }}
                   />
                   <div

@@ -14,6 +14,7 @@ import { STATUS_CARD } from "../ui/status";
 import { AutoRotate } from "./AutoRotate";
 import { FarmPromo } from "./FarmPromo";
 import { FlipItem } from "./FlipItem";
+import { NationalList } from "./NationalList";
 import { NationalTable } from "./NationalTable";
 import { SoonCard, SummaryCard } from "./SummaryCard";
 
@@ -119,6 +120,11 @@ async function ResolvedHomeBoard({ searchParams }: Props) {
         </FlipItem>
       </Grid>
 
+      <NationalList
+        rows={view.rows}
+        crop={selection.crop}
+        soil={selection.soil}
+      />
       <NationalTable
         rows={view.rows}
         crop={selection.crop}

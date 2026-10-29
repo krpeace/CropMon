@@ -19,6 +19,15 @@ export const WATER_STATUS_LABEL: Record<WaterStatus, string> = {
   dormant: "휴면기",
 };
 
+/** 3일 캡슐처럼 좁은 곳에 쓰는 두 글자 이름. */
+export const WATER_STATUS_SHORT: Record<WaterStatus, string> = {
+  need: "관수",
+  caution: "주의",
+  normal: "보통",
+  wet: "과습",
+  dormant: "휴면",
+};
+
 export type StatusBadge = { status: WaterStatus; label: string };
 
 /**

@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { todayBadge, WATER_STATUS_LABEL } from "./water-status";
+import {
+  todayBadge,
+  WATER_STATUS_LABEL,
+  WATER_STATUS_SHORT,
+} from "./water-status";
+
+describe("WATER_STATUS_SHORT", () => {
+  it("3일 캡슐용 두 글자 이름", () => {
+    expect(WATER_STATUS_SHORT).toEqual({
+      need: "관수",
+      caution: "주의",
+      normal: "보통",
+      wet: "과습",
+      dormant: "휴면",
+    });
+  });
+});
 
 describe("WATER_STATUS_LABEL", () => {
   it("데이터 계약 v1 의 토양수분 상태 이름을 쓴다", () => {
