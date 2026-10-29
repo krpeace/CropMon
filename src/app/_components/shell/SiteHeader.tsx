@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   CROPS,
@@ -35,6 +35,7 @@ import type {
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { TABS } from "./pages";
+import { SelectionPanel } from "./SelectionPanel";
 import { TabBar } from "./TabBar";
 import { ThemeToggle } from "./ThemeToggle";
 import { useSheet } from "./sheet-context";
@@ -106,7 +107,7 @@ function SiteHeaderView({
   statuses: StationStatuses | null;
 }) {
   const pathname = usePathname();
-  const { sheet, open, close } = useSheet();
+  const { open } = useSheet();
 
   return (
     <>
@@ -166,22 +167,6 @@ function SiteHeaderView({
         />
       </header>
       <TabBar pathname={pathname} selection={selection} />
-      {sheet === "station" && (
-        <StationSheet
-          pathname={pathname}
-          selection={selection}
-          statuses={statuses}
-          onClose={close}
-        />
-      )}
-      {sheet === "crop" && (
-        <CropSheet
-          pathname={pathname}
-          selection={selection}
-          statuses={statuses}
-          onClose={close}
-        />
-      )}
     </>
   );
 }
@@ -206,8 +191,26 @@ function SelectionBar({
     : null;
   const isNonRepSelected = Boolean(station && !station.isRepresentative);
 
-  const { open, popover, setPopover } = useSheet();
+  const { popover, setPopover } = useSheet();
   const [anchor, setAnchor] = useState<"wide" | "compact">("wide");
+  // 휴대폰(폭 1024 미만) 고르기 판. 이 선택 줄 안에서만 쓰므로 전역 상태가 아니라 로컬 상태로 둔다.
+  // 경로나 선택(지역·작물·재배 방식·토양)이 바뀌면(urlKey 가 달라지면) 저절로 닫힌 것으로 본다.
+  const urlKey = [
+    pathname,
+    selection?.stationId,
+    selection?.crop,
+    selection?.kc,
+    selection?.soil,
+  ].join("|");
+  const [panelState, setPanelState] = useState<{
+    kind: "crop" | "region";
+    key: string;
+  } | null>(null);
+  const panel = panelState?.key === urlKey ? panelState.kind : null;
+  const closePanel = useCallback(() => setPanelState(null), []);
+  const barRef = useRef<HTMLDivElement>(null);
+  const cropButtonRef = useRef<HTMLButtonElement>(null);
+  const regionButtonRef = useRef<HTMLButtonElement>(null);
   const groupRef = useRef<HTMLDivElement>(null);
   const cropGroupRef = useRef<HTMLDivElement>(null);
 
@@ -257,27 +260,33 @@ function SelectionBar({
         }));
 
   return (
-    <div className="border-ink-2/12 bg-bg/70 border-t-(length:--hairline)">
-      <div className="mx-auto flex max-w-(--page-max) flex-wrap items-center gap-3 px-(--page-gutter) py-2.5">
+    <div
+      ref={barRef}
+      className="border-ink-2/12 bg-bg/70 border-t-(length:--hairline)"
+    >
+      <div className="desktop:flex-wrap desktop:gap-3 mx-auto flex max-w-(--page-max) flex-nowrap items-center gap-2 px-(--page-gutter) py-2.5">
         <div
           ref={cropGroupRef}
           role="group"
           aria-label="작물"
-          className="relative flex flex-wrap items-center gap-1.5"
+          className="desktop:flex-initial desktop:basis-auto desktop:flex-wrap relative flex min-w-0 flex-1 basis-0 items-center gap-1.5"
         >
           <button
+            ref={cropButtonRef}
             type="button"
             aria-haspopup="listbox"
-            aria-expanded={popover === "crop"}
+            aria-expanded={popover === "crop" || panel === "crop"}
             onClick={() => {
               if (typeof window !== "undefined" && window.innerWidth < 1024) {
                 setPopover(null);
-                open("crop");
+                setPanelState(
+                  panel === "crop" ? null : { kind: "crop", key: urlKey },
+                );
               } else {
                 setPopover(popover === "crop" ? null : "crop");
               }
             }}
-            className="bg-card text-17 text-ink shadow-hairline flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-bold whitespace-nowrap"
+            className="bg-card text-17 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-bold whitespace-nowrap"
           >
             <Icon
               name="crop"
@@ -285,12 +294,22 @@ function SelectionBar({
               strokeWidth={2}
               className="text-brand-ink shrink-0"
             />
-            <span>{CROP_LABEL[crop]}</span>
+            {/* 휴대폰: 이름과 회색 보조 글자를 "한 줄 높이 칸"에 담는다. 보조 글자가 다 안 들어가면
+                다음 줄로 넘어가 칸 밖(overflow-hidden)이 되어 통째로 안 보인다 — 반쪽 글자가 남지 않는다.
+                데스크톱은 칸을 없애(contents) 지금 모양 그대로. */}
+            <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
+              <span className="max-desktop:leading-6 shrink-0">
+                {CROP_LABEL[crop]}
+              </span>
+              <span
+                data-testid="crop-sub"
+                className="text-14 text-ink-2/85 desktop:hidden max-desktop:leading-6 font-medium whitespace-nowrap"
+              >
+                {info.short}
+              </span>
+            </span>
             <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
               · {info.sub}
-            </span>
-            <span className="text-14 text-ink-2/85 desktop:hidden truncate font-medium">
-              {info.short}
             </span>
             <Icon
               name="chevronDown"
@@ -327,7 +346,7 @@ function SelectionBar({
           ref={groupRef}
           role="group"
           aria-label="지역"
-          className="flex flex-wrap items-center gap-1.5"
+          className="desktop:flex-initial desktop:basis-auto desktop:flex-wrap flex min-w-0 flex-1 basis-0 items-center gap-1.5"
         >
           {/* 넓은 화면(>= 1280px): 대표 10개 칩 + 지역 고르기 버튼 */}
           <div className="wide:flex hidden flex-wrap items-center gap-1.5">
@@ -435,36 +454,60 @@ function SelectionBar({
           </div>
 
           {/* 좁은 화면(< 1280px): 단일 지역 버튼 */}
-          <div className="wide:hidden relative flex">
+          <div className="wide:hidden desktop:flex-none relative flex min-w-0 flex-1">
             {selection && station ? (
               <button
+                ref={regionButtonRef}
                 type="button"
                 aria-haspopup="listbox"
-                aria-expanded={popover === "region" && anchor === "compact"}
+                aria-expanded={
+                  (popover === "region" && anchor === "compact") ||
+                  panel === "region"
+                }
                 onClick={() => {
                   if (
                     typeof window !== "undefined" &&
                     window.innerWidth < 1024
                   ) {
                     setPopover(null);
-                    open("station");
+                    setPanelState(
+                      panel === "region"
+                        ? null
+                        : { kind: "region", key: urlKey },
+                    );
                   } else {
                     setAnchor("compact");
                     setPopover(popover === "region" ? null : "region");
                   }
                 }}
-                className="bg-card text-15 text-ink shadow-hairline flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap"
+                className="bg-card text-15 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap"
               >
-                <span className="text-ink-2/75 font-medium">지역 ·</span>
+                <Icon
+                  name="pin"
+                  size={16}
+                  strokeWidth={2}
+                  className="text-ink-2/75 desktop:hidden shrink-0"
+                />
+                <span className="text-ink-2/75 desktop:not-sr-only sr-only font-medium">
+                  지역 ·
+                </span>
                 <span
                   aria-hidden="true"
-                  className={`size-2 rounded-full ${
+                  className={`size-2 shrink-0 rounded-full ${
                     selectedStatus ? STATUS_DOT[selectedStatus] : "bg-fill/30"
                   }`}
                 />
-                <span>{station.name}</span>
-                <span className="text-13 text-ink-2/60 font-medium">
-                  {station.id}
+                {/* 지점 이름은 넘치면 "…", 지점번호는 다 들어가면 보이고 안 들어가면 통째로 숨긴다 (위 작물 버튼과 같은 방식). 데스크톱은 칸을 없애(contents) 지금 모양 그대로 */}
+                <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
+                  <span className="max-desktop:leading-6 min-w-0 truncate">
+                    {station.name}
+                  </span>
+                  <span
+                    data-testid="station-id"
+                    className="text-13 text-ink-2/60 max-desktop:leading-6 font-medium whitespace-nowrap"
+                  >
+                    {station.id}
+                  </span>
                 </span>
                 <span className="sr-only">
                   {selectedStatus
@@ -475,11 +518,11 @@ function SelectionBar({
                   name="chevronDown"
                   size={16}
                   strokeWidth={2.2}
-                  className="text-ink-2/75"
+                  className="text-ink-2/75 shrink-0"
                 />
               </button>
             ) : (
-              <span className="bg-card text-15 text-ink shadow-hairline flex h-11 items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap">
+              <span className="bg-card text-15 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap">
                 <span className="text-ink-2/75 font-medium">지역 고르기</span>
               </span>
             )}
@@ -493,7 +536,7 @@ function SelectionBar({
             )}
           </div>
         </div>
-        <span className="flex-1" />
+        <span className="desktop:block hidden flex-1" />
         <div
           aria-label={`오늘 ${CROP_LABEL[crop]} 물 관리`}
           className="desktop:flex hidden flex-col items-start gap-0.5"
@@ -517,6 +560,38 @@ function SelectionBar({
           </div>
         </div>
       </div>
+      {panel === "crop" && (
+        <SelectionPanel
+          title="작물 고르기"
+          anchorRef={barRef}
+          triggerRef={cropButtonRef}
+          onClose={closePanel}
+        >
+          <div className="overflow-y-auto overscroll-contain px-2 pb-2">
+            <CropPickerBody
+              pathname={pathname}
+              selection={selection}
+              statuses={statuses}
+              onClose={closePanel}
+            />
+          </div>
+        </SelectionPanel>
+      )}
+      {panel === "region" && (
+        <SelectionPanel
+          title="지역 고르기"
+          anchorRef={barRef}
+          triggerRef={regionButtonRef}
+          onClose={closePanel}
+        >
+          <RegionPickerBody
+            pathname={pathname}
+            selection={selection}
+            statuses={statuses}
+            onClose={closePanel}
+          />
+        </SelectionPanel>
+      )}
     </div>
   );
 }
@@ -544,57 +619,6 @@ function RegionPopover({
   );
 }
 
-function StationSheet({
-  pathname,
-  selection,
-  statuses,
-  onClose,
-}: {
-  pathname: string;
-  selection: Selection | null;
-  statuses: StationStatuses | null;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      onClick={onClose}
-      className="bg-scrim/28 fixed inset-0 z-40 flex flex-col justify-end"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="지역 고르기"
-        onClick={(e) => e.stopPropagation()}
-        className="rounded-t-sheet bg-card shadow-panel flex max-h-[82vh] w-full flex-col overflow-hidden pt-2 pb-5"
-      >
-        <div className="bg-ink-2/30 mx-auto mt-1 mb-2.5 h-1.25 w-9 rounded-full" />
-        <div className="flex items-center justify-between px-4 pb-2">
-          <span className="text-20 font-bold">지역 고르기</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-16 text-brand-ink min-h-11 cursor-pointer px-2 font-semibold"
-          >
-            닫기
-          </button>
-        </div>
-        <RegionPickerBody
-          pathname={pathname}
-          selection={selection}
-          statuses={statuses}
-          onClose={onClose}
-        />
-      </div>
-    </div>
-  );
-}
-
 function RegionPickerBody({
   pathname,
   selection,
@@ -617,8 +641,9 @@ function RegionPickerBody({
   const { sections } = listRegionPicker(crop, statuses, query, soil);
   const flatItems = sections.flatMap((s) => s.items);
 
+  // 휴대폰에서는 검색칸에 바로 포커스하지 않는다: 키보드가 올라와 대표 지점 목록을 가린다.
   useEffect(() => {
-    inputRef.current?.focus();
+    if (window.innerWidth >= 1024) inputRef.current?.focus();
   }, []);
 
   const selectStation = (stationId: number) => {
@@ -678,7 +703,7 @@ function RegionPickerBody({
                 setActiveIndex(0);
                 inputRef.current?.focus();
               }}
-              className="text-13 text-ink-2/75 cursor-pointer px-1.5 py-1 font-semibold"
+              className="text-13 text-ink-2/75 hit-44 cursor-pointer px-1.5 py-1 font-semibold"
             >
               지우기
             </button>
@@ -689,7 +714,7 @@ function RegionPickerBody({
       <div
         role="listbox"
         aria-label="관측 지점 목록"
-        className="flex-1 overflow-y-auto px-2 py-1.5"
+        className="flex-1 overflow-y-auto overscroll-contain px-2 py-1.5"
       >
         {sections.length === 0 ? (
           <div className="text-15 text-ink-2/75 px-3 py-7 text-center">
@@ -771,59 +796,6 @@ function RegionPickerBody({
         기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중
       </div>
     </>
-  );
-}
-
-function CropSheet({
-  pathname,
-  selection,
-  statuses,
-  onClose,
-}: {
-  pathname: string;
-  selection: Selection | null;
-  statuses: StationStatuses | null;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      onClick={onClose}
-      className="bg-scrim/28 fixed inset-0 z-40 flex flex-col justify-end"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="작물 고르기"
-        onClick={(e) => e.stopPropagation()}
-        className="rounded-t-sheet bg-card shadow-panel flex max-h-[82vh] w-full flex-col overflow-hidden pt-2 pb-5"
-      >
-        <div className="bg-ink-2/30 mx-auto mt-1 mb-2.5 h-1.25 w-9 rounded-full" />
-        <div className="flex items-center justify-between px-4 pb-2">
-          <span className="text-20 font-bold">작물 고르기</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-16 text-brand-ink min-h-11 cursor-pointer px-2 font-semibold"
-          >
-            닫기
-          </button>
-        </div>
-        <div className="px-2">
-          <CropPickerBody
-            pathname={pathname}
-            selection={selection}
-            statuses={statuses}
-            onClose={onClose}
-          />
-        </div>
-      </div>
-    </div>
   );
 }
 

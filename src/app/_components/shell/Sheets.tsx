@@ -25,7 +25,7 @@ export function AboutButton() {
 
 /**
  * 가운데 창(로그인 안내·CropMon 소개). 바깥이나 Esc 를 누르면 닫힌다. layout 에서 <Suspense> 안에 둔다.
- * "station"·"crop" 은 SiteHeader.tsx 의 StationSheet·CropSheet 가 그리므로 여기서는 그리지 않는다.
+ * 작물·지역 고르기는 가운데 창이 아니라 선택 줄 아래 펼침 판(SelectionPanel)이라 여기서 그리지 않는다.
  */
 export function Sheets() {
   const { sheet, close } = useSheet();

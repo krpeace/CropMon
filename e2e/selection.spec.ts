@@ -182,7 +182,7 @@ test("1280 미만 뷰포트에서는 대표 10개 칩이 숨고 단일 지역 �
   ).toBeVisible();
 });
 
-test("모바일 390×844 뷰포트에서 바닥 시트로 지역을 고르고 가로 넘침이 없다", async ({
+test("모바일 390×844 뷰포트에서 펼침 판으로 지역을 고르고 가로 넘침이 없다", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });

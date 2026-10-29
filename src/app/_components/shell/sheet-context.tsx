@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useState } from "react";
 
-export type SheetKind = "login" | "about" | "station" | "crop";
+export type SheetKind = "login" | "about";
 export type PopoverKind = "region" | "crop" | null;
 
 type SheetState = {

@@ -18,13 +18,17 @@ const PAGES = [
 ];
 
 /** 눌리는 영역이 44 에 못 미치는 보이는 요소의 이름 목록. */
-async function smallTargets(page: Page): Promise<string[]> {
-  const found = await page.evaluate(() => {
+async function smallTargets(
+  page: Page,
+  rootSelector = "body",
+): Promise<string[]> {
+  const found = await page.evaluate((rootSel) => {
     const SEL = "a,button,[role=tab]";
     const MIN = 44;
     const half = MIN / 2 - 1; // 21
     const out: string[] = [];
-    for (const el of document.querySelectorAll<HTMLElement>(SEL)) {
+    const root = document.querySelector(rootSel)!;
+    for (const el of root.querySelectorAll<HTMLElement>(SEL)) {
       const style = getComputedStyle(el);
       if (style.visibility === "hidden" || el.getClientRects().length === 0) {
         continue;
@@ -54,7 +58,7 @@ async function smallTargets(page: Page): Promise<string[]> {
       }
     }
     return out;
-  });
+  }, rootSelector);
   return found.filter((f) => !EXCEPTIONS.some((e) => f.includes(`"${e.text}`)));
 }
 
@@ -79,4 +83,44 @@ test("누르는 곳 44px 이상: 작물 공통 '계산에 쓴 토양' 목록을 
     page.getByRole("listbox", { name: "토양 고르기" }),
   ).toBeVisible();
   expect(await smallTargets(page)).toEqual([]);
+});
+
+// 작물·지역 고르기 판: 판 안의 버튼만 잰다 (뒤 화면은 덮개에 덮여 눌리지 않는다).
+const DIALOG = '[role="dialog"]';
+
+test("누르는 곳 44px 이상: 작물 고르기 판을 연 상태", async ({ page }) => {
+  await open(page, "/water?st=101&crop=apple");
+  await page
+    .getByRole("group", { name: "작물" })
+    .getByRole("button")
+    .first()
+    .click();
+  await expect(page.getByRole("dialog", { name: "작물 고르기" })).toBeVisible();
+  expect(await smallTargets(page, DIALOG)).toEqual([]);
+});
+
+test("누르는 곳 44px 이상: 지역 고르기 판을 연 상태", async ({ page }) => {
+  await open(page, "/water?st=101&crop=apple");
+  await page
+    .getByRole("group", { name: "지역" })
+    .getByRole("button")
+    .first()
+    .click();
+  await expect(page.getByRole("dialog", { name: "지역 고르기" })).toBeVisible();
+  expect(await smallTargets(page, DIALOG)).toEqual([]);
+});
+
+test("누르는 곳 44px 이상: 지역 판에 검색어를 넣어 '지우기'가 보이는 상태", async ({
+  page,
+}) => {
+  await open(page, "/water?st=101&crop=apple");
+  await page
+    .getByRole("group", { name: "지역" })
+    .getByRole("button")
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog", { name: "지역 고르기" });
+  await dialog.getByRole("searchbox", { name: "지역 검색" }).fill("홍");
+  await expect(dialog.getByRole("button", { name: "지우기" })).toBeVisible();
+  expect(await smallTargets(page, DIALOG)).toEqual([]);
 });
