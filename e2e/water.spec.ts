@@ -247,3 +247,97 @@ test.describe("물: 작기 그래프 (휴대폰)", () => {
     await expect(page).toHaveURL(/&d=\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+// 작물 공통 ③ 작기 돌아보기 (이슈 #45): 사과·배추 그래프 틀을 다시 쓴다.
+const commonSeason = (page: Page) =>
+  page.getByRole("region", { name: /작기 돌아보기/ });
+
+test("물(작물 공통): ③ 그래프에 기준선 글자·범례·오른쪽 남은 물 눈금이 보인다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=101&crop=common");
+  const season = commonSeason(page);
+  await expect(season).toBeVisible();
+  await expect(season.getByText("건조 시작", { exact: true })).toBeVisible();
+  await expect(
+    season.getByText("매우 건조 시작", { exact: true }),
+  ).toBeVisible();
+  await expect(season).toContainText("건조 시작 (남은 물 60%)");
+  await expect(season).toContainText("매우 건조 시작 (남은 물 30%)");
+  for (const t of ["100%", "60%", "30%", "0%"]) {
+    await expect(season.getByText(t, { exact: true })).toBeVisible();
+  }
+  await expect(season).toContainText("증발 수요");
+  await expect(season).not.toContainText("작물이 쓴 물");
+  await expect(
+    season.getByText("※ 작물과 관계없이 겉토양 50 cm만 본 값이에요."),
+  ).toBeVisible();
+  // 월별 요약은 ETc·관수 필요 일수 칸을 뺀다
+  await expect(season.getByRole("columnheader")).toHaveText([
+    "월",
+    "증발 수요ETo",
+    "비",
+  ]);
+});
+
+test("물(작물 공통): 마우스를 올리면 ETc 없는 값 상자가 뜨고, 누르면 ① 카드가 그날로 바뀐다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=101&crop=common");
+  const top = commonSeason(page).locator('[data-plot="top"]');
+  await top.scrollIntoViewIfNeeded();
+  const box = (await top.boundingBox())!;
+  const tip = page.getByRole("tooltip");
+
+  // 왼쪽 끝 = 1월 1일 (겨울철)
+  await page.mouse.move(box.x + 1, box.y + box.height / 2);
+  await expect(tip).toContainText("1월 1일");
+  await expect(tip).toContainText("겨울철");
+  await expect(tip).toContainText("증발 수요");
+  await expect(tip).not.toContainText("작물이 쓴 물");
+
+  // 오른쪽 끝 근처 = 어제 (설정값 그대로: 33.8 mm, 남은 물 48%)
+  await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2);
+  await expect(tip).toContainText("34 mm / 건조 시작 26 mm");
+  await expect(tip).toContainText("흙 속 남은 물");
+  await expect(tip).toContainText("48%");
+
+  // 누르면 그날로 간다 (주소에 &d=)
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page).toHaveURL(/&d=\d{4}-\d{2}-\d{2}$/);
+  await expect(now(page)).toContainText("관측 물수지");
+});
+
+test("물(작물 공통): 추정 토성이면 ③에도 '추정값'이 붙는다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=101&crop=common&soil=sandy_clay_loam");
+  await expect(commonSeason(page)).toContainText("토양: 사질식양토 (추정값)");
+  await page.goto("/water?st=101&crop=common&soil=loam");
+  await expect(commonSeason(page)).not.toContainText("추정값");
+});
+
+test.describe("물(작물 공통): ③ 그래프 (휴대폰, 다크)", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    colorScheme: "dark",
+  });
+
+  test("390 폭에서 옆으로 넘치지 않고, 탭하면 값 상자가 고정된다", async ({
+    page,
+  }) => {
+    await page.goto("/water?st=101&crop=common");
+    await expect(commonSeason(page)).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    const box = await seasonPlot(page);
+    await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height / 2);
+    await expect(page.getByRole("tooltip")).toContainText("흙 속 남은 물");
+    await expect(page).toHaveURL(/\/water\?st=101&crop=common$/);
+  });
+});

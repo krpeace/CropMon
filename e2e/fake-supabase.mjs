@@ -255,22 +255,32 @@ const SOIL_CONFIGS = [
   },
 ];
 for (const cfg of SOIL_CONFIGS) {
-  for (let d = `${year}-01-01`; d < today; d = add(d, 1)) {
+  const lastDay = add(today, -1);
+  for (let d = `${year}-01-01`, k = 0; d < today; d = add(d, 1), k++) {
     const m = Number(d.slice(5, 7));
     const winter = m === 12 || m === 1 || m === 2;
+    // 마지막 날(어제)은 설정값 그대로 (① 카드 테스트가 읽는다). 앞날은 그래프가 평평하지 않게 조금 흔든다.
+    const last = d === lastDay;
+    const dr = last
+      ? cfg.dr_mm
+      : Math.round(cfg.taw_mm * (0.15 + (0.7 * ((k * 5) % 11)) / 10) * 10) / 10;
     soil_water_daily.push({
       stn_id: cfg.stn_id,
       soil_code: cfg.soil_code,
       date: d,
-      eto_mm: 3.4,
-      rain_mm: 0,
+      eto_mm: last ? 3.4 : 2 + (k % 5) * 0.5,
+      rain_mm: !last && k % 9 === 0 ? 14 : 0,
       eto_7d_mm: 24,
       rain_7d_mm: 3,
       dp_mm: 0,
-      dr_mm: winter ? null : cfg.dr_mm,
+      dr_mm: winter ? null : dr,
       taw_mm: cfg.taw_mm,
       raw_mm: cfg.raw_mm,
-      aw_pct: winter ? null : cfg.aw_pct,
+      aw_pct: winter
+        ? null
+        : last
+          ? cfg.aw_pct
+          : Math.round(((cfg.taw_mm - dr) / cfg.taw_mm) * 100),
       status: winter ? "winter" : cfg.status,
       days_to_dry: winter ? null : cfg.days_to_dry,
       filled: false,
