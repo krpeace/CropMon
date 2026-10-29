@@ -32,8 +32,9 @@ export function tipSide(i: number, n: number): "left" | "right" {
 }
 
 const NO_DATA = "자료 없음";
-// 월별 요약 표와 같은 자릿수 (water-verdict.ts: 정수로 반올림)
+// 비·부족한 물·관수 시작점은 정수, 하루 ETo·ETc 는 0~7 mm 라 소수 첫째 자리(늘 한 자리)
 const mm = (v: number | null) => (v == null ? NO_DATA : `${Math.round(v)} mm`);
+const mm1 = (v: number | null) => (v == null ? NO_DATA : `${v.toFixed(1)} mm`);
 
 /** 값 상자에 쓸 글자. 계산 없이 옮겨 적기와 자릿수 맞추기만 한다. 상태는 DB 값 그대로. */
 export function hoverInfo(day: SeasonDay, crop: Crop, raw: number) {
@@ -42,14 +43,14 @@ export function hoverInfo(day: SeasonDay, crop: Crop, raw: number) {
       ? crop === "apple"
         ? "휴면기"
         : "작기 아님"
-      : mm(day.etcMm);
+      : mm1(day.etcMm);
   const dr =
     day.drMm == null ? NO_DATA : `${mm(day.drMm)} / 관수 시작점 ${mm(raw)}`;
   return {
     date: dayLabel(day.date),
     status: day.status as WaterStatus,
     rows: [
-      { label: "기준 증발산", abbr: "ETo", value: mm(day.etoMm) },
+      { label: "기준 증발산", abbr: "ETo", value: mm1(day.etoMm) },
       { label: "작물이 쓴 물", abbr: "ETc", value: etc },
       { label: "비", value: mm(day.rainMm) },
       { label: "부족한 물", abbr: "Dr", value: dr },

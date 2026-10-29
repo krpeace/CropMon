@@ -108,11 +108,17 @@ describe("hoverInfo", () => {
     expect(h.rows[3].value).toBe("38 mm / 관수 시작점 65 mm");
   });
 
-  it("자릿수는 월별 요약 표와 같다 (정수로 반올림)", () => {
+  it("ETo·ETc 는 소수 첫째 자리, 비·부족한 물은 정수", () => {
     const h = hoverInfo(full, "apple", 65);
-    expect(h.rows[0].value).toBe("2 mm");
-    expect(h.rows[1].value).toBe("2 mm");
+    expect(h.rows[0].value).toBe("2.1 mm");
+    expect(h.rows[1].value).toBe("1.9 mm");
     expect(h.rows[2].value).toBe("12 mm");
+    expect(h.rows[3].value).toBe("38 mm / 관수 시작점 65 mm");
+  });
+
+  it("정수 값의 ETo 도 소수 한 자리를 붙인다", () => {
+    const h = hoverInfo({ ...full, etoMm: 3 }, "apple", 65);
+    expect(h.rows[0].value).toBe("3.0 mm");
   });
 
   it("값이 없으면 '자료 없음' (관수 시작점도 붙이지 않는다)", () => {
