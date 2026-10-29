@@ -81,7 +81,8 @@ test("물: DB가 오류를 주면 멈추지 않고 '자료 없음'과 이유", a
   const response = await page.goto("/water?st=216&crop=apple");
   expect(response?.status()).toBe(200);
   await expect(now(page)).toContainText("자료 없음");
-  await expect(now(page)).toContainText("DB에서 물 자료를 읽지 못했어요");
+  await expect(now(page)).toContainText("물 자료를 불러오지 못했어요");
+  await expect(now(page)).not.toContainText("DB");
   await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(
     "자료 없음",
   );

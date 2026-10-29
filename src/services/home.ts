@@ -73,7 +73,7 @@ export type HomeRow = {
 /** 게이지가 너무 짧아 안 보이지 않게 하는 최소 길이(%). 시안 그대로. */
 const MIN_FILL_PCT = 2;
 const NO_DATA = "자료 없음";
-const DB_FAILED = "DB에서 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.";
+const DB_FAILED = "자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.";
 const NON_REP_GUIDE =
   "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요";
 

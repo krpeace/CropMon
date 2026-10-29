@@ -450,7 +450,7 @@ describe("작기 돌아보기와 실패", () => {
       },
     });
     expect(v.problem).toBe(
-      "DB에서 물 자료를 읽지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
     expect(v.meta.updated).toBe("자료 없음");
     const noEnv = await getWaterView(APPLE, CHUNCHEON, TODAY, {

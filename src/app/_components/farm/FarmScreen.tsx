@@ -159,7 +159,7 @@ export function FarmScreen() {
                     setCrop("apple");
                     setFDate("2021-04-05");
                   }}
-                  className={`text-16 cursor-pointer rounded-full px-4.5 font-semibold transition-colors ${
+                  className={`text-16 hit-44 cursor-pointer rounded-full px-4.5 font-semibold transition-colors ${
                     crop === "apple"
                       ? "bg-seg text-ink shadow-segment"
                       : "text-ink-2/80 hover:text-ink"
@@ -173,7 +173,7 @@ export function FarmScreen() {
                     setCrop("cabbage");
                     setFDate("2026-08-05");
                   }}
-                  className={`text-16 cursor-pointer rounded-full px-4.5 font-semibold transition-colors ${
+                  className={`text-16 hit-44 cursor-pointer rounded-full px-4.5 font-semibold transition-colors ${
                     crop === "cabbage"
                       ? "bg-seg text-ink shadow-segment"
                       : "text-ink-2/80 hover:text-ink"

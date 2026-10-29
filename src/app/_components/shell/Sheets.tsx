@@ -16,7 +16,7 @@ export function AboutButton() {
     <button
       type="button"
       onClick={() => open("about")}
-      className="text-brand-ink cursor-pointer py-2 font-bold"
+      className="text-brand-ink inline-flex min-h-11 cursor-pointer items-center font-bold"
     >
       CropMon 소개
     </button>

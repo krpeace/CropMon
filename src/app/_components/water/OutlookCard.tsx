@@ -62,7 +62,7 @@ export function OutlookCard({
                       href={withWaterQuery(selection, { run: r.hour })}
                       scroll={false}
                       aria-current={r.selected ? "true" : undefined}
-                      className={`text-15 flex items-center rounded-full px-3.5 font-semibold ${
+                      className={`text-15 hit-44 flex items-center rounded-full px-3.5 font-semibold ${
                         r.selected
                           ? "bg-seg text-ink shadow-segment"
                           : "text-ink-2/85"

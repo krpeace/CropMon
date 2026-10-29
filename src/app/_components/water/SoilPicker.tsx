@@ -29,7 +29,7 @@ export function SoilPicker({
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="text-15 text-ink shadow-hairline inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-white/85 px-3.5 py-1.5 font-semibold dark:bg-white/12"
+          className="text-15 text-ink shadow-hairline inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full bg-white/85 px-3.5 py-1.5 font-semibold dark:bg-white/12"
         >
           <span className="text-ink-2/80">계산에 쓴 토양:</span>
           <span className="font-bold">{current.name}</span>
@@ -61,7 +61,7 @@ export function SoilPicker({
               href={withWaterQuery({ ...selection, soil: s.code }, { date })}
               scroll={false}
               onClick={() => setOpen(false)}
-              className={`rounded-input text-14 flex min-h-10 items-center justify-between gap-1.5 px-2.5 py-1.5 font-semibold ${
+              className={`rounded-input text-14 flex min-h-11 items-center justify-between gap-1.5 px-2.5 py-1.5 font-semibold ${
                 s.selected
                   ? "bg-brand text-white"
                   : "bg-fill/10 text-ink hover:bg-fill/18"

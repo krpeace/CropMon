@@ -76,7 +76,8 @@ test("햇빛: DB 가 오류를 줘도 멈추지 않고 '자료 없음' (태백)"
   const response = await page.goto("/sunlight?st=216&crop=apple");
   expect(response?.status()).toBe(200);
   await expect(total(page)).toContainText("자료 없음");
-  await expect(total(page)).toContainText("DB에서 햇빛 자료를 읽지 못했어요");
+  await expect(total(page)).toContainText("햇빛 자료를 불러오지 못했어요");
+  await expect(total(page)).not.toContainText("DB");
   await expect(compare(page).getByRole("link")).toHaveCount(10);
 });
 
