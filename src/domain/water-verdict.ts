@@ -1,4 +1,5 @@
 import type { Crop } from "./selection";
+import type { SoilWaterStatus } from "./soil-water";
 import type { WaterStatus } from "./water-status";
 
 /**
@@ -127,9 +128,12 @@ export type MonthRow = {
   needDays: number | null;
 };
 
+/** 그래프 하루 칸의 상태: 작물(5종) 또는 작물 공통(6종). 상태 줄이 없으면 null. */
+export type DayStatus = WaterStatus | SoilWaterStatus | null;
+
 type DayRow = {
   date: string;
-  status: WaterStatus;
+  status: DayStatus;
   etoMm: number | null;
   etcMm: number | null;
   rainMm: number | null;

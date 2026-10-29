@@ -500,7 +500,51 @@ describe("작물 공통 (토양 물 상태)", () => {
         "토양 깊이 50 cm, 비가 없으면 하루 증발 수요(ETo)만큼 물이 빠진다고 가정했어요. 경사지 유출과 지하수는 반영하지 않았어요. 토양 속 남은 물 = (TAW − Dr) ÷ TAW × 100, FAO-56 식(84)~(88)·Table 19.",
     });
     expect(v.outlook).toBeNull();
-    expect(v.season).toEqual([]);
+  });
+
+  it("③ 작기 돌아보기: 1/1~오늘 줄을 그대로 옮기고 ETc 는 비어 있다", async () => {
+    const v = await view(TODAY, {}, [], { stationId: 101, crop: "common" });
+    expect(v.season).toEqual([
+      {
+        date: "2026-10-23",
+        etoMm: 3.2,
+        etcMm: null,
+        rainMm: 0,
+        drMm: 31.2,
+        awPct: 52,
+        status: "fair",
+      },
+      {
+        date: "2026-10-24",
+        etoMm: 3.4,
+        etcMm: null,
+        rainMm: 0,
+        drMm: 33.8,
+        awPct: 48,
+        status: "fair",
+      },
+    ]);
+    // ETc 가 없으니 월별 요약의 ETc·관수 필요 일수는 비어 있다 (화면은 그 두 칸을 빼고 보여 준다)
+    expect(v.months).toEqual([
+      { month: "10월 ~24일", eto: 7, etc: null, rain: 0, needDays: null },
+    ]);
+    expect(v.rawMm).toBe(26);
+    expect(v.tawMm).toBe(65);
+  });
+
+  it("DB 상태 코드를 모르면 겨울이면 겨울철, 아니면 상태 없음(null)", async () => {
+    const v = await view(
+      TODAY,
+      {
+        soilWater: async () => [
+          { ...SOIL_WATER[0]!, date: "2026-01-10", status: null },
+          { ...SOIL_WATER[0]!, date: "2026-06-10", status: null },
+        ],
+      },
+      [],
+      { stationId: 101, crop: "common" },
+    );
+    expect(v.season.map((d) => d.status)).toEqual(["winter", null]);
   });
 
   it("추정값 토양(사질식양토)을 고르면 추정값 안내 문구가 붙고 겨울철이면 수치를 숨긴다", async () => {

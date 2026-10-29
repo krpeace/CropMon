@@ -101,21 +101,26 @@ async function ResolvedWaterBoard({ searchParams }: Props) {
         </Grid>
       )}
 
-      {selection.crop !== "common" &&
-        view.day &&
-        view.rawMm != null &&
-        view.tawMm != null && (
-          <SeasonCard
-            season={view.season}
-            months={view.months}
-            raw={view.rawMm}
-            taw={view.tawMm}
-            selected={view.day.date}
-            crop={selection.crop}
-            base={base}
-            today={view.day.today}
-          />
-        )}
+      {view.day && view.rawMm != null && view.tawMm != null && (
+        <SeasonCard
+          season={view.season}
+          months={view.months}
+          raw={view.rawMm}
+          taw={view.tawMm}
+          selected={view.day.date}
+          crop={selection.crop}
+          base={base}
+          today={view.day.today}
+          soil={
+            view.commonNow
+              ? {
+                  name: view.commonNow.soilName,
+                  isEstimated: view.commonNow.isEstimated,
+                }
+              : undefined
+          }
+        />
+      )}
 
       <MetaBox meta={view.meta} />
     </>
