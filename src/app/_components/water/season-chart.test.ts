@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { seasonChart, yE } from "./season-chart";
+import {
+  dayIndexAt,
+  hoverInfo,
+  seasonChart,
+  tipSide,
+  yDr,
+  yE,
+} from "./season-chart";
 
 const day = (
   date: string,
@@ -42,5 +49,89 @@ describe("seasonChart", () => {
     expect(yE(7.5)).toBe(8);
     // 오늘처럼 작기 자료에 없는 날은 마지막 날에 표시
     expect(seasonChart(rows, 65, 130, "2026-04-03").sel).toBe(c.sel);
+  });
+});
+
+describe("dayIndexAt", () => {
+  // 상자 폭 352 = 안쪽 300 + 좌우 눈금 칸 26px 씩
+  it("눈금 칸을 뺀 안쪽에서 날짜 칸 번호를 찾는다", () => {
+    expect(dayIndexAt(26, 352, 300)).toBe(0);
+    expect(dayIndexAt(325.9, 352, 300)).toBe(299);
+    expect(dayIndexAt(176, 352, 300)).toBe(150);
+  });
+
+  it("밖이면 양 끝 칸에 붙인다", () => {
+    expect(dayIndexAt(10, 352, 300)).toBe(0);
+    expect(dayIndexAt(400, 352, 300)).toBe(299);
+  });
+
+  it("날이 없으면 null", () => {
+    expect(dayIndexAt(100, 352, 0)).toBeNull();
+  });
+});
+
+describe("tipSide", () => {
+  it("그래프 가운데를 넘으면 왼쪽", () => {
+    expect(tipSide(10, 100)).toBe("right");
+    expect(tipSide(60, 100)).toBe("left");
+  });
+});
+
+describe("yDr", () => {
+  it("0 은 바닥(100), 다 찬 값은 6 — 선 모양은 그대로", () => {
+    expect(yDr(0, 130)).toBe(100);
+    expect(yDr(130, 130)).toBeCloseTo(6);
+    expect(yDr(65, 130)).toBe(53);
+  });
+});
+
+describe("hoverInfo", () => {
+  const full = {
+    date: "2026-10-12",
+    etoMm: 2.14,
+    etcMm: 1.86,
+    rainMm: 12,
+    drMm: 38.4,
+    status: "caution" as const,
+  };
+
+  it("값이 모두 있으면 4줄, 부족한 물 줄에 관수 시작점이 붙는다", () => {
+    const h = hoverInfo(full, "apple", 65);
+    expect(h.date).toBe("10월 12일 (월)");
+    expect(h.status).toBe("caution");
+    expect(h.rows.map((r) => r.label)).toEqual([
+      "기준 증발산",
+      "작물이 쓴 물",
+      "비",
+      "부족한 물",
+    ]);
+    expect(h.rows[3].value).toBe("38 mm / 관수 시작점 65 mm");
+  });
+
+  it("ETo·ETc 는 소수 첫째 자리, 비·부족한 물은 정수", () => {
+    const h = hoverInfo(full, "apple", 65);
+    expect(h.rows[0].value).toBe("2.1 mm");
+    expect(h.rows[1].value).toBe("1.9 mm");
+    expect(h.rows[2].value).toBe("12 mm");
+    expect(h.rows[3].value).toBe("38 mm / 관수 시작점 65 mm");
+  });
+
+  it("정수 값의 ETo 도 소수 한 자리를 붙인다", () => {
+    const h = hoverInfo({ ...full, etoMm: 3 }, "apple", 65);
+    expect(h.rows[0].value).toBe("3.0 mm");
+  });
+
+  it("값이 없으면 '자료 없음' (관수 시작점도 붙이지 않는다)", () => {
+    const h = hoverInfo({ ...full, etoMm: null, drMm: null }, "apple", 65);
+    expect(h.rows[0].value).toBe("자료 없음");
+    expect(h.rows[3].value).toBe("자료 없음");
+  });
+
+  it("휴면기 날의 ETc 는 작물별 이름, 상태는 DB 값 그대로", () => {
+    const d = { ...full, etcMm: null, drMm: null, status: "dormant" as const };
+    const apple = hoverInfo(d, "apple", 65);
+    expect(apple.status).toBe("dormant");
+    expect(apple.rows[1].value).toBe("휴면기");
+    expect(hoverInfo(d, "cabbage", 29).rows[1].value).toBe("작기 아님");
   });
 });
