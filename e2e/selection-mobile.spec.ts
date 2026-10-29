@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // 휴대폰(mobile 프로젝트 390×844): 작물·지역 선택 줄은 한 줄이고, 고르기 판은 선택 줄 바로 아래에 펼쳐진다.
 // 가짜 Supabase 자료를 읽는다.
@@ -23,6 +23,32 @@ const headerBottom = (page: Page) =>
   page.locator("header").evaluate((el) => el.getBoundingClientRect().bottom);
 
 const CROPS = ["common", "apple", "cabbage"];
+const CROP_NAME: Record<string, string> = {
+  common: "작물 공통",
+  apple: "사과",
+  cabbage: "배추",
+};
+
+/**
+ * 글자가 "다 보이거나(잘리지 않음), 통째로 안 보이거나(크기 0, 또는 칸 밖으로 넘어가 가려짐)" 둘 중 하나인가.
+ * 반쪽 글자·반쪽 숫자가 남으면 false.
+ */
+function wholeOrHidden(locator: Locator): Promise<boolean> {
+  return locator.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const box = el.parentElement!.getBoundingClientRect();
+    if (getComputedStyle(el).display === "none") return true;
+    if (rect.width === 0 || rect.height === 0) return true;
+    if (rect.top >= box.bottom - 0.5 || rect.bottom <= box.top + 0.5) {
+      return true; // 줄 밖으로 넘어가 가려짐
+    }
+    return (
+      el.scrollWidth <= el.clientWidth + 0.5 &&
+      rect.left >= box.left - 0.5 &&
+      rect.right <= box.right + 0.5
+    );
+  });
+}
 const STATIONS = [136, 189]; // 안동, 서귀포
 
 for (const width of [360, 375, 390, 412]) {
@@ -42,10 +68,18 @@ for (const width of [360, 375, 390, 412]) {
         );
         expect(overflow, label).toBeLessThanOrEqual(0);
         const nameFits = await cropButton(page)
-          .locator("span")
-          .first()
+          .getByText(CROP_NAME[crop], { exact: true })
           .evaluate((el) => el.scrollWidth <= el.clientWidth);
         expect(nameFits, label).toBe(true);
+        // 회색 보조 글자와 지점번호는 "다 보이거나, 통째로 숨겨지거나" 둘 중 하나 (반쪽 글자 금지)
+        expect(
+          await wholeOrHidden(cropButton(page).getByTestId("crop-sub")),
+          `${label} 작물 보조 글자`,
+        ).toBe(true);
+        expect(
+          await wholeOrHidden(regionButton(page).getByTestId("station-id")),
+          `${label} 지점번호`,
+        ).toBe(true);
       }
     }
   });

@@ -294,12 +294,20 @@ function SelectionBar({
               strokeWidth={2}
               className="text-brand-ink shrink-0"
             />
-            <span className="shrink-0">{CROP_LABEL[crop]}</span>
+            {/* 휴대폰: 이름과 회색 보조 글자를 "한 줄 높이 칸"에 담는다. 보조 글자가 다 안 들어가면
+                다음 줄로 넘어가 칸 밖(overflow-hidden)이 되어 통째로 안 보인다 — 반쪽 글자가 남지 않는다.
+                데스크톱은 칸을 없애(contents) 지금 모양 그대로. */}
+            <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
+              <span className="shrink-0 leading-6">{CROP_LABEL[crop]}</span>
+              <span
+                data-testid="crop-sub"
+                className="text-14 text-ink-2/85 desktop:hidden leading-6 font-medium whitespace-nowrap"
+              >
+                {info.short}
+              </span>
+            </span>
             <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
               · {info.sub}
-            </span>
-            <span className="text-14 text-ink-2/85 desktop:hidden min-w-0 truncate font-medium">
-              {info.short}
             </span>
             <Icon
               name="chevronDown"
@@ -487,9 +495,17 @@ function SelectionBar({
                     selectedStatus ? STATUS_DOT[selectedStatus] : "bg-fill/30"
                   }`}
                 />
-                <span className="min-w-0 truncate">{station.name}</span>
-                <span className="text-13 text-ink-2/60 min-w-0 shrink-100 truncate font-medium">
-                  {station.id}
+                {/* 지점 이름은 넘치면 "…", 지점번호는 다 들어가면 보이고 안 들어가면 통째로 숨긴다 (위 작물 버튼과 같은 방식) */}
+                <span className="flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
+                  <span className="min-w-0 truncate leading-6">
+                    {station.name}
+                  </span>
+                  <span
+                    data-testid="station-id"
+                    className="text-13 text-ink-2/60 leading-6 font-medium whitespace-nowrap"
+                  >
+                    {station.id}
+                  </span>
                 </span>
                 <span className="sr-only">
                   {selectedStatus
