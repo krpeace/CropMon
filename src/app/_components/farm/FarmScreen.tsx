@@ -62,13 +62,15 @@ export function FarmScreen() {
 
       {/* 1. 상단 안내 카드 */}
       <div className="rounded-card bg-card flex items-center gap-4 p-5">
-        <Image
-          src="/brand/logo-emblem.png"
-          alt=""
-          width={84}
-          height={84}
-          className="h-auto w-[84px] shrink-0"
-        />
+        <span className="bg-plate rounded-row flex shrink-0 dark:px-2 dark:py-0.5">
+          <Image
+            src="/brand/logo-emblem.png"
+            alt=""
+            width={84}
+            height={84}
+            className="h-auto w-[84px] shrink-0"
+          />
+        </span>
         <div className="flex flex-col gap-1">
           <span className="text-18 font-bold">
             로그인하면 내 밭 단위로 봐요
@@ -97,11 +99,11 @@ export function FarmScreen() {
               value={addr}
               onChange={(e) => setAddr(e.target.value)}
               placeholder="예: 홍천군 내촌면"
-              className="rounded-row bg-bg text-18 h-[54px] px-4 font-sans shadow-[inset_0_0_0_1px_rgba(60,60,67,0.12)] outline-none"
+              className="rounded-row bg-tile text-18 shadow-inset-hairline h-[54px] px-4 font-sans outline-none"
             />
             <div
               className={`text-16 flex items-center gap-2 ${
-                match ? "text-brand" : "text-need-fg"
+                match ? "text-brand-ink" : "text-warn"
               }`}
             >
               <Icon name="pin" size={18} strokeWidth={2} className="shrink-0" />
@@ -130,7 +132,7 @@ export function FarmScreen() {
                     className={`rounded-row flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-px p-1.5 transition-colors ${
                       selected
                         ? "bg-brand text-white shadow-none"
-                        : "bg-bg text-ink shadow-[inset_0_0_0_0.5px_rgba(60,60,67,0.12)]"
+                        : "bg-tile text-ink shadow-inset-thin"
                     }`}
                   >
                     <span className="text-15 font-bold">{s.ko}</span>
@@ -159,7 +161,7 @@ export function FarmScreen() {
                   }}
                   className={`text-16 cursor-pointer rounded-full px-4.5 font-semibold transition-colors ${
                     crop === "apple"
-                      ? "bg-card text-ink shadow-segment"
+                      ? "bg-seg text-ink shadow-segment"
                       : "text-ink-2/80 hover:text-ink"
                   }`}
                 >
@@ -173,7 +175,7 @@ export function FarmScreen() {
                   }}
                   className={`text-16 cursor-pointer rounded-full px-4.5 font-semibold transition-colors ${
                     crop === "cabbage"
-                      ? "bg-card text-ink shadow-segment"
+                      ? "bg-seg text-ink shadow-segment"
                       : "text-ink-2/80 hover:text-ink"
                   }`}
                 >
@@ -184,7 +186,7 @@ export function FarmScreen() {
                 type="date"
                 value={fDate}
                 onChange={(e) => setFDate(e.target.value)}
-                className="rounded-row bg-bg text-17 h-12 min-w-[150px] flex-1 px-3.5 font-sans shadow-[inset_0_0_0_1px_rgba(60,60,67,0.12)] outline-none"
+                className="rounded-row bg-tile text-17 shadow-inset-hairline h-12 min-w-[150px] flex-1 px-3.5 font-sans outline-none"
               />
             </div>
           </div>
@@ -229,7 +231,7 @@ export function FarmScreen() {
             </div>
 
             {sample.shortage != null && (
-              <div className="relative h-3.5 rounded-full bg-white/95 shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.08)]">
+              <div className="shadow-inset-edge relative h-3.5 rounded-full bg-white/95 dark:bg-white/14">
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full ${
                     GAUGE_COLOR[sample.gaugeTone] ?? "bg-brand"
@@ -237,7 +239,7 @@ export function FarmScreen() {
                   style={{ width: `${sample.fill}%` }}
                 />
                 <div
-                  className="bg-need-fg absolute -top-1.25 -bottom-1.25 w-[3px] -translate-x-1/2 rounded-full"
+                  className="bg-warn absolute -top-1.25 -bottom-1.25 w-[3px] -translate-x-1/2 rounded-full"
                   style={{ left: "45%" }}
                 />
               </div>
@@ -259,14 +261,14 @@ export function FarmScreen() {
 
             {!report ? (
               <>
-                <label className="rounded-panel border-brand/30 bg-lime/12 flex cursor-pointer flex-col items-center gap-2 border-2 border-dashed p-4 text-center">
+                <label className="rounded-panel border-brand-ink/30 bg-lime/12 flex cursor-pointer flex-col items-center gap-2 border-2 border-dashed p-4 text-center">
                   <Icon
                     name="upload"
                     size={30}
                     strokeWidth={2}
-                    className="text-brand"
+                    className="text-brand-ink"
                   />
-                  <span className="text-17 text-brand font-bold">
+                  <span className="text-17 text-brand-ink font-bold">
                     스마트팜 CSV 올리기
                   </span>
                   <span className="text-15 leading-body text-ink-2/85">
@@ -292,7 +294,7 @@ export function FarmScreen() {
                     setFileName("스마트팜_관수기록_2026.csv (예시)");
                     setReport(true);
                   }}
-                  className="bg-brand/10 text-17 text-brand hover:bg-brand/15 h-[50px] cursor-pointer rounded-full font-bold transition-colors"
+                  className="bg-brand-ink/10 text-17 text-brand-ink hover:bg-brand-ink/15 h-[50px] cursor-pointer rounded-full font-bold transition-colors"
                 >
                   예시 파일로 보기
                 </button>
@@ -313,7 +315,7 @@ export function FarmScreen() {
                       setReport(false);
                       setFileName("");
                     }}
-                    className="text-14 text-brand cursor-pointer p-2 font-bold"
+                    className="text-14 text-brand-ink cursor-pointer p-2 font-bold"
                   >
                     다시 올리기
                   </button>
@@ -332,7 +334,7 @@ export function FarmScreen() {
                   ].map((stat, i) => (
                     <div
                       key={i}
-                      className="rounded-box bg-bg flex flex-col gap-0.5 p-3 px-3.5"
+                      className="rounded-box bg-tile flex flex-col gap-0.5 p-3 px-3.5"
                     >
                       <span className="text-14 text-ink-2/85">
                         {stat.label}
@@ -376,7 +378,7 @@ export function FarmScreen() {
                     height={48}
                     className="h-auto w-10 shrink-0"
                   />
-                  <div className="bg-mint/32 text-15 text-mint-ink flex-1 rounded-[18px_18px_18px_6px] p-3.5 px-4 leading-loose">
+                  <div className="bg-bubble text-15 text-mint-ink flex-1 rounded-[18px_18px_18px_6px] p-3.5 px-4 leading-loose">
                     비 온 다음 날 물을 준 날이 3일 있었어요. 이런 날은
                     건너뛰어도 괜찮아요.
                   </div>

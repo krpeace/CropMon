@@ -88,7 +88,7 @@ export function CompareCard({
                 <span
                   className={`rounded-bar absolute inset-y-0 ${
                     r.selected
-                      ? "bg-brand"
+                      ? "bg-selbar"
                       : (r.lead ?? 0) < 0
                         ? "bg-fill/45"
                         : "bg-lime"

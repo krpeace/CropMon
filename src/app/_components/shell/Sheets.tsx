@@ -16,7 +16,7 @@ export function AboutButton() {
     <button
       type="button"
       onClick={() => open("about")}
-      className="text-brand cursor-pointer py-2 font-bold"
+      className="text-brand-ink cursor-pointer py-2 font-bold"
     >
       CropMon 소개
     </button>
@@ -102,13 +102,15 @@ function LoginSheet() {
 function AboutSheet() {
   return (
     <div className="flex flex-col items-center gap-3 py-1 text-center">
-      <Image
-        src="/brand/logo-emblem.png"
-        alt="CropMon 작물재배의 든든한 감시자"
-        width={412}
-        height={383}
-        className="h-auto w-37.5"
-      />
+      <span className="bg-plate rounded-row flex shrink-0 dark:px-2 dark:py-0.5">
+        <Image
+          src="/brand/logo-emblem.png"
+          alt="CropMon 작물재배의 든든한 감시자"
+          width={412}
+          height={383}
+          className="h-auto w-37.5"
+        />
+      </span>
       <span className="text-14 text-ink-2/80">
         Crop Monitoring + Crop Monster
       </span>
@@ -120,7 +122,7 @@ function AboutSheet() {
       <span className="text-16 text-ink-2/88 leading-loose">
         지도사는 지역 단위로, 농업인은 내 밭 단위로 본다
       </span>
-      <div className="rounded-box bg-bg text-15 leading-body flex w-full flex-col gap-1.5 px-4 py-3.5 text-left">
+      <div className="rounded-box bg-tile text-15 leading-body flex w-full flex-col gap-1.5 px-4 py-3.5 text-left">
         <span>
           <b>지금</b> 기상청 ASOS 관측·단기예보로 계산한 물수지(FAO-56),
           적산온도, 적산일사

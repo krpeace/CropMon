@@ -28,6 +28,18 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
       },
+      testIgnore: /theme\.spec\.ts/,
+    },
+    // 다크모드 화면 테스트 전용 휴대폰 크기 (theme.spec.ts 만 돈다)
+    {
+      name: "mobile",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+      testMatch: /theme\.spec\.ts/,
     },
   ],
   // 가짜 Supabase(e2e/fake-supabase.mjs)를 먼저 띄운다. 화면은 build 때 NEXT_PUBLIC_SUPABASE_URL 을

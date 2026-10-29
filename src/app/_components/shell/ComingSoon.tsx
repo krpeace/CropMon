@@ -24,7 +24,7 @@ export function ComingSoon({ question, items, source, waterHref }: Props) {
     <section aria-label="준비 중 안내" className="flex flex-col gap-4">
       <div className="rounded-card bg-card flex flex-col items-center gap-3.5 px-5 pt-7 pb-6 text-center">
         <div className="flex flex-col items-center gap-1.5">
-          <div className="bg-mint/32 text-19 text-mint-ink rounded-bubble px-4.5 py-3 font-bold">
+          <div className="bg-bubble text-19 text-mint-ink rounded-bubble px-4.5 py-3 font-bold">
             준비하고 있어요
           </div>
           <Image
@@ -59,7 +59,7 @@ export function ComingSoon({ question, items, source, waterHref }: Props) {
               >
                 <span
                   aria-hidden="true"
-                  className="bg-emerald/14 text-14 text-brand flex size-7 flex-none items-center justify-center rounded-full font-bold"
+                  className="bg-emerald/14 text-14 text-brand-ink flex size-7 flex-none items-center justify-center rounded-full font-bold"
                 >
                   {i + 1}
                 </span>

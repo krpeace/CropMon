@@ -40,7 +40,7 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 - **지역·작물·토양 선택**: 주소창 `?st=<지점 번호>&crop=<common|apple|cabbage>`에 남겨 모든 메뉴에 이어집니다. 읽고 쓰는 규칙은 `src/domain/selection.ts`에 있습니다. 기본 작물은 `"common"`(`작물 공통`)이며, 현행 운영(`isActive: true`) 지점 97곳을 모두 허용하고 값이 없거나 잘못되었거나 폐지·휴지 지점(`isActive: false`)이면 춘천(101)·작물 공통으로 돌립니다. 작물 공통일 때는 토성 12종 선택을 `&soil=<코드>`(기본값 `"loam"` 양토이면 생략)로 주소창에 남기고, 사과·배추로 바꾸면 `soil`을 지웁니다. 대표 10곳 밖 지점을 고르면 자동 전환은 멈추고("대표 지점 밖"), 아직 물 계산 시나리오가 없는 화면(종합·물·온도)은 "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요"를 안내합니다. 재배 방식은 사과·배추일 때만 `&kc=<번호>`(FAO-56 Table 12 순서, `crop_kc_sets.set_no`)로 붙으며, 지역을 바꾸면 그대로, 작물을 바꾸면 빠집니다. 물 화면만 기준 날짜 `&d=YYYY-MM-DD`(오늘이면 없음)와 발표 회차 `&run=02|17`을 더 붙이고, 다른 메뉴로 가면 빠집니다.
 - **주소창 읽기**: `cacheComponents` 설정 때문에 주소창 값을 읽는 부분은 `<Suspense>` 안에 둡니다. 쪽 파일은 `ShellPage`/`HomeHead`에 `searchParams`를 넘기기만 합니다.
 - **폭**: px로 고정하지 않습니다. 내용 최대 폭(`--page-max` 1440)과 가장자리 여백(`--page-gutter`)은 토큰에 있고, 2열→1열이 바뀌는 폭은 `--breakpoint-desktop`(1024), 대표 10개 칩이 단일 버튼으로 접히는 폭은 `--breakpoint-wide`(1280)입니다.
-- **밝은 화면만** 씁니다 (시안 기준).
+- **테마(밝게·어둡게)**: 색 토큰은 두 벌입니다. `tokens.css` 의 `@theme` 이 라이트 값, `:root[data-theme="dark"]` 가 같은 변수 이름을 덮어쓰는 다크 값입니다(시안 v0.3.0). 다크 판단은 `<html data-theme>` 하나로만 하며 미디어 쿼리로 직접 칠하지 않습니다. 글자·선·옅은 칠은 `brand-ink`, 꽉 찬 버튼 바탕은 `brand` 로 나눠 씁니다. 토큰으로 안 되는 흰 반투명 바탕 등만 `dark:` 변형(`@custom-variant dark`)을 쓰고, 그 밖에는 남용하지 않습니다. 처음 테마는 `layout.tsx` 의 짧은 인라인 스크립트가 그리기 전에 정하고(저장된 선택 `cropmon-theme` → 휴대폰·PC 설정 → 라이트), 선택 규칙은 `src/domain/theme.ts`, 헤더의 해·달 버튼은 `shell/ThemeToggle.tsx` 에 있습니다. 결정은 `docs/decisions/0024-dark-mode.md`.
 
 ## 방향: 안쪽은 바깥을 모른다
 

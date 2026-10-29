@@ -30,7 +30,7 @@ export function HeatChartCard({
       <span className="text-17 font-bold">{title}</span>
       <div className="text-13 text-ink-2/88 flex flex-wrap gap-x-3.5 gap-y-1.5">
         <span className="flex items-center gap-1.5">
-          <span className="bg-brand h-0.75 w-4" />
+          <span className="bg-brand-ink h-0.75 w-4" />
           올해
         </span>
         <span className="flex items-center gap-1.5">
@@ -49,13 +49,13 @@ export function HeatChartCard({
             <path
               d={ch.grid}
               fill="none"
-              stroke="rgb(60 60 67 / 0.12)"
+              stroke="color-mix(in oklab, var(--color-ink-2) 12%, transparent)"
               className={LINE}
             />
             <path
               d={ch.normal}
               fill="none"
-              stroke="rgb(60 60 67 / 0.5)"
+              stroke="color-mix(in oklab, var(--color-ink-2) 50%, transparent)"
               strokeWidth={1.6}
               strokeDasharray="5 4"
               className={LINE}
@@ -63,7 +63,7 @@ export function HeatChartCard({
             <path
               d={ch.year}
               fill="none"
-              stroke="#144c33"
+              stroke="var(--color-brand-ink)"
               strokeWidth={2.6}
               className={LINE}
             />
@@ -82,7 +82,7 @@ export function HeatChartCard({
             style={{ left: ch.today }}
           />
           <span
-            className="text-12 bg-ink absolute -top-0.5 rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap text-white"
+            className="text-12 bg-ink text-bg absolute -top-0.5 rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap"
             style={{
               left: ch.today,
               transform: `translateX(${ch.todayShift}) translateY(-100%)`,

@@ -81,7 +81,7 @@ export function MonthsCard({ view }: { view: SunlightView }) {
             <span
               data-testid={`pct-${i + 1}`}
               data-low={m.low ? "true" : "false"}
-              className={`text-12 font-bold whitespace-nowrap ${m.low ? "text-need-fg" : "text-ink-2/85"}`}
+              className={`text-12 font-bold whitespace-nowrap ${m.low ? "text-warn" : "text-ink-2/85"}`}
             >
               {m.pct}
             </span>
@@ -153,7 +153,7 @@ export function SunCompareCard({
               style={{ left: `${SUN_NORMAL_LINE}%` }}
             />
             <span
-              className={`rounded-bar absolute inset-y-0 left-0 ${r.selected ? "bg-brand" : "bg-lime"}`}
+              className={`rounded-bar absolute inset-y-0 left-0 ${r.selected ? "bg-selbar" : "bg-lime"}`}
               style={{ width: `${sunCompareBar(r.pct)}%` }}
             />
           </span>
@@ -176,13 +176,15 @@ export function NotMeasuredCard({ name, crop }: { name: string; crop: Crop }) {
       aria-label="햇빛 자료 없음"
       className="rounded-card bg-card flex flex-col items-center gap-3 px-5 py-7 text-center"
     >
-      <Image
-        src="/brand/logo-emblem.png"
-        alt=""
-        width={412}
-        height={383}
-        className="h-auto w-28 opacity-90"
-      />
+      <span className="bg-plate rounded-row flex shrink-0 dark:px-2 dark:py-0.5">
+        <Image
+          src="/brand/logo-emblem.png"
+          alt=""
+          width={412}
+          height={383}
+          className="h-auto w-28 opacity-90"
+        />
+      </span>
       <Badge>자료 없음</Badge>
       <div className="text-24 font-bold">
         {name} 관측소는 햇빛을 재지 않아요
@@ -200,7 +202,7 @@ export function NotMeasuredCard({ name, crop }: { name: string; crop: Crop }) {
         </Link>
         <Link
           href={withSelection("/sunlight", { stationId: 136, crop })}
-          className="bg-brand/10 text-brand text-17 flex h-12.5 items-center rounded-full px-5.5 font-bold"
+          className="bg-brand-ink/10 text-brand-ink text-17 flex h-12.5 items-center rounded-full px-5.5 font-bold"
         >
           안동 햇빛 보기
         </Link>

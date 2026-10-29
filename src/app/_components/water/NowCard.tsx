@@ -46,10 +46,10 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
           <div className="flex flex-col gap-1.5 pt-1">
             <div
               aria-hidden="true"
-              className="shadow-hairline relative h-4.5 rounded-full bg-white/95"
+              className="shadow-hairline relative h-4.5 rounded-full bg-white/95 dark:bg-white/14"
             >
               <div
-                className="absolute inset-y-0 right-0 rounded-r-full bg-[repeating-linear-gradient(135deg,rgb(255_141_40/0.16)_0_6px,rgb(255_141_40/0.06)_6px_12px)]"
+                className="absolute inset-y-0 right-0 rounded-r-full bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-need-dot)_16%,transparent)_0_6px,color-mix(in_oklab,var(--color-need-dot)_6%,transparent)_6px_12px)]"
                 style={{ left: `${now.gauge.rawPct}%` }}
               />
               <div
@@ -57,7 +57,7 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
                 style={{ width: `${now.gauge.fillPct}%` }}
               />
               <div
-                className="bg-need-fg absolute -top-1.5 -bottom-1.5 w-0.75 -translate-x-1/2 rounded-full"
+                className="bg-warn absolute -top-1.5 -bottom-1.5 w-0.75 -translate-x-1/2 rounded-full"
                 style={{ left: `${now.gauge.rawPct}%` }}
               />
             </div>
@@ -67,7 +67,7 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
                 흙이 촉촉
               </span>
               <span
-                className="text-need-fg absolute top-0 -translate-x-1/2 text-center font-bold whitespace-nowrap"
+                className="text-warn absolute top-0 -translate-x-1/2 text-center font-bold whitespace-nowrap"
                 style={{ left: `${now.gauge.rawPct}%` }}
               >
                 {Math.round(now.rawMm)}
@@ -208,14 +208,14 @@ export function CommonNowCard({
               <div className="flex flex-col gap-1.5 pt-1">
                 <div
                   aria-hidden="true"
-                  className="shadow-hairline relative h-4.5 rounded-full bg-white/95"
+                  className="shadow-hairline relative h-4.5 rounded-full bg-white/95 dark:bg-white/14"
                 >
                   <div
                     className={`absolute inset-y-0 left-0 rounded-full ${STATUS_DOT[tone]}`}
                     style={{ width: `${fillPct}%` }}
                   />
                   <div
-                    className="bg-need-fg absolute -top-1.5 -bottom-1.5 w-0.75 -translate-x-1/2 rounded-full"
+                    className="bg-warn absolute -top-1.5 -bottom-1.5 w-0.75 -translate-x-1/2 rounded-full"
                     style={{ left: "30%" }}
                   />
                   <div
@@ -226,7 +226,7 @@ export function CommonNowCard({
                 <div className="text-13 text-ink-2/85 relative h-8 leading-[1.3]">
                   <span className="absolute top-0 left-0">0%</span>
                   <span
-                    className="text-need-fg absolute top-0 -translate-x-1/2 text-center font-bold whitespace-nowrap"
+                    className="text-warn absolute top-0 -translate-x-1/2 text-center font-bold whitespace-nowrap"
                     style={{ left: "30%" }}
                   >
                     30% 건조
@@ -248,7 +248,7 @@ export function CommonNowCard({
               </div>
 
               {commonNow.daysToDryText && (
-                <div className="text-17 text-need-fg font-bold">
+                <div className="text-17 text-warn font-bold">
                   {commonNow.daysToDryText}
                 </div>
               )}
@@ -292,7 +292,7 @@ export function SoilBubble({
         height={196}
         className="block h-auto w-11.5 flex-none"
       />
-      <div className="bg-mint/32 text-16 text-mint-ink flex-1 rounded-[20px_20px_20px_6px] px-4 py-3.5 leading-loose text-pretty">
+      <div className="bg-bubble text-16 text-mint-ink flex-1 rounded-[20px_20px_20px_6px] px-4 py-3.5 leading-loose text-pretty">
         {text ? (
           text
         ) : (
@@ -301,7 +301,7 @@ export function SoilBubble({
             수 있어요{" "}
             <Link
               href={farmHref}
-              className="text-brand font-bold whitespace-nowrap underline"
+              className="text-brand-ink font-bold whitespace-nowrap underline"
             >
               미리보기
             </Link>

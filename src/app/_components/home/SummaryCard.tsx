@@ -43,8 +43,8 @@ export function SummaryCard({
     >
       <div className="flex items-center gap-2.5">
         <span
-          className={`text-brand flex size-9 items-center justify-center rounded-full ${
-            isWater ? "bg-white/80" : "bg-emerald/14"
+          className={`text-brand-ink flex size-9 items-center justify-center rounded-full ${
+            isWater ? "bg-white/80 dark:bg-white/10" : "bg-emerald/14"
           }`}
         >
           <Icon name={icon} size={22} strokeWidth={2} />
