@@ -12,6 +12,10 @@
 - `season-chart.ts` 에 `dayIndexAt`·`tipSide`·`yDr`·`hoverInfo` 추가 (`ChartClick` 은 `ChartHover` 로 대체)
 - 테스트: `season-chart.test.ts` 4묶음, `e2e/water.spec.ts` 마우스·휴대폰 각 1건. 결정 0027
 
+### 수정 (휴대폰 작물 고르기 — 이슈 #15)
+
+- 휴대폰에서 작물 버튼을 누르면 "작물 고르기" 시트 위에 "CropMon 소개" 창이 같이 뜨던 문제 수정. `Sheets` 는 `login`·`about` 일 때만 그린다
+
 ### 변경 (휴대폰 하단 탭바 — 시안 v0.3.0)
 
 - 휴대폰(폭 1024 미만)에서 메뉴를 화면 아래 탭바(유리 캡슐, 6개)로 옮김. 상단 머리말은 로고·테마·로그인만. 데스크톱은 그대로

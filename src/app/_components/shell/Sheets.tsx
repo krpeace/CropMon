@@ -23,18 +23,22 @@ export function AboutButton() {
   );
 }
 
-/** 가운데 창. 바깥이나 Esc 를 누르면 닫힌다. layout 에서 <Suspense> 안에 둔다. */
+/**
+ * 가운데 창(로그인 안내·CropMon 소개). 바깥이나 Esc 를 누르면 닫힌다. layout 에서 <Suspense> 안에 둔다.
+ * "station"·"crop" 은 SiteHeader.tsx 의 StationSheet·CropSheet 가 그리므로 여기서는 그리지 않는다.
+ */
 export function Sheets() {
   const { sheet, close } = useSheet();
+  const shown = sheet === "login" || sheet === "about";
 
   useEffect(() => {
-    if (!sheet || sheet === "station") return;
+    if (!shown) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sheet, close]);
+  }, [shown, close]);
 
-  if (!sheet || sheet === "station") return null;
+  if (!shown) return null;
 
   return (
     <div
