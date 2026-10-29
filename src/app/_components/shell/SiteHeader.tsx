@@ -35,6 +35,7 @@ import type {
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { TABS } from "./pages";
+import { TabBar } from "./TabBar";
 import { ThemeToggle } from "./ThemeToggle";
 import { useSheet } from "./sheet-context";
 
@@ -124,9 +125,10 @@ function SiteHeaderView({
               className="desktop:h-15 block h-11 w-auto"
             />
           </Link>
+          <span className="desktop:hidden flex-1" />
           <nav
             aria-label="메뉴"
-            className="flex min-w-0 flex-1 [scrollbar-width:none] justify-center-safe gap-1 overflow-x-auto"
+            className="desktop:flex hidden min-w-0 flex-1 [scrollbar-width:none] justify-center-safe gap-1 overflow-x-auto"
           >
             {TABS.map((tab) => {
               const active = pathname === tab.href;
@@ -163,6 +165,7 @@ function SiteHeaderView({
           statuses={statuses}
         />
       </header>
+      <TabBar pathname={pathname} selection={selection} />
       {sheet === "station" && (
         <StationSheet
           pathname={pathname}
