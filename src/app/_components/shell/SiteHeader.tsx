@@ -258,12 +258,12 @@ function SelectionBar({
 
   return (
     <div className="border-ink-2/12 bg-bg/70 border-t-(length:--hairline)">
-      <div className="mx-auto flex max-w-(--page-max) flex-wrap items-center gap-3 px-(--page-gutter) py-2.5">
+      <div className="desktop:flex-wrap desktop:gap-3 mx-auto flex max-w-(--page-max) flex-nowrap items-center gap-2 px-(--page-gutter) py-2.5">
         <div
           ref={cropGroupRef}
           role="group"
           aria-label="작물"
-          className="relative flex flex-wrap items-center gap-1.5"
+          className="desktop:flex-initial desktop:basis-auto desktop:flex-wrap relative flex min-w-0 flex-1 basis-0 items-center gap-1.5"
         >
           <button
             type="button"
@@ -277,7 +277,7 @@ function SelectionBar({
                 setPopover(popover === "crop" ? null : "crop");
               }
             }}
-            className="bg-card text-17 text-ink shadow-hairline flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-bold whitespace-nowrap"
+            className="bg-card text-17 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-bold whitespace-nowrap"
           >
             <Icon
               name="crop"
@@ -285,11 +285,11 @@ function SelectionBar({
               strokeWidth={2}
               className="text-brand-ink shrink-0"
             />
-            <span>{CROP_LABEL[crop]}</span>
+            <span className="shrink-0">{CROP_LABEL[crop]}</span>
             <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
               · {info.sub}
             </span>
-            <span className="text-14 text-ink-2/85 desktop:hidden truncate font-medium">
+            <span className="text-14 text-ink-2/85 desktop:hidden min-w-0 truncate font-medium">
               {info.short}
             </span>
             <Icon
@@ -327,7 +327,7 @@ function SelectionBar({
           ref={groupRef}
           role="group"
           aria-label="지역"
-          className="flex flex-wrap items-center gap-1.5"
+          className="desktop:flex-initial desktop:basis-auto desktop:flex-wrap flex min-w-0 flex-1 basis-0 items-center gap-1.5"
         >
           {/* 넓은 화면(>= 1280px): 대표 10개 칩 + 지역 고르기 버튼 */}
           <div className="wide:flex hidden flex-wrap items-center gap-1.5">
@@ -435,7 +435,7 @@ function SelectionBar({
           </div>
 
           {/* 좁은 화면(< 1280px): 단일 지역 버튼 */}
-          <div className="wide:hidden relative flex">
+          <div className="wide:hidden desktop:flex-none relative flex min-w-0 flex-1">
             {selection && station ? (
               <button
                 type="button"
@@ -453,17 +453,25 @@ function SelectionBar({
                     setPopover(popover === "region" ? null : "region");
                   }
                 }}
-                className="bg-card text-15 text-ink shadow-hairline flex h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap"
+                className="bg-card text-15 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap"
               >
-                <span className="text-ink-2/75 font-medium">지역 ·</span>
+                <Icon
+                  name="pin"
+                  size={16}
+                  strokeWidth={2}
+                  className="text-ink-2/75 desktop:hidden shrink-0"
+                />
+                <span className="text-ink-2/75 desktop:not-sr-only sr-only font-medium">
+                  지역 ·
+                </span>
                 <span
                   aria-hidden="true"
-                  className={`size-2 rounded-full ${
+                  className={`size-2 shrink-0 rounded-full ${
                     selectedStatus ? STATUS_DOT[selectedStatus] : "bg-fill/30"
                   }`}
                 />
-                <span>{station.name}</span>
-                <span className="text-13 text-ink-2/60 font-medium">
+                <span className="min-w-0 truncate">{station.name}</span>
+                <span className="text-13 text-ink-2/60 min-w-0 shrink-100 truncate font-medium">
                   {station.id}
                 </span>
                 <span className="sr-only">
@@ -475,11 +483,11 @@ function SelectionBar({
                   name="chevronDown"
                   size={16}
                   strokeWidth={2.2}
-                  className="text-ink-2/75"
+                  className="text-ink-2/75 shrink-0"
                 />
               </button>
             ) : (
-              <span className="bg-card text-15 text-ink shadow-hairline flex h-11 items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap">
+              <span className="bg-card text-15 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap">
                 <span className="text-ink-2/75 font-medium">지역 고르기</span>
               </span>
             )}
@@ -493,7 +501,7 @@ function SelectionBar({
             )}
           </div>
         </div>
-        <span className="flex-1" />
+        <span className="desktop:block hidden flex-1" />
         <div
           aria-label={`오늘 ${CROP_LABEL[crop]} 물 관리`}
           className="desktop:flex hidden flex-col items-start gap-0.5"
