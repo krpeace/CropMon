@@ -15,7 +15,7 @@ import { Icon } from "../ui/Icon";
 
 const CARD_BG: Record<string, string> = {
   need: "bg-need-card",
-  ok: "bg-caution-card",
+  ok: "bg-ok-card",
   enough: "bg-normal-card",
   wet: "bg-wet-card",
   dormant: "bg-card",
@@ -23,7 +23,7 @@ const CARD_BG: Record<string, string> = {
 
 const BADGE_STYLE: Record<string, string> = {
   need: "bg-need-bg text-need-fg",
-  ok: "bg-caution-bg text-caution-fg",
+  ok: "bg-ok-bg text-ok-fg",
   enough: "bg-normal-bg text-normal-fg",
   wet: "bg-wet-bg text-wet-fg",
   dormant: "bg-dormant-bg text-dormant-fg",
@@ -31,7 +31,7 @@ const BADGE_STYLE: Record<string, string> = {
 
 const GAUGE_COLOR: Record<string, string> = {
   need: "bg-need-dot",
-  ok: "bg-caution-dot",
+  ok: "bg-ok-dot",
   enough: "bg-normal-dot",
   wet: "bg-wet-dot",
   dormant: "bg-dormant-dot",

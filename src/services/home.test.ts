@@ -285,6 +285,19 @@ describe("전국 표", () => {
       ],
       lead: "20일 빠름",
       sunlight: "96%",
+      leadDays: 20,
+      sunPct: 96,
+    });
+  });
+
+  it("막대용 숫자는 DB 값 그대로, 자료 없으면 null", () => {
+    expect(rows.find((r) => r.id === 216)).toMatchObject({
+      leadDays: null,
+      sunPct: 105,
+    });
+    expect(rows.find((r) => r.id === 119)).toMatchObject({
+      leadDays: null,
+      sunPct: null,
     });
   });
 
