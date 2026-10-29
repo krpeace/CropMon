@@ -40,6 +40,7 @@ import {
   leftText,
   monthlySummary,
   waterVerdict,
+  type DayStatus,
   type MonthRow,
   type Verdict,
 } from "@/domain/water-verdict";
@@ -145,7 +146,9 @@ export type SeasonDay = {
   etcMm: number | null;
   rainMm: number | null;
   drMm: number | null;
-  status: WaterStatus;
+  /** 흙 속 남은 물 %. 작물 공통에서만 있다. */
+  awPct?: number | null;
+  status: DayStatus;
 };
 
 export type SoilOption = {
@@ -449,6 +452,20 @@ async function readCommonView(
     ? (byDate.get(today) ?? soilRows.at(-1))
     : byDate.get(date);
   const commonNow = buildCommonNow(targetRow, date, today, soilCode, soils);
+  // ③ 작기 돌아보기: 1/1~오늘 줄을 그대로 옮긴다. Kc = 1.0 이라 ETc 는 따로 없다.
+  const season = soilRows.map((r): SeasonDay => ({
+    date: r.date,
+    etoMm: r.eto_mm,
+    etcMm: null,
+    rainMm: r.rain_mm,
+    drMm: r.dr_mm,
+    awPct: r.aw_pct,
+    status: isSoilWaterStatus(r.status)
+      ? r.status
+      : isWinterDate(r.date)
+        ? "winter"
+        : null,
+  }));
 
   return {
     meta,
@@ -459,10 +476,10 @@ async function readCommonView(
     now: null,
     commonNow,
     outlook: null,
-    season: [],
-    months: [],
-    rawMm: targetRow?.raw_mm ?? null,
-    tawMm: targetRow?.taw_mm ?? null,
+    season,
+    months: monthlySummary(season),
+    rawMm: (targetRow ?? soilRows.at(-1))?.raw_mm ?? null,
+    tawMm: (targetRow ?? soilRows.at(-1))?.taw_mm ?? null,
     problem: null,
   };
 }

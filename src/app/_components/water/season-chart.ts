@@ -1,6 +1,7 @@
 import type { Crop } from "@/domain/selection";
 import { dayLabel } from "@/domain/water-outlook";
-import type { WaterStatus } from "@/domain/water-status";
+import { SOIL_WATER_LABEL } from "@/domain/soil-water";
+import { WATER_STATUS_LABEL } from "@/domain/water-status";
 import type { SeasonDay } from "@/services/water";
 
 /**
@@ -36,8 +37,47 @@ const NO_DATA = "자료 없음";
 const mm = (v: number | null) => (v == null ? NO_DATA : `${Math.round(v)} mm`);
 const mm1 = (v: number | null) => (v == null ? NO_DATA : `${v.toFixed(1)} mm`);
 
+const COMMON_OFF = "겨울철";
+
+function statusLabel(status: SeasonDay["status"]) {
+  if (status == null) return NO_DATA;
+  return status in SOIL_WATER_LABEL
+    ? SOIL_WATER_LABEL[status as keyof typeof SOIL_WATER_LABEL]
+    : WATER_STATUS_LABEL[status as keyof typeof WATER_STATUS_LABEL];
+}
+
+type HoverRow = { label: string; abbr?: string; value: string };
+
+/** 작물 공통 값 상자 줄. ETc 줄은 없다 (Kc = 1.0). ETo 는 마른 시기에 실제로 빠진 물보다 클 수 있어 "증발 수요"로 쓴다. */
+function commonRows(day: SeasonDay, raw: number): HoverRow[] {
+  const winter = day.status === "winter";
+  const off = (v: string) => (winter ? COMMON_OFF : v);
+  return [
+    { label: "증발 수요", abbr: "ETo", value: mm1(day.etoMm) },
+    { label: "비", value: mm(day.rainMm) },
+    {
+      label: "부족한 물",
+      abbr: "Dr",
+      value:
+        day.drMm == null
+          ? off(NO_DATA)
+          : `${mm(day.drMm)} / 건조 시작 ${mm(raw)}`,
+    },
+    {
+      label: "흙 속 남은 물",
+      value: day.awPct == null ? off(NO_DATA) : `${Math.round(day.awPct)}%`,
+    },
+  ];
+}
+
 /** 값 상자에 쓸 글자. 계산 없이 옮겨 적기와 자릿수 맞추기만 한다. 상태는 DB 값 그대로. */
 export function hoverInfo(day: SeasonDay, crop: Crop, raw: number) {
+  const base = {
+    date: dayLabel(day.date),
+    status: day.status,
+    statusLabel: statusLabel(day.status),
+  };
+  if (crop === "common") return { ...base, rows: commonRows(day, raw) };
   const etc =
     day.status === "dormant"
       ? crop === "apple"
@@ -46,16 +86,13 @@ export function hoverInfo(day: SeasonDay, crop: Crop, raw: number) {
       : mm1(day.etcMm);
   const dr =
     day.drMm == null ? NO_DATA : `${mm(day.drMm)} / 관수 시작점 ${mm(raw)}`;
-  return {
-    date: dayLabel(day.date),
-    status: day.status as WaterStatus,
-    rows: [
-      { label: "기준 증발산", abbr: "ETo", value: mm1(day.etoMm) },
-      { label: "작물이 쓴 물", abbr: "ETc", value: etc },
-      { label: "비", value: mm(day.rainMm) },
-      { label: "부족한 물", abbr: "Dr", value: dr },
-    ] as { label: string; abbr?: string; value: string }[],
-  };
+  const rows: HoverRow[] = [
+    { label: "기준 증발산", abbr: "ETo", value: mm1(day.etoMm) },
+    { label: "작물이 쓴 물", abbr: "ETc", value: etc },
+    { label: "비", value: mm(day.rainMm) },
+    { label: "부족한 물", abbr: "Dr", value: dr },
+  ];
+  return { ...base, rows };
 }
 
 function line(vals: (number | null)[], fy: (v: number) => number) {
@@ -91,11 +128,18 @@ function area(vals: (number | null)[], fy: (v: number) => number) {
 
 export type SeasonChart = ReturnType<typeof seasonChart>;
 
+export type DrTick = { t: string; top: string; raw: boolean; very?: boolean };
+
+/**
+ * common = 작물 공통: 아래 칸 기준선이 두 줄(건조 시작 = RAW, 매우 건조 시작 = 0.7×TAW)이고
+ * 오른쪽에 남은 물 % 눈금이 붙는다. 0.7×TAW 는 계약서의 판정 경계(남은 물 30%)를 눈금 자리로 옮긴 좌표일 뿐, 판정은 하지 않는다.
+ */
 export function seasonChart(
   rows: readonly SeasonDay[],
   raw: number,
   taw: number,
   selected: string,
+  common = false,
 ) {
   const n = Math.max(1, rows.length);
   const yD = (v: number) => yDr(v, taw);
@@ -109,14 +153,36 @@ export function seasonChart(
     }
   });
   for (let d = 0; d <= rows.length; d++) {
-    const isOff = d < rows.length && rows[d].status === "dormant";
+    const isOff =
+      d < rows.length &&
+      (rows[d].status === "dormant" || rows[d].status === "winter");
     if (isOff && o0 === null) o0 = d;
     if (!isOff && o0 !== null) {
       off += `M${o0} 0H${d}V100H${o0}Z`;
       o0 = null;
     }
   }
+  const pct = (v: number) => `${v}%`;
   const rawY = yD(raw);
+  const veryDry = taw * 0.7;
+  const veryY = yD(veryDry);
+  const drTicks: DrTick[] = common
+    ? [
+        { t: String(Math.round(taw)), top: pct(yD(taw)), raw: false },
+        {
+          t: String(Math.round(veryDry)),
+          top: pct(veryY),
+          raw: false,
+          very: true,
+        },
+        { t: String(Math.round(raw)), top: pct(rawY), raw: true },
+        { t: "0", top: "100%", raw: false },
+      ]
+    : [
+        { t: String(Math.round(taw)), top: pct(yD(taw)), raw: false },
+        { t: String(Math.round(raw)), top: pct(rawY), raw: true },
+        { t: "0", top: "100%", raw: false },
+      ];
   // 고른 날이 작기 자료에 없으면(오늘처럼 아직 관측 전) 마지막 날에 표시한다
   const found = rows.findIndex((r) => r.date === selected);
   const sel = found < 0 ? rows.length - 1 : found;
@@ -129,7 +195,6 @@ export function seasonChart(
       });
     }
   });
-  const pct = (v: number) => `${v}%`;
   return {
     n,
     eto: line(
@@ -153,6 +218,11 @@ export function seasonChart(
     ),
     rawLine: `M0 ${rawY.toFixed(2)}H${n}`,
     overRaw: `M0 ${yD(taw).toFixed(2)}H${n}V${rawY.toFixed(2)}H0Z`,
+    rawTop: pct(rawY),
+    veryTop: pct(veryY),
+    veryDryLine: `M0 ${veryY.toFixed(2)}H${n}`,
+    dryBand: `M0 ${rawY.toFixed(2)}H${n}V${veryY.toFixed(2)}H0Z`,
+    veryDryBand: `M0 ${veryY.toFixed(2)}H${n}V${yD(taw).toFixed(2)}H0Z`,
     base: `M0 100H${n}`,
     etoTicks: [6, 4, 2, 0].map((v) => ({ t: String(v), top: pct(yE(v)) })),
     rainTicks: [
@@ -160,11 +230,16 @@ export function seasonChart(
       { t: "30", top: "24%" },
       { t: "60+", top: "48%" },
     ],
-    drTicks: [
-      { t: String(Math.round(taw)), top: pct(yD(taw)), raw: false },
-      { t: String(Math.round(raw)), top: pct(rawY), raw: true },
-      { t: "0", top: "100%", raw: false },
-    ],
+    drTicks,
+    /** 작물 공통 오른쪽 눈금: 흙 속 남은 물 100·60·30·0 % (% 까지 적는다). */
+    pctTicks: common
+      ? [
+          { t: "100%", top: "100%" },
+          { t: "60%", top: pct(rawY) },
+          { t: "30%", top: pct(veryY) },
+          { t: "0%", top: pct(yD(taw)) },
+        ]
+      : [],
     sel: pct(((sel + 0.5) / n) * 100),
     /** 날짜 꼬리표가 양 끝에서 카드 밖으로 나가지 않게 민다. */
     selShift: sel / n > 0.9 ? "-100%" : sel / n < 0.1 ? "0%" : "-50%",

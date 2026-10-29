@@ -18,6 +18,7 @@ export function SeasonCard({
   crop,
   base,
   today,
+  soil,
 }: {
   season: SeasonDay[];
   months: MonthRow[];
@@ -27,13 +28,16 @@ export function SeasonCard({
   crop: Crop;
   base: string;
   today: string;
+  /** 작물 공통일 때 고른 토양 (추정 토성이면 "추정값"을 붙인다). */
+  soil?: { name: string; isEstimated: boolean };
 }) {
   if (season.length === 0) return null;
-  const ch = seasonChart(season, raw, taw, selected);
+  const common = crop === "common";
+  const ch = seasonChart(season, raw, taw, selected, common);
   const first = season[0].date;
   const last = season.at(-1)!.date;
   const year = first.slice(0, 4);
-  const off = crop === "apple" ? "휴면기" : "작기 아님";
+  const off = crop === "apple" ? "휴면기" : common ? "겨울철" : "작기 아님";
   const sel = season.find((d) => d.date === selected) ?? season.at(-1)!;
   const view = `0 0 ${ch.n} 100`;
 
@@ -58,13 +62,29 @@ export function SeasonCard({
         </span>
       </div>
       <div className="text-13 text-ink-2/88 flex flex-wrap gap-x-3.5 gap-y-1.5">
-        <Legend swatch="h-0.5 w-4 bg-ink-2/55">기준 증발산 ETo</Legend>
-        <Legend swatch="h-0.75 w-4 bg-emerald">작물이 쓴 물 ETc</Legend>
-        <Legend swatch="h-3 w-2 bg-[rgb(0_170_220/0.6)]">비</Legend>
-        <Legend swatch="h-0.75 w-4 bg-brand-ink">부족한 물 Dr</Legend>
-        <Legend swatch="h-0 w-4 border-t-2 border-dashed border-warn">
-          관수 시작점 RAW
-        </Legend>
+        {common ? (
+          <>
+            <Legend swatch="h-0.5 w-4 bg-ink-2/55">증발 수요 ETo</Legend>
+            <Legend swatch="h-3 w-2 bg-[rgb(0_170_220/0.6)]">비</Legend>
+            <Legend swatch="h-0.75 w-4 bg-brand-ink">부족한 물 Dr</Legend>
+            <Legend swatch="h-0 w-4 border-t-2 border-dashed border-need-dot">
+              건조 시작 (남은 물 60%)
+            </Legend>
+            <Legend swatch="h-0 w-4 border-t-2 border-dotted border-very-dry-dot">
+              매우 건조 시작 (남은 물 30%)
+            </Legend>
+          </>
+        ) : (
+          <>
+            <Legend swatch="h-0.5 w-4 bg-ink-2/55">기준 증발산 ETo</Legend>
+            <Legend swatch="h-0.75 w-4 bg-emerald">작물이 쓴 물 ETc</Legend>
+            <Legend swatch="h-3 w-2 bg-[rgb(0_170_220/0.6)]">비</Legend>
+            <Legend swatch="h-0.75 w-4 bg-brand-ink">부족한 물 Dr</Legend>
+            <Legend swatch="h-0 w-4 border-t-2 border-dashed border-warn">
+              관수 시작점 RAW
+            </Legend>
+          </>
+        )}
         <Legend swatch="size-3 bg-fill/16">{off}</Legend>
       </div>
 
@@ -105,13 +125,15 @@ export function SeasonCard({
               strokeWidth={1.4}
               className={LINE}
             />
-            <path
-              d={ch.etc}
-              fill="none"
-              stroke="#37b77c"
-              strokeWidth={2}
-              className={LINE}
-            />
+            {!common && (
+              <path
+                d={ch.etc}
+                fill="none"
+                stroke="#37b77c"
+                strokeWidth={2}
+                className={LINE}
+              />
+            )}
           </svg>
           {ch.etoTicks.map((t) => (
             <Tick key={t.t} side="left" top={t.top}>
@@ -142,7 +164,20 @@ export function SeasonCard({
               d={ch.off}
               fill="color-mix(in oklab, var(--color-fill) 12%, transparent)"
             />
-            <path d={ch.overRaw} fill="rgb(255 141 40 / 0.10)" />
+            {common ? (
+              <>
+                <path
+                  d={ch.dryBand}
+                  fill="color-mix(in oklab, var(--color-need-dot) 12%, transparent)"
+                />
+                <path
+                  d={ch.veryDryBand}
+                  fill="color-mix(in oklab, var(--color-very-dry-dot) 12%, transparent)"
+                />
+              </>
+            ) : (
+              <path d={ch.overRaw} fill="rgb(255 141 40 / 0.10)" />
+            )}
             <path
               d={ch.drArea}
               fill="color-mix(in oklab, var(--color-brand-ink) 12%, transparent)"
@@ -157,11 +192,21 @@ export function SeasonCard({
             <path
               d={ch.rawLine}
               fill="none"
-              stroke="var(--color-warn)"
+              stroke={common ? "var(--color-need-dot)" : "var(--color-warn)"}
               strokeWidth={1.6}
               strokeDasharray="5 4"
               className={LINE}
             />
+            {common && (
+              <path
+                d={ch.veryDryLine}
+                fill="none"
+                stroke="var(--color-very-dry-dot)"
+                strokeWidth={1.6}
+                strokeDasharray="2 3"
+                className={LINE}
+              />
+            )}
             <path
               d={ch.base}
               fill="none"
@@ -174,11 +219,34 @@ export function SeasonCard({
               key={t.t + t.top}
               side="left"
               top={t.top}
-              className={t.raw ? "text-warn font-bold" : ""}
+              className={
+                t.very
+                  ? "text-very-dry-fg font-bold"
+                  : t.raw
+                    ? common
+                      ? "text-need-fg font-bold"
+                      : "text-warn font-bold"
+                    : ""
+              }
             >
               {t.t}
             </Tick>
           ))}
+          {ch.pctTicks.map((t) => (
+            <Tick key={t.t} side="right" top={t.top}>
+              {t.t}
+            </Tick>
+          ))}
+          {common && (
+            <>
+              <LineLabel top={ch.rawTop} className="text-need-fg">
+                건조 시작
+              </LineLabel>
+              <LineLabel top={ch.veryTop} className="text-very-dry-fg">
+                매우 건조 시작
+              </LineLabel>
+            </>
+          )}
           <Marker left={ch.sel} />
           <span
             className="text-12 bg-ink text-bg absolute -top-6 rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap"
@@ -200,6 +268,13 @@ export function SeasonCard({
         </div>
       </ChartHover>
 
+      {common && (
+        <p className="text-13 text-ink-2/75 -mt-1">
+          ※ 작물과 관계없이 겉토양 50 cm만 본 값이에요.
+          {soil?.isEstimated && ` 토양: ${soil.name} (추정값)`}
+        </p>
+      )}
+
       <div className="border-ink-2/18 flex flex-col border-t-(length:--hairline) pt-2">
         <div className="text-16 pt-1 pb-2 font-bold">
           월별 요약{" "}
@@ -209,10 +284,10 @@ export function SeasonCard({
           <thead>
             <tr className="text-13 text-ink-2/80 border-ink-2/18 border-b-(length:--hairline) font-semibold">
               <th className="w-[24%] py-2 text-left font-semibold">월</th>
-              <Th label="기준 증발산" abbr="ETo" />
-              <Th label="작물이 쓴 물" abbr="ETc" />
+              <Th label={common ? "증발 수요" : "기준 증발산"} abbr="ETo" />
+              {!common && <Th label="작물이 쓴 물" abbr="ETc" />}
               <Th label="비" />
-              <Th label="관수 필요" abbr="일수" />
+              {!common && <Th label="관수 필요" abbr="일수" />}
             </tr>
           </thead>
           <tbody>
@@ -223,19 +298,23 @@ export function SeasonCard({
               >
                 <td className="py-2.5 font-semibold">{m.month}</td>
                 <td className="pl-2 text-right">{m.eto}</td>
-                <td
-                  className={`pl-2 text-right ${m.etc == null ? "text-14 text-gray-ink whitespace-nowrap" : ""}`}
-                >
-                  {m.etc ?? off}
-                </td>
+                {!common && (
+                  <td
+                    className={`pl-2 text-right ${m.etc == null ? "text-14 text-gray-ink whitespace-nowrap" : ""}`}
+                  >
+                    {m.etc ?? off}
+                  </td>
+                )}
                 <td className="pl-2 text-right">{m.rain}</td>
-                <td
-                  className={`pl-2 text-right font-bold ${
-                    m.needDays ? "text-warn" : "text-ink-2/85"
-                  }`}
-                >
-                  {m.needDays == null ? "—" : `${m.needDays}일`}
-                </td>
+                {!common && (
+                  <td
+                    className={`pl-2 text-right font-bold ${
+                      m.needDays ? "text-warn" : "text-ink-2/85"
+                    }`}
+                  >
+                    {m.needDays == null ? "—" : `${m.needDays}일`}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -276,6 +355,26 @@ function Tick({
       className={`text-12 text-ink-2/75 absolute -translate-y-1/2 ${
         side === "left" ? "-left-6.5" : "-right-6.5"
       } ${className}`}
+      style={{ top }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** 아래 칸 기준선 위 글자 (왼쪽 끝, 선 바로 위). 겨울철 음영 쪽이라 선과 겹치지 않는다. */
+function LineLabel({
+  top,
+  className,
+  children,
+}: {
+  top: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`text-12 bg-card/70 pointer-events-none absolute left-1 -translate-y-full rounded-sm px-0.5 font-bold whitespace-nowrap ${className}`}
       style={{ top }}
     >
       {children}

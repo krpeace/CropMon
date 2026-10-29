@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Crop } from "@/domain/selection";
-import { WATER_STATUS_LABEL } from "@/domain/water-status";
 import type { SeasonDay } from "@/services/water";
 
 import { StatusBadge } from "../ui/StatusBadge";
@@ -148,8 +147,8 @@ export function ChartHover({
             <StatusBadge
               compact
               badge={{
-                status: info.status,
-                label: WATER_STATUS_LABEL[info.status],
+                status: info.status ?? "dormant",
+                label: info.statusLabel,
               }}
             />
           </div>
