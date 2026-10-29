@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // 휴대폰 390×844 로 본다 (playwright.config 의 mobile 프로젝트). 가짜 Supabase 자료를 읽는다.
 
@@ -12,8 +12,39 @@ const SCREENS = [
   ["내 농장", "/my-farm"],
 ] as const;
 
+const LIGHT_COLOR = "rgb(242 242 247)";
+const DARK_COLOR = "#000";
+
+/** 주소창 색(theme-color) meta 는 정확히 1개이고 media 가 없으며 값이 기대한 색이다. */
+async function expectThemeColor(page: Page, color: string) {
+  const meta = page.locator('meta[name="theme-color"]');
+  await expect(meta).toHaveCount(1);
+  await expect(meta).not.toHaveAttribute("media", /.*/);
+  await expect(meta).toHaveAttribute("content", color);
+}
+
 test.describe("다크 설정인 휴대폰", () => {
   test.use({ colorScheme: "dark" });
+
+  for (const [name, path] of SCREENS) {
+    test(`${name}: 주소창 색 meta 가 1개이고 media 없이 다크 색`, async ({
+      page,
+    }) => {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expectThemeColor(page, DARK_COLOR);
+    });
+  }
+
+  test("주소창 색: 처음 열면 다크 색, 버튼으로 라이트를 고르면 라이트 색", async ({
+    page,
+  }) => {
+    await page.goto("/water?st=101&crop=apple");
+    await page.waitForLoadState("networkidle");
+    await expectThemeColor(page, DARK_COLOR);
+    await page.getByRole("button", { name: "라이트 모드로 보기" }).click();
+    await expectThemeColor(page, LIGHT_COLOR);
+  });
 
   test("처음 열면 설정을 따라 다크로 열린다", async ({ page }) => {
     await page.goto("/water?st=101&crop=apple");
@@ -62,6 +93,28 @@ test.describe("다크 설정인 휴대폰", () => {
 test.describe("라이트 설정인 휴대폰", () => {
   test.use({ colorScheme: "light" });
 
+  for (const [name, path] of SCREENS) {
+    test(`${name}: 주소창 색 meta 가 1개이고 media 없이 라이트 색`, async ({
+      page,
+    }) => {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expectThemeColor(page, LIGHT_COLOR);
+    });
+  }
+
+  test("주소창 색: 버튼으로 다크를 고르면 바뀌고 새로 고침해도 유지된다", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await expectThemeColor(page, LIGHT_COLOR);
+    await page.getByRole("button", { name: "다크 모드로 보기" }).click();
+    await expectThemeColor(page, DARK_COLOR);
+    await page.reload();
+    await expectThemeColor(page, DARK_COLOR);
+  });
+
   test("처음 열면 라이트, 다크 버튼을 누르면 다크로 기억한다", async ({
     page,
   }) => {
@@ -81,5 +134,9 @@ test.describe("라이트 설정인 휴대폰", () => {
     await page.waitForLoadState("networkidle");
     await page.emulateMedia({ colorScheme: "dark" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expectThemeColor(page, DARK_COLOR);
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expectThemeColor(page, LIGHT_COLOR);
   });
 });

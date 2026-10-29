@@ -5,6 +5,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import {
   parseSavedTheme,
   resolveTheme,
+  THEME_COLOR,
   THEME_STORAGE_KEY,
   type Theme,
 } from "@/domain/theme";
@@ -22,8 +23,12 @@ function readSaved(): Theme | null {
   }
 }
 
+/** 화면 테마와 주소창 색(theme-color meta)을 함께 바꾼다. meta 가 없으면 화면 테마만 바꾼다. */
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", THEME_COLOR[theme]);
 }
 
 /** 화면의 현재 테마는 <html data-theme> 하나가 갖는다. 바뀌면 다시 그린다. */

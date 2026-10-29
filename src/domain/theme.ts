@@ -14,3 +14,9 @@ export function resolveTheme(saved: Theme | null, systemDark: boolean): Theme {
   if (saved) return saved;
   return systemDark ? "dark" : "light";
 }
+
+/** 휴대폰 주소창·상태 표시줄 색(theme-color). 결정 0024 값 그대로. */
+export const THEME_COLOR: Record<Theme, string> = {
+  light: "rgb(242 242 247)",
+  dark: "#000",
+};
