@@ -181,3 +181,68 @@ test("물(작물 공통): 토양 물 상태 카드·건조 예상일·토양 변
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+// 작기 돌아보기 그래프: 따라 보기 (이슈 #46). 위 칸(data-plot="top")의 안쪽이 날짜 칸이 깔린 자리다.
+const seasonPlot = async (page: Page) => {
+  const top = page
+    .getByRole("region", { name: /작기 돌아보기/ })
+    .locator('[data-plot="top"]');
+  await top.scrollIntoViewIfNeeded();
+  const box = (await top.boundingBox())!;
+  return box;
+};
+
+test("물: 작기 그래프에 마우스를 올리면 그날 값 상자가 따라오고, 벗어나면 사라지고, 누르면 그날로 간다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=101&crop=apple");
+  const box = await seasonPlot(page);
+  const tip = page.getByRole("tooltip");
+  await expect(tip).toHaveCount(0);
+
+  // 왼쪽 끝 = 첫날(1월 1일), 사과는 휴면기
+  await page.mouse.move(box.x + 1, box.y + box.height / 2);
+  await expect(tip).toContainText("1월 1일");
+  await expect(tip).toContainText("휴면기");
+  await expect(tip).toContainText("기준 증발산");
+  await expect(tip).toContainText("부족한 물");
+  await expect(tip.getByRole("link")).toHaveCount(0);
+
+  // 오른쪽 절반에서는 상자가 왼쪽으로 뒤집혀 그래프 안에 머문다
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
+  await expect(tip).not.toContainText("1월 1일");
+  await expect(tip).toContainText("부족한 물");
+  const t = (await tip.boundingBox())!;
+  expect(t.x + t.width).toBeLessThanOrEqual(box.x + box.width + 26);
+
+  await page.mouse.move(box.x + box.width / 2, 5);
+  await expect(tip).toHaveCount(0);
+
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page).toHaveURL(/&d=\d{4}-\d{2}-\d{2}$/);
+});
+
+test.describe("물: 작기 그래프 (휴대폰)", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("탭하면 값 상자가 고정되고, '이 날 보기'를 눌러야 그날로 간다", async ({
+    page,
+  }) => {
+    await page.goto("/water?st=101&crop=apple");
+    const box = await seasonPlot(page);
+    const tip = page.getByRole("tooltip");
+
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(tip).toContainText("부족한 물");
+    const go = tip.getByRole("link", { name: /물 화면 보기/ });
+    await expect(go).toContainText("이 날 보기");
+    await expect(page).toHaveURL(/\/water\?st=101&crop=apple$/);
+
+    await go.click();
+    await expect(page).toHaveURL(/&d=\d{4}-\d{2}-\d{2}$/);
+  });
+});
