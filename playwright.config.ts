@@ -39,7 +39,7 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
       },
-      testMatch: /(theme|national-mobile)\.spec\.ts/,
+      testMatch: /(theme|national-mobile|tabbar)\.spec\.ts/,
     },
   ],
   // 가짜 Supabase(e2e/fake-supabase.mjs)를 먼저 띄운다. 화면은 build 때 NEXT_PUBLIC_SUPABASE_URL 을
