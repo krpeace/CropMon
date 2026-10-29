@@ -231,7 +231,7 @@ function ThirdCell({
         ) : (
           <div className="bg-fill/14 h-2 flex-1 rounded-full" />
         )}
-        <span className="text-13 w-18 text-right font-semibold">
+        <span className="text-13 flex-none text-right font-semibold whitespace-nowrap">
           {row.drText}
         </span>
       </div>
