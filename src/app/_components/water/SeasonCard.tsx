@@ -3,7 +3,7 @@ import { dayLabel } from "@/domain/water-outlook";
 import type { MonthRow } from "@/domain/water-verdict";
 import type { SeasonDay } from "@/services/water";
 
-import { ChartClick } from "./ChartClick";
+import { ChartHover } from "./ChartHover";
 import { seasonChart } from "./season-chart";
 
 const LINE = "[vector-effect:non-scaling-stroke] [stroke-linejoin:round]";
@@ -48,7 +48,13 @@ export function SeasonCard({
         </span>
         <span className="text-14 text-ink-2/80">
           {dayLabel(first).replace(/ \(.\)$/, "")} ~{" "}
-          {dayLabel(last).replace(/ \(.\)$/, "")} · 그래프를 누르면 그날로 가요
+          {dayLabel(last).replace(/ \(.\)$/, "")} ·{" "}
+          <span className="[@media(pointer:coarse)]:hidden">
+            그래프에 마우스를 올리면 그날 값이 보이고, 누르면 그날로 가요
+          </span>
+          <span className="hidden [@media(pointer:coarse)]:inline">
+            그래프를 누르면 그날 값이 보여요
+          </span>
         </span>
       </div>
       <div className="text-13 text-ink-2/88 flex flex-wrap gap-x-3.5 gap-y-1.5">
@@ -62,12 +68,19 @@ export function SeasonCard({
         <Legend swatch="size-3 bg-fill/16">{off}</Legend>
       </div>
 
-      <ChartClick base={base} dates={season.map((d) => d.date)} today={today}>
+      <ChartHover
+        base={base}
+        today={today}
+        crop={crop}
+        raw={raw}
+        taw={taw}
+        days={season}
+      >
         <div className="text-12 text-ink-2/75 -mx-6.5 flex justify-between">
           <span>mm/일</span>
           <span>비 mm</span>
         </div>
-        <div className="relative h-37.5">
+        <div data-plot="top" className="relative h-37.5">
           <svg
             viewBox={view}
             preserveAspectRatio="none"
@@ -118,7 +131,7 @@ export function SeasonCard({
           <Marker left={ch.sel} />
         </div>
         <div className="text-12 text-ink-2/75 -mx-6.5 mt-1">부족한 물 mm</div>
-        <div className="relative h-32.5">
+        <div data-plot="bottom" className="relative h-32.5">
           <svg
             viewBox={view}
             preserveAspectRatio="none"
@@ -185,7 +198,7 @@ export function SeasonCard({
             </span>
           ))}
         </div>
-      </ChartClick>
+      </ChartHover>
 
       <div className="border-ink-2/18 flex flex-col border-t-(length:--hairline) pt-2">
         <div className="text-16 pt-1 pb-2 font-bold">

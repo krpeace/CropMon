@@ -1,3 +1,6 @@
+import type { Crop } from "@/domain/selection";
+import { dayLabel } from "@/domain/water-outlook";
+import type { WaterStatus } from "@/domain/water-status";
 import type { SeasonDay } from "@/services/water";
 
 /**
@@ -9,6 +12,50 @@ const ETO_MAX = 7.5; // mm/일, 이보다 크면 위에 붙인다
 const RAIN_MAX = 60; // mm, 비 막대가 그래프 높이의 48%까지
 
 export const yE = (v: number) => 100 - (Math.min(v, ETO_MAX) / ETO_MAX) * 92;
+
+/** 아래 칸(부족한 물) 세로 위치 0~100. */
+export const yDr = (v: number, taw: number) => 100 - (v / taw) * 94;
+
+const EDGE = 26; // 좌우 눈금 칸(px)
+
+/** 그래프 상자 안 x(px, 상자 왼쪽 기준) → 날짜 칸 번호. 눈금 칸을 빼고, 밖이면 양 끝에 붙인다. 날이 없으면 null. */
+export function dayIndexAt(x: number, width: number, n: number) {
+  if (n <= 0) return null;
+  const inner = Math.max(1, width - EDGE * 2);
+  const i = Math.floor(((x - EDGE) / inner) * n);
+  return Math.min(n - 1, Math.max(0, i));
+}
+
+/** 값 상자를 안내선 오른쪽에 둘지 왼쪽에 둘지. 그래프 가운데를 넘으면 왼쪽. */
+export function tipSide(i: number, n: number): "left" | "right" {
+  return i / n > 0.5 ? "left" : "right";
+}
+
+const NO_DATA = "자료 없음";
+// 월별 요약 표와 같은 자릿수 (water-verdict.ts: 정수로 반올림)
+const mm = (v: number | null) => (v == null ? NO_DATA : `${Math.round(v)} mm`);
+
+/** 값 상자에 쓸 글자. 계산 없이 옮겨 적기와 자릿수 맞추기만 한다. 상태는 DB 값 그대로. */
+export function hoverInfo(day: SeasonDay, crop: Crop, raw: number) {
+  const etc =
+    day.status === "dormant"
+      ? crop === "apple"
+        ? "휴면기"
+        : "작기 아님"
+      : mm(day.etcMm);
+  const dr =
+    day.drMm == null ? NO_DATA : `${mm(day.drMm)} / 관수 시작점 ${mm(raw)}`;
+  return {
+    date: dayLabel(day.date),
+    status: day.status as WaterStatus,
+    rows: [
+      { label: "기준 증발산", abbr: "ETo", value: mm(day.etoMm) },
+      { label: "작물이 쓴 물", abbr: "ETc", value: etc },
+      { label: "비", value: mm(day.rainMm) },
+      { label: "부족한 물", abbr: "Dr", value: dr },
+    ] as { label: string; abbr?: string; value: string }[],
+  };
+}
 
 function line(vals: (number | null)[], fy: (v: number) => number) {
   let s = "";
@@ -50,7 +97,7 @@ export function seasonChart(
   selected: string,
 ) {
   const n = Math.max(1, rows.length);
-  const yD = (v: number) => 100 - (v / taw) * 94;
+  const yD = (v: number) => yDr(v, taw);
   let rain = "";
   let off = "";
   let o0: number | null = null;
