@@ -137,7 +137,7 @@ export function SunCompareCard({
           href={withSelection("/sunlight", { stationId: r.id, crop })}
           scroll={false}
           aria-current={r.selected ? "true" : undefined}
-          className="text-ink grid min-h-9 grid-cols-(--compare-cols) items-center gap-2.5"
+          className="text-ink hit-44 grid min-h-9 grid-cols-(--compare-cols) items-center gap-2.5"
         >
           <span
             className={`text-15 ${r.selected ? "font-extrabold" : "font-medium"}`}

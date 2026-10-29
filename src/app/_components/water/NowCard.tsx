@@ -301,7 +301,7 @@ export function SoilBubble({
             수 있어요{" "}
             <Link
               href={farmHref}
-              className="text-brand-ink font-bold whitespace-nowrap underline"
+              className="text-brand-ink hit-44 font-bold whitespace-nowrap underline"
             >
               미리보기
             </Link>

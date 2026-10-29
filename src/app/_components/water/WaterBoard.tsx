@@ -232,7 +232,7 @@ function Cultivation({
             scroll={false}
             title={c.note ?? undefined}
             aria-current={c.selected ? "true" : undefined}
-            className={`text-15 shadow-hairline flex h-9.5 items-center rounded-full px-3.5 font-semibold ${
+            className={`text-15 shadow-hairline hit-44 flex h-9.5 items-center rounded-full px-3.5 font-semibold ${
               c.selected ? "bg-brand text-white" : "bg-card text-ink"
             }`}
           >

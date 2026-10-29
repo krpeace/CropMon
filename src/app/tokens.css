@@ -237,6 +237,20 @@
 /* 다크에서만 쓰는 변형. 토큰만으로 안 되는 곳(흰 반투명 바탕 등)에만 쓴다 — 남용 금지 */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* 누르는 영역만 44×44 이상으로 넓힌다. 보이는 크기·배치는 그대로 (시안 규칙: 누르는 곳 44px 이상) */
+@utility hit-44 {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* 하단 탭바용 진한 유리. -webkit- 줄이 앞이어야 한다: 압축(build) 때 뒤에 오면 표준 줄이 지워져 안드로이드 크롬에서 흐림이 빠진다 */
 @utility glass-strong {
   -webkit-backdrop-filter: blur(24px) saturate(1.8);
