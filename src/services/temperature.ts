@@ -203,6 +203,10 @@ async function readCompare(
     };
   } catch (error) {
     console.error("[temperature] 지역 비교 읽기 실패:", error);
-    return { compare: [], compareProblem: "지역 비교 자료를 읽지 못했어요." };
+    return {
+      compare: [],
+      compareProblem:
+        "지역 비교 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+    };
   }
 }

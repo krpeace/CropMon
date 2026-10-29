@@ -174,7 +174,9 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
     );
     expect(v.kind).toBe("data");
     expect(v.compare).toEqual([]);
-    expect(v.compareProblem).toBe("지역 비교 자료를 읽지 못했어요.");
+    expect(v.compareProblem).toBe(
+      "지역 비교 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+    );
   });
 
   it("연결 정보가 없어 source 를 만들지 못해도 멈추지 않는다", async () => {
