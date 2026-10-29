@@ -298,10 +298,12 @@ function SelectionBar({
                 다음 줄로 넘어가 칸 밖(overflow-hidden)이 되어 통째로 안 보인다 — 반쪽 글자가 남지 않는다.
                 데스크톱은 칸을 없애(contents) 지금 모양 그대로. */}
             <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
-              <span className="shrink-0 leading-6">{CROP_LABEL[crop]}</span>
+              <span className="max-desktop:leading-6 shrink-0">
+                {CROP_LABEL[crop]}
+              </span>
               <span
                 data-testid="crop-sub"
-                className="text-14 text-ink-2/85 desktop:hidden leading-6 font-medium whitespace-nowrap"
+                className="text-14 text-ink-2/85 desktop:hidden max-desktop:leading-6 font-medium whitespace-nowrap"
               >
                 {info.short}
               </span>
@@ -495,14 +497,14 @@ function SelectionBar({
                     selectedStatus ? STATUS_DOT[selectedStatus] : "bg-fill/30"
                   }`}
                 />
-                {/* 지점 이름은 넘치면 "…", 지점번호는 다 들어가면 보이고 안 들어가면 통째로 숨긴다 (위 작물 버튼과 같은 방식) */}
-                <span className="flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
-                  <span className="min-w-0 truncate leading-6">
+                {/* 지점 이름은 넘치면 "…", 지점번호는 다 들어가면 보이고 안 들어가면 통째로 숨긴다 (위 작물 버튼과 같은 방식). 데스크톱은 칸을 없애(contents) 지금 모양 그대로 */}
+                <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
+                  <span className="max-desktop:leading-6 min-w-0 truncate">
                     {station.name}
                   </span>
                   <span
                     data-testid="station-id"
-                    className="text-13 text-ink-2/60 leading-6 font-medium whitespace-nowrap"
+                    className="text-13 text-ink-2/60 max-desktop:leading-6 font-medium whitespace-nowrap"
                   >
                     {station.id}
                   </span>
