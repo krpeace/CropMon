@@ -5,7 +5,7 @@ import { STATUS_DOT } from "./status";
 const SIZE = {
   /** 종합 카드: 높이 12, 흰 바탕, 관수 시작점 표시 3px. */
   card: {
-    track: "h-3 bg-white/90",
+    track: "h-3 bg-white/90 dark:bg-white/12",
     marker: "-top-1 -bottom-1 w-0.75 -translate-x-1/2 rounded-full",
   },
   /** 전국 표: 높이 10, 회색 바탕, 관수 시작점 표시 2px. */
@@ -36,7 +36,7 @@ export function Gauge({
         style={{ width: `${gauge.fillPct}%` }}
       />
       <div
-        className={`bg-need-fg absolute ${s.marker}`}
+        className={`bg-warn absolute ${s.marker}`}
         style={{ left: `${gauge.rawPct}%` }}
       />
     </div>

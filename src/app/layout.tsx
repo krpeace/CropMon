@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 
+import { THEME_STORAGE_KEY } from "@/domain/theme";
+
 import { Sheets } from "./_components/shell/Sheets";
 import { SheetProvider } from "./_components/shell/sheet-context";
 import { SiteFooter } from "./_components/shell/SiteFooter";
@@ -16,16 +18,27 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "rgb(242 242 247)" },
+    { media: "(prefers-color-scheme: dark)", color: "#000" },
+  ],
 };
 
 /** Pretendard 글꼴 (시안과 같은 CDN 주소). */
 const PRETENDARD_CSS =
   "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css";
 
+/**
+ * 처음 그리기 전에 테마를 정한다 (하얗게 번쩍이지 않게). domain/theme.ts 의 resolveTheme 와 같은 순서:
+ * 저장된 선택 → 휴대폰·PC 설정 → 라이트. 저장소가 막혀도(사생활 보호 모드) 오류 없이 넘어간다.
+ */
+const THEME_SCRIPT = `(function(){var t=null;try{var v=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(v==="light"||v==="dark")t=v}catch(e){}if(!t)t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t})()`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <link rel="stylesheet" href={PRETENDARD_CSS} crossOrigin="anonymous" />
       </head>
       <body>

@@ -35,6 +35,7 @@ import type {
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { TABS } from "./pages";
+import { ThemeToggle } from "./ThemeToggle";
 import { useSheet } from "./sheet-context";
 
 function anyStatusLabel(st: AnyWaterStatus): string {
@@ -110,7 +111,10 @@ function SiteHeaderView({
     <>
       <header className="glass border-ink-2/15 bg-card/88 sticky top-0 z-20 border-b-(length:--hairline)">
         <div className="desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
-          <Link href={withSelection("/", selection)} className="flex-none">
+          <Link
+            href={withSelection("/", selection)}
+            className="bg-plate rounded-row flex-none dark:px-2 dark:py-0.5"
+          >
             <Image
               src="/brand/logo-horizontal.png"
               alt="CropMon 작물재배의 든든한 감시자"
@@ -132,7 +136,7 @@ function SiteHeaderView({
                   href={withSelection(tab.href, selection)}
                   aria-current={active ? "page" : undefined}
                   className={`text-17 flex h-11 items-center gap-1.75 rounded-full px-4.5 font-semibold whitespace-nowrap ${
-                    active ? "bg-emerald/16 text-brand" : "text-ink-2/80"
+                    active ? "bg-emerald/16 text-brand-ink" : "text-ink-2/80"
                   }`}
                 >
                   <Icon name={tab.key} size={20} />
@@ -141,13 +145,14 @@ function SiteHeaderView({
               );
             })}
           </nav>
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => open("login")}
             className="bg-fill/12 text-16 text-ink-2/90 desktop:pr-2.5 flex h-11 flex-none cursor-pointer items-center gap-2 rounded-full px-4 font-semibold"
           >
             로그인
-            <span className="bg-lime/50 text-13 text-brand desktop:inline hidden rounded-full px-2.25 py-1 font-bold">
+            <span className="bg-lime/50 text-13 text-brand-ink desktop:inline hidden rounded-full px-2.25 py-1 font-bold">
               곧 열려요
             </span>
           </button>
@@ -275,7 +280,7 @@ function SelectionBar({
               name="crop"
               size={20}
               strokeWidth={2}
-              className="text-brand shrink-0"
+              className="text-brand-ink shrink-0"
             />
             <span>{CROP_LABEL[crop]}</span>
             <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
@@ -379,7 +384,7 @@ function SelectionBar({
                         className={`size-2 rounded-full ${
                           selectedStatus
                             ? STATUS_DOT[selectedStatus]
-                            : "bg-white/55"
+                            : "bg-white/55 dark:bg-white/10"
                         }`}
                       />
                       <span>{station.name}</span>
@@ -571,7 +576,7 @@ function StationSheet({
           <button
             type="button"
             onClick={onClose}
-            className="text-16 text-brand min-h-11 cursor-pointer px-2 font-semibold"
+            className="text-16 text-brand-ink min-h-11 cursor-pointer px-2 font-semibold"
           >
             닫기
           </button>
@@ -730,7 +735,7 @@ function RegionPickerBody({
                       <span className="text-16 font-semibold">{item.name}</span>
                       <span className="text-13 text-ink-2/60">{item.id}</span>
                       {item.isRepresentative && (
-                        <span className="bg-emerald/14 text-12 text-brand rounded-full px-1.75 py-0.5 font-bold">
+                        <span className="bg-emerald/14 text-12 text-brand-ink rounded-full px-1.75 py-0.5 font-bold">
                           대표
                         </span>
                       )}
@@ -747,7 +752,7 @@ function RegionPickerBody({
                           name="check"
                           size={18}
                           strokeWidth={2.5}
-                          className="text-brand"
+                          className="text-brand-ink"
                         />
                       )}
                     </div>
@@ -759,7 +764,7 @@ function RegionPickerBody({
         )}
       </div>
 
-      <div className="border-ink-2/12 bg-bg/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2">
+      <div className="border-ink-2/12 bg-tile/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2">
         기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중
       </div>
     </>
@@ -801,7 +806,7 @@ function CropSheet({
           <button
             type="button"
             onClick={onClose}
-            className="text-16 text-brand min-h-11 cursor-pointer px-2 font-semibold"
+            className="text-16 text-brand-ink min-h-11 cursor-pointer px-2 font-semibold"
           >
             닫기
           </button>
@@ -879,7 +884,7 @@ function CropPickerBody({
                   name="check"
                   size={18}
                   strokeWidth={2.5}
-                  className="text-brand shrink-0"
+                  className="text-brand-ink shrink-0"
                 />
               )}
             </Link>

@@ -29,7 +29,7 @@ export function SoilPicker({
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="text-15 text-ink shadow-hairline inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-white/85 px-3.5 py-1.5 font-semibold"
+          className="text-15 text-ink shadow-hairline inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-white/85 px-3.5 py-1.5 font-semibold dark:bg-white/12"
         >
           <span className="text-ink-2/80">계산에 쓴 토양:</span>
           <span className="font-bold">{current.name}</span>
@@ -51,7 +51,7 @@ export function SoilPicker({
         <div
           role="listbox"
           aria-label="토양 고르기"
-          className="rounded-box grid grid-cols-2 gap-1.5 bg-white/90 p-2.5 sm:grid-cols-3"
+          className="rounded-box grid grid-cols-2 gap-1.5 bg-white/90 p-2.5 sm:grid-cols-3 dark:bg-white/12"
         >
           {soils.map((s) => (
             <Link

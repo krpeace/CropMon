@@ -1,8 +1,16 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
-/* 밝은 화면만 쓴다 (시안 기준). 부품에 직접 준 색이 이기도록 base 층에 둔다. */
+/* 밝게·어둡게 두 벌 (tokens.css). 부품에 직접 준 색이 이기도록 base 층에 둔다. */
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
   html,
   body {
     background: var(--color-bg);
@@ -19,7 +27,7 @@
   }
 
   a {
-    color: var(--color-brand);
+    color: var(--color-brand-ink);
   }
 
   a:hover {

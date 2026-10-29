@@ -55,8 +55,8 @@ export function SeasonCard({
         <Legend swatch="h-0.5 w-4 bg-ink-2/55">기준 증발산 ETo</Legend>
         <Legend swatch="h-0.75 w-4 bg-emerald">작물이 쓴 물 ETc</Legend>
         <Legend swatch="h-3 w-2 bg-[rgb(0_170_220/0.6)]">비</Legend>
-        <Legend swatch="h-0.75 w-4 bg-brand">부족한 물 Dr</Legend>
-        <Legend swatch="h-0 w-4 border-t-2 border-dashed border-need-fg">
+        <Legend swatch="h-0.75 w-4 bg-brand-ink">부족한 물 Dr</Legend>
+        <Legend swatch="h-0 w-4 border-t-2 border-dashed border-warn">
           관수 시작점 RAW
         </Legend>
         <Legend swatch="size-3 bg-fill/16">{off}</Legend>
@@ -74,18 +74,21 @@ export function SeasonCard({
             className="absolute inset-0 size-full overflow-visible"
             aria-hidden="true"
           >
-            <path d={ch.off} fill="rgb(118 118 128 / 0.12)" />
+            <path
+              d={ch.off}
+              fill="color-mix(in oklab, var(--color-fill) 12%, transparent)"
+            />
             <path
               d={ch.grid}
               fill="none"
-              stroke="rgb(60 60 67 / 0.12)"
+              stroke="color-mix(in oklab, var(--color-ink-2) 12%, transparent)"
               className={LINE}
             />
             <path d={ch.rain} fill="rgb(0 170 220 / 0.55)" />
             <path
               d={ch.eto}
               fill="none"
-              stroke="rgb(60 60 67 / 0.5)"
+              stroke="color-mix(in oklab, var(--color-ink-2) 50%, transparent)"
               strokeWidth={1.4}
               className={LINE}
             />
@@ -122,20 +125,26 @@ export function SeasonCard({
             className="absolute inset-0 size-full overflow-visible"
             aria-hidden="true"
           >
-            <path d={ch.off} fill="rgb(118 118 128 / 0.12)" />
+            <path
+              d={ch.off}
+              fill="color-mix(in oklab, var(--color-fill) 12%, transparent)"
+            />
             <path d={ch.overRaw} fill="rgb(255 141 40 / 0.10)" />
-            <path d={ch.drArea} fill="rgb(20 76 51 / 0.12)" />
+            <path
+              d={ch.drArea}
+              fill="color-mix(in oklab, var(--color-brand-ink) 12%, transparent)"
+            />
             <path
               d={ch.dr}
               fill="none"
-              stroke="#144c33"
+              stroke="var(--color-brand-ink)"
               strokeWidth={2}
               className={LINE}
             />
             <path
               d={ch.rawLine}
               fill="none"
-              stroke="rgb(176 74 0)"
+              stroke="var(--color-warn)"
               strokeWidth={1.6}
               strokeDasharray="5 4"
               className={LINE}
@@ -143,7 +152,7 @@ export function SeasonCard({
             <path
               d={ch.base}
               fill="none"
-              stroke="rgb(60 60 67 / 0.25)"
+              stroke="color-mix(in oklab, var(--color-ink-2) 25%, transparent)"
               className={LINE}
             />
           </svg>
@@ -152,14 +161,14 @@ export function SeasonCard({
               key={t.t + t.top}
               side="left"
               top={t.top}
-              className={t.raw ? "text-need-fg font-bold" : ""}
+              className={t.raw ? "text-warn font-bold" : ""}
             >
               {t.t}
             </Tick>
           ))}
           <Marker left={ch.sel} />
           <span
-            className="text-12 bg-ink absolute -top-6 rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap text-white"
+            className="text-12 bg-ink text-bg absolute -top-6 rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap"
             style={{ left: ch.sel, transform: `translateX(${ch.selShift})` }}
           >
             {dayLabel(sel.date).replace(/ \(.\)$/, "")}
@@ -209,7 +218,7 @@ export function SeasonCard({
                 <td className="pl-2 text-right">{m.rain}</td>
                 <td
                   className={`pl-2 text-right font-bold ${
-                    m.needDays ? "text-need-fg" : "text-ink-2/85"
+                    m.needDays ? "text-warn" : "text-ink-2/85"
                   }`}
                 >
                   {m.needDays == null ? "—" : `${m.needDays}일`}

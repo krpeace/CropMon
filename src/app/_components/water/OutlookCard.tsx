@@ -26,7 +26,7 @@ export function OutlookCard({
         <span className="text-15 text-ink-2/85 font-bold">② 앞으로 3일</span>
         <span className="flex-1" />
         {outlook && (
-          <span className="text-14 text-brand bg-lime/35 rounded-row px-2.5 py-1 font-bold whitespace-nowrap">
+          <span className="text-14 text-brand-ink bg-lime/35 rounded-row px-2.5 py-1 font-bold whitespace-nowrap">
             {outlook.basis}
           </span>
         )}
@@ -64,7 +64,7 @@ export function OutlookCard({
                       aria-current={r.selected ? "true" : undefined}
                       className={`text-15 flex items-center rounded-full px-3.5 font-semibold ${
                         r.selected
-                          ? "bg-card text-ink shadow-segment"
+                          ? "bg-seg text-ink shadow-segment"
                           : "text-ink-2/85"
                       }`}
                     >
@@ -85,7 +85,7 @@ export function OutlookCard({
           )}
 
           {outlook.need && (
-            <div className="rounded-box bg-bg flex flex-col gap-1 px-3.5 py-3">
+            <div className="rounded-box bg-tile flex flex-col gap-1 px-3.5 py-3">
               <div className="text-17">
                 <b>관수 필요 예상일</b> {outlook.need.text}
               </div>
@@ -106,7 +106,7 @@ export function OutlookCard({
             {outlook.days.map((d) => (
               <div
                 key={d.iso}
-                className={`bg-bg flex flex-col gap-2.5 rounded-[18px] p-3.5 ${
+                className={`bg-tile flex flex-col gap-2.5 rounded-[18px] p-3.5 ${
                   d.reference ? "opacity-60" : ""
                 }`}
               >

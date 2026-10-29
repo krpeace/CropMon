@@ -7,16 +7,23 @@
 @theme {
   /* ── 색: 브랜드 ── */
   --color-*: initial;
-  --color-brand: #144c33; /* 진초록 · 주 버튼, 선택 탭, 올해 선 */
+  --color-brand: #144c33; /* 진초록 · 버튼·선택 바탕 (흰 글자를 얹는다) */
+  --color-brand-ink: #144c33; /* 진초록 · 글자·선·옅은 칠 (다크에서 연두로 밝아진다) */
+  --color-selbar: #144c33; /* 비교 막대의 선택 줄 */
   --color-emerald: #37b77c; /* 에메랄드 · ETc 선, 올해 막대 */
   --color-leaf: #78bd48; /* 잎 초록 · 로고 안에서만 */
   --color-lime: #a9d86e; /* 연두 · 비교 막대, "곧 열려요" */
   --color-mint: #92e0d0; /* 민트 · 캐릭터 말풍선 */
   --color-mint-ink: #0f3b27; /* 말풍선 글자 */
+  --color-bubble: rgb(146 224 208 / 0.32); /* 말풍선 바탕 */
+  --color-plate: transparent; /* 로고 바탕판 (다크에서만 흰 판) */
 
   /* ── 색: 바탕과 글자 (iOS 26) ── */
   --color-bg: rgb(242 242 247); /* 바탕 grouped-primary */
   --color-card: #fff; /* 카드 grouped-secondary */
+  --color-tile: rgb(242 242 247); /* 카드 안에 놓인 칸·입력칸 */
+  --color-seg: #fff; /* 세그먼트 고른 칸 */
+  --color-warn: rgb(176 74 0); /* 관수 시작점 선·눈금·경고 글자 */
   --color-ink: #000; /* 글자 labels-primary */
   /* 보조 글자 · /85, 원어 표기 · /60 처럼 투명도를 붙여 쓴다 */
   --color-ink-2: rgb(60 60 67);
@@ -112,6 +119,9 @@
   --shadow-popover: 0 18px 44px rgb(0 0 0 / 0.18), 0 0 0 0.5px rgb(0 0 0 / 0.1);
   --shadow-panel: 0 -10px 40px rgb(0 0 0 / 0.15);
   --shadow-focus: 0 0 0 1.5px rgb(20 76 51 / 0.45);
+  --shadow-inset-hairline: inset 0 0 0 1px rgb(60 60 67 / 0.12); /* 입력칸의 안쪽 테두리 */
+  --shadow-inset-thin: inset 0 0 0 0.5px rgb(60 60 67 / 0.12); /* 선택 칸의 안쪽 가는 테두리 */
+  --shadow-inset-edge: inset 0 0 0 0.5px rgb(0 0 0 / 0.08); /* 게이지 바탕의 안쪽 테두리 */
 
   /* ── 배치: 2열 → 1열이 바뀌는 폭은 여기 한 곳 ── */
   --breakpoint-*: initial;
@@ -161,6 +171,64 @@
   /* 지역 비교 줄의 열: 지점 · 막대 · 날 수(또는 "자료 없음") */
   --compare-cols: 56px minmax(0, 1fr) 72px;
 }
+
+/*
+ * 다크 값. 같은 변수 이름을 덮어쓰므로 화면은 토큰 이름만 쓴다 (bg-card, text-ink-2/80 …).
+ * 다크 판단은 <html data-theme="dark"> 하나로만 한다 (layout.tsx 의 짧은 스크립트와 ThemeToggle 이 정한다).
+ * 시안 v0.3.0 [data-cmt="dark"] 값. 매우 건조(very-dry)만 시안에 없어 iOS 다크 빨강 기준으로 정했다.
+ */
+:root[data-theme="dark"] {
+  --color-bg: #000;
+  --color-card: rgb(28 28 30);
+  --color-tile: rgb(44 44 46);
+  --color-ink: #fff;
+  --color-ink-2: rgb(235 235 245);
+  --color-fill: rgb(190 190 200);
+  --color-gray-ink: rgb(174 174 178);
+  --color-brand: #1f6e4a;
+  --color-brand-ink: #a9d86e;
+  --color-selbar: #fff;
+  --color-seg: rgb(99 99 102);
+  --color-warn: rgb(255 159 64);
+  --color-bubble: rgb(146 224 208 / 0.16);
+  --color-mint-ink: #cff3ea;
+  --color-plate: rgb(255 255 255 / 0.94);
+
+  --color-need-dot: rgb(255 146 48);
+  --color-need-fg: rgb(255 170 95);
+  --color-need-bg: rgb(255 146 48 / 0.22);
+  --color-need-card: rgb(51 33 17);
+  --color-caution-dot: rgb(48 209 88);
+  --color-caution-fg: rgb(90 220 125);
+  --color-caution-bg: rgb(48 209 88 / 0.2);
+  --color-caution-card: rgb(17 41 24);
+  --color-normal-dot: rgb(0 145 255);
+  --color-normal-fg: rgb(120 185 255);
+  --color-normal-bg: rgb(0 145 255 / 0.22);
+  --color-normal-card: rgb(13 31 54);
+  --color-wet-dot: rgb(10 132 255);
+  --color-wet-fg: #fff;
+  --color-wet-bg: rgb(0 108 220);
+  --color-wet-card: rgb(10 27 56);
+  --color-dormant-dot: rgb(99 99 102);
+  --color-dormant-fg: rgb(174 174 178);
+  --color-dormant-bg: rgb(190 190 200 / 0.16);
+  --color-dormant-card: rgb(28 28 30);
+  --color-very-dry-dot: rgb(255 69 58);
+  --color-very-dry-fg: rgb(255 130 120);
+  --color-very-dry-bg: rgb(255 69 58 / 0.22);
+  --color-very-dry-card: rgb(56 20 18);
+
+  --shadow-hairline: 0 0 0 0.5px rgb(255 255 255 / 0.12);
+  --shadow-edge: 0 0 0 0.5px rgb(255 255 255 / 0.08);
+  --shadow-focus: 0 0 0 1.5px rgb(169 216 110 / 0.55);
+  --shadow-inset-hairline: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+  --shadow-inset-thin: inset 0 0 0 0.5px rgb(255 255 255 / 0.18);
+  --shadow-inset-edge: inset 0 0 0 0.5px rgb(255 255 255 / 0.1);
+}
+
+/* 다크에서만 쓰는 변형. 토큰만으로 안 되는 곳(흰 반투명 바탕 등)에만 쓴다 — 남용 금지 */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* 유리 재질 헤더 */
 @utility glass {
