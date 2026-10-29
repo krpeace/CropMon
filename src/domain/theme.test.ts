@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSavedTheme, resolveTheme, THEME_STORAGE_KEY } from "./theme";
+import {
+  parseSavedTheme,
+  resolveTheme,
+  THEME_COLOR,
+  THEME_STORAGE_KEY,
+} from "./theme";
 
 describe("resolveTheme", () => {
   it("저장된 선택이 있으면 휴대폰 설정보다 우선한다", () => {
@@ -28,5 +33,12 @@ describe("parseSavedTheme", () => {
 
   it("저장 이름은 cropmon-theme", () => {
     expect(THEME_STORAGE_KEY).toBe("cropmon-theme");
+  });
+});
+
+describe("THEME_COLOR", () => {
+  it("휴대폰 주소창 색은 결정 0024 값 그대로", () => {
+    expect(THEME_COLOR.light).toBe("rgb(242 242 247)");
+    expect(THEME_COLOR.dark).toBe("#000");
   });
 });
