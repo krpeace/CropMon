@@ -71,8 +71,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.6 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.6\b/);
+  it("계약서의 현재 버전이 v1.7 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.7\b/);
   });
 
   it("지점 사전에 시도·대표 여부·운영 여부·일사 관측·동기화 시각 열이 있다 (v1.6)", () => {

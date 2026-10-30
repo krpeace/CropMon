@@ -59,7 +59,7 @@ export function StageCards({ view }: { view: TemperatureView }) {
             className="rounded-card bg-card flex flex-col gap-1.5 p-4.5"
           >
             <span className="text-15 text-ink-2/85 font-bold">{s.title}</span>
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span
                 className={`text-24 font-bold ${s.reached ? "" : "text-gray-ink"}`}
               >

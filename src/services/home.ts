@@ -124,7 +124,9 @@ function growthCard(
   ok: boolean,
   isRepresentative: boolean,
 ): HomeView["growth"] {
-  if (!h || heatDiff(h.cum, h.normal) == null) {
+  const cum = h?.cum ?? null;
+  const normal = h?.normal ?? null;
+  if (cum == null || normal == null) {
     return {
       verdict: NO_DATA,
       numbers: !ok
@@ -135,9 +137,9 @@ function growthCard(
       missing: true,
     };
   }
-  const n = gddNumbers(h.cum!, h.normal!);
+  const n = gddNumbers(cum, normal);
   return {
-    verdict: heatVerdict(h.cum, h.normal),
+    verdict: heatVerdict(cum, normal),
     numbers: `적산온도 ${n.thisYear} / 평년 ${n.normal}℃`,
     missing: false,
   };
