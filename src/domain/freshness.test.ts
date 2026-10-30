@@ -63,14 +63,28 @@ describe("getFreshness", () => {
     expect(getFreshness("2026-10-20T12:00:00Z", NOW).label).toBe("48시간 전");
   });
 
-  it("경과 13시간까지는 정상, 13시간을 넘으면 멈춘 것으로 본다", () => {
-    expect(getFreshness("2026-10-21T23:00:00Z", NOW)).toEqual({
+  it("경과 17시간 정각까지는 정상, 17시간 1분이면 멈춘 것으로 본다", () => {
+    expect(getFreshness("2026-10-21T19:00:00Z", NOW)).toEqual({
+      label: "17시간 전",
+      isStale: false,
+    });
+    expect(getFreshness("2026-10-21T18:59:00Z", NOW)).toEqual({
+      label: "17시간 전",
+      isStale: true,
+    });
+  });
+
+  it("물 회차 사이(02시 회차 → 17시 회차)의 오후에는 멈춤이 아니다 (croplib-dp#35, #37)", () => {
+    // 마지막 갱신 02:29(KST) = 전날 17:29Z
+    const last = "2026-10-21T17:29:00Z";
+    // 15:40(KST) = 06:40Z → 13.2시간, 17:00(KST) = 08:00Z → 14.5시간
+    expect(getFreshness(last, "2026-10-22T06:40:00Z")).toEqual({
       label: "13시간 전",
       isStale: false,
     });
-    expect(getFreshness("2026-10-21T22:59:00Z", NOW)).toEqual({
-      label: "13시간 전",
-      isStale: true,
+    expect(getFreshness(last, "2026-10-22T08:00:00Z")).toEqual({
+      label: "14시간 전",
+      isStale: false,
     });
   });
 
