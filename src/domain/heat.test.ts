@@ -2,37 +2,81 @@ import { describe, expect, it } from "vitest";
 
 import {
   gddNumbers,
-  leadShort,
-  leadVerdict,
+  heatDiff,
+  heatVerdict,
   monthDay,
   pickStages,
   reachDate,
+  stageLag,
 } from "./heat";
 
-describe("leadVerdict", () => {
-  it("빠름·늦음·비슷 (DB 의 lead_days 그대로)", () => {
-    expect(leadVerdict(20, 4165, 4300)).toBe("평년보다 생육 20일 빠름");
-    expect(leadVerdict(-2, 1448, 2600)).toBe("평년보다 생육 2일 늦음");
-    expect(leadVerdict(0, 1000, 2600)).toBe("생육이 평년과 비슷해요");
+describe("heatDiff", () => {
+  it("평년 대비 차이: 부호·쉼표·℃", () => {
+    expect(heatDiff(4165, 3985)).toEqual({ value: 180, text: "+180℃" });
+    expect(heatDiff(1448, 1490)).toEqual({ value: -42, text: "-42℃" });
+    expect(heatDiff(1000, 1000)).toEqual({ value: 0, text: "0℃" });
+    expect(heatDiff(5234, 4000)).toEqual({ value: 1234, text: "+1,234℃" });
   });
 
-  it("lead_days 가 비었고 올해 누적이 평년 한 해 합보다 크면 '평년 한 해 치를 넘었어요'", () => {
-    expect(leadVerdict(null, 2700, 2600)).toBe("평년 한 해 치를 넘었어요");
+  it("작은 차이도 숫자로 (묶지 않음)", () => {
+    expect(heatDiff(1005, 1000)?.text).toBe("+5℃");
   });
 
-  it("lead_days 가 비었고 그 밖이면 '자료 없음'", () => {
-    expect(leadVerdict(null, 2500, 2600)).toBe("자료 없음");
-    expect(leadVerdict(null, null, 2600)).toBe("자료 없음");
-    expect(leadVerdict(null, 2700, null)).toBe("자료 없음");
+  it("반올림한 뒤 뺀다 (179.5 → 180)", () => {
+    expect(heatDiff(1179.5, 1000)).toEqual({ value: 180, text: "+180℃" });
+    expect(heatDiff(1179.4, 1000)).toEqual({ value: 179, text: "+179℃" });
+    expect(heatDiff(1000.4, 1000.4)?.text).toBe("0℃");
+  });
+
+  it("올해나 평년이 비면 null", () => {
+    expect(heatDiff(null, 1000)).toBeNull();
+    expect(heatDiff(1000, null)).toBeNull();
+    expect(heatDiff(null, null)).toBeNull();
   });
 });
 
-describe("leadShort", () => {
-  it("지역 비교 막대 옆 짧은 글", () => {
-    expect(leadShort(5)).toBe("+5일");
-    expect(leadShort(-2)).toBe("-2일");
-    expect(leadShort(0)).toBe("0일");
-    expect(leadShort(null)).toBeNull();
+describe("heatVerdict", () => {
+  it("큰 글씨: 평년보다 +N℃ / -N℃ / 평년과 같아요", () => {
+    expect(heatVerdict(4165, 3985)).toBe("평년보다 +180℃");
+    expect(heatVerdict(1448, 1490)).toBe("평년보다 -42℃");
+    expect(heatVerdict(1000, 1000)).toBe("평년과 같아요");
+  });
+
+  it("자료가 비면 '자료 없음'", () => {
+    expect(heatVerdict(null, 1000)).toBe("자료 없음");
+    expect(heatVerdict(1000, null)).toBe("자료 없음");
+  });
+});
+
+describe("stageLag", () => {
+  it("올해가 빠르면 'N일 빠름'", () => {
+    expect(stageLag("2026-05-15", "2026-05-20")).toEqual({
+      text: "5일 빠름",
+      tone: "early",
+    });
+  });
+
+  it("올해가 늦으면 'N일 지연'", () => {
+    expect(stageLag("2026-07-21", "2026-07-15")).toEqual({
+      text: "6일 지연",
+      tone: "late",
+    });
+  });
+
+  it("같은 날은 '평년과 같음'", () => {
+    expect(stageLag("2026-07-15", "2026-07-15")).toEqual({
+      text: "평년과 같음",
+      tone: "same",
+    });
+  });
+
+  it("달이 바뀌어도 날짜 차로 센다", () => {
+    expect(stageLag("2026-06-28", "2026-07-03")?.text).toBe("5일 빠름");
+  });
+
+  it("올해나 평년이 비면 null", () => {
+    expect(stageLag(null, "2026-07-15")).toBeNull();
+    expect(stageLag("2026-07-15", null)).toBeNull();
   });
 });
 

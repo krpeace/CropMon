@@ -17,6 +17,8 @@ const read = (name: string) =>
 const SEED_V1 = read("20261024010000_seed_dictionaries.sql");
 const SEED_V1_1 = read("20261024030000_seed_kc_sets.sql");
 const SEED_V1_6 = read("20261028030000_seed_stations_asos.sql");
+const SEED_SOIL = read("20261028010000_seed_soil_estimates.sql");
+const COMMON_STAGES = read("20261030000000_common_gdd_stages.sql");
 const SEED = `${SEED_V1}\n${SEED_V1_1}`;
 
 type Value = string | number | boolean | null;
@@ -381,6 +383,17 @@ describe("사전 자료: 재배 방식별 Kc (v1.1)", () => {
     expect(SEED_V1_1).toMatch(
       /update public\.crops c\s+set kc_ini = k\.kc_ini, kc_mid = k\.kc_mid, kc_end = k\.kc_end\s+from public\.crop_kc_sets k\s+where k\.crop_id = c\.crop_id and k\.is_default/,
     );
+  });
+});
+
+describe("사전 자료: 작물 공통 적산온도 단계 (결정 0032)", () => {
+  const STAGES = "'{500,1000,1500,2000,2500,3000}'";
+
+  it("새 DB 를 만드는 시드와 고치는 마이그레이션이 같은 값 500~3000 (500 단위)", () => {
+    expect(SEED_SOIL).toContain(STAGES);
+    expect(SEED_SOIL).not.toContain("'{1000,2000}'");
+    expect(COMMON_STAGES).toContain(STAGES);
+    expect(COMMON_STAGES).toMatch(/where crop_id = 'common'/);
   });
 });
 

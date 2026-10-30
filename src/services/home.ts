@@ -1,5 +1,5 @@
 import { koreanClock } from "@/domain/datetime";
-import { gddNumbers, leadVerdict } from "@/domain/heat";
+import { gddNumbers, heatDiff, heatVerdict } from "@/domain/heat";
 import {
   DEFAULT_SOIL,
   SOIL_LABEL,
@@ -24,7 +24,7 @@ import type {
 
 /**
  * 종합 화면에 필요한 값을 화면용 문구로 정리한다 (결정 0011).
- * 물 판정은 DB 지점 판정 표, 온도·햇빛은 DB 의 마지막 관측일 적산온도·적산일사 (결정 0011·0017).
+ * 물 판정은 DB 지점 판정 표, 온도·햇빛은 DB 의 마지막 관측일 적산온도·적산일사 (결정 0011·0017·0032).
  */
 
 export type AnyStatusBadge = { status: AnyWaterStatus; label: string };
@@ -60,12 +60,12 @@ export type HomeRow = {
   drText: string;
   /** 앞으로 3일. 예보가 없는 지점은 null ("예보 준비 중", 작물 공통은 "—"). */
   days: { label: string; status: WaterStatus }[] | null;
-  /** 생육 (적산온도): "3일 빠름". 자료가 없으면 null ("자료 없음"). */
-  lead: string | null;
+  /** 생육 (적산온도): 평년 대비 "+180℃". 자료가 없으면 null ("자료 없음"). */
+  heat: string | null;
   /** 생육 (적산일사): 평년 대비 "96%". 자료가 없으면 null ("자료 없음"). */
   sunlight: string | null;
-  /** 막대용: 적산온도가 평년보다 앞선 날 수(빠름 +, 늦음 −). 자료가 없거나 한 해 치를 넘으면 null. */
-  leadDays: number | null;
+  /** 막대용: 적산온도 평년 대비 차이(℃, 앞섬 +, 뒤처짐 −). 자료가 없으면 null. */
+  heatDiff: number | null;
   /** 막대용: 적산일사 평년 대비 %. 자료가 없으면 null. */
   sunPct: number | null;
 };
@@ -104,17 +104,9 @@ function shortDate(iso: string) {
   return `${m}/${d}`;
 }
 
-/** 전국 표 생육 칸. 카드와 같은 판단(leadVerdict)을 짧게. 자료가 없으면 null. */
-function leadShort(h: HeatLatest | undefined): string | null {
-  if (!h) return null;
-  if (h.lead == null) {
-    return leadVerdict(null, h.cum, h.annualNormal) === "자료 없음"
-      ? null
-      : "한 해 치 넘음";
-  }
-  if (h.lead > 0) return `${h.lead}일 빠름`;
-  if (h.lead < 0) return `${-h.lead}일 늦음`;
-  return "비슷";
+/** 평년 대비 적산온도 차이. 자료가 없으면 null. */
+function heatOf(h: HeatLatest | undefined) {
+  return h ? heatDiff(h.cum, h.normal) : null;
 }
 
 function sunPct(s: SunLatest | undefined): number | null {
@@ -132,8 +124,9 @@ function growthCard(
   ok: boolean,
   isRepresentative: boolean,
 ): HomeView["growth"] {
-  const verdict = h ? leadVerdict(h.lead, h.cum, h.annualNormal) : NO_DATA;
-  if (!h || verdict === NO_DATA) {
+  const cum = h?.cum ?? null;
+  const normal = h?.normal ?? null;
+  if (cum == null || normal == null) {
     return {
       verdict: NO_DATA,
       numbers: !ok
@@ -144,11 +137,10 @@ function growthCard(
       missing: true,
     };
   }
-  const n =
-    h.cum != null && h.normal != null ? gddNumbers(h.cum, h.normal) : null;
+  const n = gddNumbers(cum, normal);
   return {
-    verdict,
-    numbers: n ? `적산온도 ${n.thisYear} / 평년 ${n.normal} ℃·일` : "",
+    verdict: heatVerdict(cum, normal),
+    numbers: `적산온도 ${n.thisYear} / 평년 ${n.normal}℃`,
     missing: false,
   };
 }
@@ -328,9 +320,9 @@ export function getHomeView(
             ? "—"
             : `${mm(sw.tawMm - sw.drMm)} / ${mm(sw.tawMm)} mm`,
         days: null,
-        lead: leadShort(growth.heat[s.id]),
+        heat: heatOf(growth.heat[s.id])?.text ?? null,
         sunlight: sunShort(growth.sun[s.id]),
-        leadDays: growth.heat[s.id]?.lead ?? null,
+        heatDiff: heatOf(growth.heat[s.id])?.value ?? null,
         sunPct: sunPct(growth.sun[s.id]),
       };
     }
@@ -351,9 +343,9 @@ export function getHomeView(
             status: d.status,
           }))
         : null,
-      lead: leadShort(growth.heat[s.id]),
+      heat: heatOf(growth.heat[s.id])?.text ?? null,
       sunlight: sunShort(growth.sun[s.id]),
-      leadDays: growth.heat[s.id]?.lead ?? null,
+      heatDiff: heatOf(growth.heat[s.id])?.value ?? null,
       sunPct: sunPct(growth.sun[s.id]),
     };
   });

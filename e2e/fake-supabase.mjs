@@ -185,7 +185,11 @@ const crops = [
     gdd_stages: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000],
   },
   { crop_id: "kimchi_cabbage", t_base_c: 4, gdd_stages: [300, 600, 900, 1200] },
-  { crop_id: "common", t_base_c: 5, gdd_stages: [1000, 2000] },
+  {
+    crop_id: "common",
+    t_base_c: 5,
+    gdd_stages: [500, 1000, 1500, 2000, 2500, 3000],
+  },
 ];
 
 // 토성 사전 12종 (계약 v1.5)

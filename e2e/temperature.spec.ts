@@ -9,18 +9,20 @@ const stages = (page: Page) =>
 const chart = (page: Page) =>
   page.getByRole("region", { name: "적산온도 누적" });
 const compare = (page: Page) =>
-  page.getByRole("region", { name: "지역 비교 · 평년보다 며칠 빠른가" });
+  page.getByRole("region", { name: "지역 비교 · 평년 대비 적산온도" });
 
 test("온도: 생육 속도가 DB 값으로 (문구·숫자·평년 기간·기준 온도)", async ({
   page,
 }) => {
   await page.goto("/temperature?st=101&crop=apple");
   await expect(speed(page)).toContainText("어제까지 관측 기준");
-  await expect(speed(page)).toContainText("평년보다 생육 20일 빠름");
+  await expect(speed(page)).toContainText("평년보다 +192℃");
   await expect(speed(page)).toContainText(
-    "적산온도 4,165 / 평년 3,973 ℃·일 (+192)",
+    "적산온도 4,165 / 평년 3,973℃ (+192)",
   );
-  await expect(speed(page)).toContainText("기준 온도 4℃ · 1월 1일부터");
+  await expect(speed(page)).toContainText(
+    "적산온도 GDD · 기준 온도 4℃ · 1월 1일부터",
+  );
   await expect(chart(page)).toContainText("평년 2016–2025");
 
   const meta = page.getByRole("region", { name: "자료 정보" });
@@ -32,13 +34,19 @@ test("온도: 단계 카드 2개 — 올해·평년 도달일, 아직이면 '아
   page,
 }) => {
   await page.goto("/temperature?st=101&crop=apple");
-  await expect(stages(page)).toContainText("적산온도 3,500 ℃·일");
-  await expect(stages(page)).toContainText("적산온도 4,000 ℃·일");
+  await expect(stages(page)).toContainText("적산온도 3,500℃");
+  await expect(stages(page)).toContainText("적산온도 4,000℃");
   // 평년 도달일 (연말에는 평년 누적이 마지막 단계에 닿지 않을 수 있어 "평년에는 닿지 않아요"도 된다)
   await expect(stages(page).getByText(/^평년/)).toHaveCount(2);
+  // 도달일 비교 꼬리표 ("N일 빠름" 또는 "N일 지연"): 올해 3,500 은 평년보다 앞서 닿는다
+  await expect(
+    stages(page)
+      .getByText(/^\d+일 (빠름|지연)$/)
+      .first(),
+  ).toContainText(/\d+일 빠름/);
 
   await page.goto("/temperature?st=119&crop=apple");
-  await expect(stages(page)).toContainText("적산온도 2,500 ℃·일");
+  await expect(stages(page)).toContainText("적산온도 2,500℃");
   await expect(stages(page)).toContainText("아직");
 });
 
@@ -58,7 +66,7 @@ test("온도: 지역 비교 10줄, 누르면 그 지역으로 바뀌고 굵게",
   await page.goto("/temperature?st=101&crop=apple");
   const links = compare(page).getByRole("link");
   await expect(links).toHaveCount(10);
-  await expect(links.filter({ hasText: "춘천" })).toContainText("+20일");
+  await expect(links.filter({ hasText: "춘천" })).toContainText("+192℃");
 
   await links.filter({ hasText: "안동" }).click();
   await expect(page).toHaveURL(/\/temperature\?st=136&crop=apple$/);
@@ -78,8 +86,8 @@ test("온도: 저온요구량은 '준비 중'", async ({ page }) => {
 
   await page.goto("/temperature?st=101&crop=common");
   await expect(speed(page)).toContainText("기준 온도 5℃ · 1월 1일부터");
-  await expect(stages(page)).toContainText("적산온도 1,000 ℃·일");
-  await expect(stages(page)).toContainText("적산온도 2,000 ℃·일");
+  await expect(stages(page)).toContainText("적산온도 2,500℃");
+  await expect(stages(page)).toContainText("적산온도 3,000℃");
   await expect(chill).toContainText(
     "작물 공통에서는 저온요구량을 따지지 않아요",
   );

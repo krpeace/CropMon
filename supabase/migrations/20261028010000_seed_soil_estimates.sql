@@ -36,7 +36,7 @@ where soil_code = 'sandy_clay';
 
 -- 2. 작물 사전에 작물 공통 (common) 추가: 적산온도(heat_daily) 기록용
 insert into public.crops (crop_id, name_ko, kc_ini, kc_mid, kc_end, zr_m, p, t_base_c, gdd_stages, source)
-values ('common', '작물 공통', 1.0, 1.0, 1.0, 0.5, 0.40, 5, '{1000,2000}', '작물 공통 고정 조건 (결정 0020)')
+values ('common', '작물 공통', 1.0, 1.0, 1.0, 0.5, 0.40, 5, '{500,1000,1500,2000,2500,3000}', '작물 공통 고정 조건 (결정 0020)')
 on conflict (crop_id) do update set
   name_ko = excluded.name_ko,
   kc_ini = excluded.kc_ini,

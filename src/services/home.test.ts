@@ -106,9 +106,9 @@ const GROWTH: HomeGrowth = {
   heatOk: true,
   sunOk: true,
   heat: {
-    101: { lead: 20, cum: 4165, normal: 3973, annualNormal: 4100 },
-    216: { lead: null, cum: 2700, normal: 2650, annualNormal: 2600 },
-    136: { lead: -2, cum: 2140, normal: 2190, annualNormal: 2300 },
+    101: { cum: 4165, normal: 3973 },
+    216: { cum: 2700, normal: 2650 },
+    136: { cum: 2140, normal: 2190 },
   },
   sun: {
     101: { cum: 3218, normal: 3352 },
@@ -205,18 +205,18 @@ describe("종합 화면 물 카드 (DB)", () => {
 });
 
 describe("온도·햇빛 카드 (DB)", () => {
-  it("온도: 평년보다 며칠 빠른가와 적산온도 (온도 화면과 같은 문구)", () => {
+  it("온도: 평년 대비 ℃ 차이와 적산온도 (온도 화면과 같은 문구)", () => {
     expect(view(101).growth).toEqual({
-      verdict: "평년보다 생육 20일 빠름",
-      numbers: "적산온도 4,165 / 평년 3,973 ℃·일",
+      verdict: "평년보다 +192℃",
+      numbers: "적산온도 4,165 / 평년 3,973℃",
       missing: false,
     });
-    expect(view(136).growth.verdict).toBe("평년보다 생육 2일 늦음");
+    expect(view(136).growth.verdict).toBe("평년보다 -50℃");
   });
 
-  it("온도 태백형: 며칠 빠른가가 비었고 평년 한 해 치를 넘었으면", () => {
+  it("온도: 작은 차이도 숫자로 보여 준다 (태백형도 같은 방식)", () => {
     expect(view(216).growth).toMatchObject({
-      verdict: "평년 한 해 치를 넘었어요",
+      verdict: "평년보다 +50℃",
       missing: false,
     });
   });
@@ -283,20 +283,20 @@ describe("전국 표", () => {
         { label: "10/27", status: "need" },
         { label: "10/28", status: "caution" },
       ],
-      lead: "20일 빠름",
+      heat: "+192℃",
       sunlight: "96%",
-      leadDays: 20,
+      heatDiff: 192,
       sunPct: 96,
     });
   });
 
   it("막대용 숫자는 DB 값 그대로, 자료 없으면 null", () => {
     expect(rows.find((r) => r.id === 216)).toMatchObject({
-      leadDays: null,
+      heatDiff: 50,
       sunPct: 105,
     });
     expect(rows.find((r) => r.id === 119)).toMatchObject({
-      leadDays: null,
+      heatDiff: null,
       sunPct: null,
     });
   });
@@ -313,7 +313,7 @@ describe("전국 표", () => {
       gauge: null,
       drText: "—",
       days: null,
-      lead: null,
+      heat: null,
       sunlight: null,
     });
   });
@@ -322,13 +322,13 @@ describe("전국 표", () => {
 describe("전국 표 생육 칸 (DB)", () => {
   const rows = view(136).rows;
 
-  it("적산온도는 며칠 빠른가, 적산일사는 평년 대비 %", () => {
+  it("적산온도는 평년 대비 ℃, 적산일사는 평년 대비 %", () => {
     expect(rows.find((r) => r.id === 136)).toMatchObject({
-      lead: "2일 늦음",
+      heat: "-50℃",
       sunlight: null,
     });
     expect(rows.find((r) => r.id === 216)).toMatchObject({
-      lead: "한 해 치 넘음",
+      heat: "+50℃",
       sunlight: "105%",
     });
   });

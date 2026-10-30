@@ -59,26 +59,26 @@ describe("heatChart", () => {
 });
 
 describe("compareBars", () => {
-  it("시안 눈금: 늦음 4일 · 빠름 8일, 0 은 33.3%", () => {
-    const b = compareBars([3, -2, null]);
+  it("최소 눈금: 늦음 100℃ · 빠름 200℃, 0 은 33.3%", () => {
+    const b = compareBars([60, -40, null]);
     expect(b.zero).toBeCloseTo(100 / 3);
-    expect(b.bars[0]).toEqual({ left: 100 / 3, width: 3 * (100 / 12) });
+    expect(b.bars[0]).toEqual({ left: 100 / 3, width: 60 * (100 / 300) });
     expect(b.bars[1]).toEqual({
-      left: 100 / 3 - 2 * (100 / 12),
-      width: 2 * (100 / 12),
+      left: 100 / 3 - 40 * (100 / 300),
+      width: 40 * (100 / 300),
     });
     expect(b.bars[2]).toBeNull();
   });
 
-  it("가을처럼 날 수가 크면 막대가 칸을 넘지 않게 눈금을 넓힌다", () => {
-    const b = compareBars([20, -6]);
-    // 늦음 6 + 빠름 20 = 26일
-    expect(b.zero).toBeCloseTo((6 / 26) * 100);
+  it("값이 크면 막대가 칸을 넘지 않게 눈금을 넓힌다", () => {
+    const b = compareBars([400, -150]);
+    // 늦음 150 + 빠름 400 = 550℃
+    expect(b.zero).toBeCloseTo((150 / 550) * 100);
     expect(b.bars[0]!.left + b.bars[0]!.width).toBeCloseTo(100);
     expect(b.bars[1]!.left).toBeCloseTo(0);
   });
 
-  it("0일도 얇게 보인다", () => {
+  it("0℃ 도 얇게 보인다", () => {
     expect(compareBars([0]).bars[0]!.width).toBe(0.8);
   });
 });

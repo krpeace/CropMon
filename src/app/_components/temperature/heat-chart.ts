@@ -6,7 +6,7 @@ import type { HeatDay } from "@/services/temperature";
  * 시안의 "올해 예상 (평년 흐름으로)" 점선은 화면에서 계산해야 하므로 그리지 않는다 (결정 0015).
  */
 
-const STEP = 1000; // 세로 눈금 ℃·일
+const STEP = 1000; // 세로 눈금 ℃
 const HEADROOM = 1.04; // 가장 큰 값 위로 조금 띄운다
 
 function line(vals: (number | null)[], fy: (v: number) => number) {
@@ -77,17 +77,17 @@ export function heatChart(days: readonly HeatDay[], today: string) {
   };
 }
 
-/** 지역 비교 막대: 0 의 위치와 막대마다 왼쪽·폭(%). 시안 눈금은 늦음 4일 · 빠름 8일, 넘으면 넓힌다. */
-export function compareBars(leads: readonly (number | null)[]) {
-  const vals = leads.filter((v): v is number => v != null);
-  const late = Math.max(4, ...vals.map((v) => -v));
-  const early = Math.max(8, ...vals);
+/** 지역 비교 막대: 0 의 위치와 막대마다 왼쪽·폭(%). 최소 눈금은 평년보다 낮음 100℃ · 높음 200℃, 넘으면 넓힌다. */
+export function compareBars(diffs: readonly (number | null)[]) {
+  const vals = diffs.filter((v): v is number => v != null);
+  const late = Math.max(100, ...vals.map((v) => -v));
+  const early = Math.max(200, ...vals);
   const span = late + early;
   const zero = (late * 100) / span;
   const unit = 100 / span;
   return {
     zero,
-    bars: leads.map((v) => {
+    bars: diffs.map((v) => {
       if (v == null) return null;
       return v >= 0
         ? { left: zero, width: Math.max(0.8, v * unit) }

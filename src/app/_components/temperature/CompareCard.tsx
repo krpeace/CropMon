@@ -41,7 +41,7 @@ export function ChillCard({ crop }: { crop: Crop }) {
   );
 }
 
-/** 지역 비교 · 평년보다 며칠 빠른가 (시안 그대로). 줄을 누르면 그 지역으로 바뀐다. */
+/** 지역 비교 · 평년 대비 적산온도 (결정 0032). 줄을 누르면 그 지역으로 바뀐다. */
 export function CompareCard({
   view,
   crop,
@@ -49,15 +49,13 @@ export function CompareCard({
   view: TemperatureView;
   crop: Crop;
 }) {
-  const { zero, bars } = compareBars(view.compare.map((r) => r.lead));
+  const { zero, bars } = compareBars(view.compare.map((r) => r.diff));
   return (
     <section
-      aria-label="지역 비교 · 평년보다 며칠 빠른가"
+      aria-label="지역 비교 · 평년 대비 적산온도"
       className="rounded-card bg-card flex flex-col gap-2 p-5"
     >
-      <span className="text-17 font-bold">
-        지역 비교 · 평년보다 며칠 빠른가
-      </span>
+      <span className="text-17 font-bold">지역 비교 · 평년 대비 적산온도</span>
       <span className="text-14 text-ink-2/80">
         지점을 누르면 그 지역으로 바뀌어요
       </span>
@@ -89,7 +87,7 @@ export function CompareCard({
                   className={`rounded-bar absolute inset-y-0 ${
                     r.selected
                       ? "bg-selbar"
-                      : (r.lead ?? 0) < 0
+                      : (r.diff ?? 0) < 0
                         ? "bg-fill/45"
                         : "bg-lime"
                   }`}
@@ -98,7 +96,7 @@ export function CompareCard({
               )}
             </span>
             <span
-              className={`text-15 text-right font-bold ${r.lead == null ? "text-gray-ink" : ""}`}
+              className={`text-15 text-right font-bold ${r.diff == null ? "text-gray-ink" : ""}`}
             >
               {r.text}
             </span>

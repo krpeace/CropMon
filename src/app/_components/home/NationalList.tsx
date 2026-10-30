@@ -266,8 +266,8 @@ function ThirdCell({
   }
 
   if (tab === "heat") {
-    if (!row.lead) return <Missing />;
-    const bar = heatBar(row.leadDays);
+    if (!row.heat) return <Missing />;
+    const bar = heatBar(row.heatDiff);
     return (
       <div className="flex items-center gap-2">
         {bar ? (
@@ -286,7 +286,7 @@ function ThirdCell({
           <div className="flex-1" />
         )}
         <span className="text-13 w-16.5 text-right font-semibold">
-          {row.lead}
+          {row.heat}
         </span>
       </div>
     );
