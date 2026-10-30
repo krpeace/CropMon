@@ -20,8 +20,8 @@ test("종합: 물·온도·햇빛 카드는 DB 값, 준비 중 카드", async ({
   await expect(water).toContainText("부족한 물 51 mm / 관수 시작점 65 mm");
 
   const temp = main(page).getByRole("link", { name: /^온도/ });
-  await expect(temp).toContainText("평년보다 생육 20일 빠름");
-  await expect(temp).toContainText("적산온도 4,165 / 평년 3,973 ℃·일");
+  await expect(temp).toContainText("평년보다 +192℃");
+  await expect(temp).toContainText("적산온도 4,165 / 평년 3,973℃");
   const sun = main(page).getByRole("link", { name: /^햇빛/ });
   await expect(sun).toContainText("올해 햇빛은 평년의 96%");
   await expect(sun).toContainText("적산일사 3,218 / 평년 3,352 MJ/m²");
@@ -105,11 +105,15 @@ test("종합: 카드와 전국 표에 '예시' 글자가 없고, 생육 칸은 D
   await expect(main(page)).not.toContainText("예시");
   const table = page.getByRole("region", { name: "전국 물·기상·생육 종합" });
   const chuncheon = table.getByRole("link", { name: /^춘천/ });
-  await expect(chuncheon).toContainText("20일 빠름");
+  await expect(chuncheon).toContainText("+192℃");
   await expect(chuncheon).toContainText("96%");
   // 광주는 평년보다 늦고, 진주는 일사 자료(sun_daily)가 없다
   await expect(table.getByRole("link", { name: /^광주/ })).toContainText(
-    "3일 늦음",
+    "-50℃",
+  );
+  // 태백: 작은 차이도 숫자로 보인다
+  await expect(table.getByRole("link", { name: /^태백/ })).toContainText(
+    "+50℃",
   );
   await expect(table.getByRole("link", { name: /^진주/ })).toContainText(
     "자료 없음",

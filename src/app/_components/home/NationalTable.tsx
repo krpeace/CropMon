@@ -105,9 +105,9 @@ export function NationalTable({
             ))}
           </div>
           <span
-            className={`text-16 font-semibold ${row.lead ? "text-ink" : "text-gray-ink"}`}
+            className={`text-16 font-semibold ${row.heat ? "text-ink" : "text-gray-ink"}`}
           >
-            {row.lead ?? "자료 없음"}
+            {row.heat ?? "자료 없음"}
           </span>
           <span
             className={`text-16 font-semibold ${row.sunlight ? "text-ink" : "text-gray-ink"}`}

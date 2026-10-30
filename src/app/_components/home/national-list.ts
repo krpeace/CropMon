@@ -15,20 +15,20 @@ export function parseSavedTab(value: string | null): NationalTab {
   return NATIONAL_TABS.find((t) => t === value) ?? NATIONAL_TAB_DEFAULT;
 }
 
-const DAY_PCT = 2; // 하루당 막대 폭(%)
+const HEAT_FULL_C = 300; // 한쪽 끝(50%)에 닿는 평년 대비 차이(℃)
 const MIN_PCT = 1.5;
 const MAX_PCT = 50; // 가운데에서 한쪽 끝까지
 
-/** 온도 막대: 가운데 0 기준, 빠름은 오른쪽·늦음은 왼쪽. 값이 없으면 null. */
+/** 온도 막대: 가운데 0 기준, 평년보다 높으면 오른쪽·낮으면 왼쪽 (300℃ = 한쪽 끝). 값이 없으면 null. */
 export function heatBar(
-  leadDays: number | null,
+  diffC: number | null,
 ): { side: "left" | "right"; pct: number } | null {
-  if (leadDays == null) return null;
+  if (diffC == null) return null;
   const pct = Math.min(
     MAX_PCT,
-    Math.max(MIN_PCT, Math.abs(leadDays) * DAY_PCT),
+    Math.max(MIN_PCT, (Math.abs(diffC) * MAX_PCT) / HEAT_FULL_C),
   );
-  return { side: leadDays < 0 ? "left" : "right", pct };
+  return { side: diffC < 0 ? "left" : "right", pct };
 }
 
 const SUN_FROM = 80;

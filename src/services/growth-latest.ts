@@ -13,17 +13,14 @@ import {
 import { STATIONS } from "@/infra/stations";
 
 /**
- * 지점 10곳의 마지막 관측일 적산온도·적산일사 (결정 0013). 온도·햇빛 화면의 지역 비교와 종합 화면이 같이 쓴다.
+ * 지점 10곳의 마지막 관측일 적산온도·적산일사 (결정 0013·0032). 온도·햇빛 화면의 지역 비교와 종합 화면이 같이 쓴다.
  * 10곳을 한 번에(`in`) 어제 날짜로 읽고, 어제 값이 없는 지점만 최근 14일에서 마지막 관측일을 보충한다.
  * 계산하지 않는다 (DB 값 그대로).
  */
 
 export type HeatLatest = {
-  lead: number | null;
   cum: number | null;
   normal: number | null;
-  /** 평년 한 해 합 (12/31 gdd_normal_cum). 바랄 때만 읽는다. */
-  annualNormal: number | null;
 };
 export type SunLatest = { cum: number | null; normal: number | null };
 
@@ -66,29 +63,16 @@ export async function readHeatLatest(
   db: HeatSource,
   cropId: string,
   today: string,
-  { annual = false }: { annual?: boolean } = {},
 ): Promise<Record<number, HeatLatest>> {
-  const ids = REP_STATIONS.map((s) => String(s.id));
-  const [rows, yearEnd] = await Promise.all([
-    latestRows<HeatLatestRow>(
-      today,
-      (r) => r.gdd_cum != null,
-      (ids, date) => db.onDate(ids, cropId, date),
-      (ids, from, until) => db.recent(ids, cropId, from, until),
-    ),
-    annual
-      ? db.onDate(ids, cropId, `${today.slice(0, 4)}-12-31`)
-      : Promise.resolve([] as HeatLatestRow[]),
-  ]);
-  const annuals = new Map(yearEnd.map((r) => [r.stn_id, r.gdd_normal_cum]));
+  const rows = await latestRows<HeatLatestRow>(
+    today,
+    (r) => r.gdd_cum != null,
+    (ids, date) => db.onDate(ids, cropId, date),
+    (ids, from, until) => db.recent(ids, cropId, from, until),
+  );
   const out: Record<number, HeatLatest> = {};
   for (const [id, r] of rows) {
-    out[Number(id)] = {
-      lead: r.lead_days,
-      cum: r.gdd_cum,
-      normal: r.gdd_normal_cum,
-      annualNormal: annuals.get(id) ?? null,
-    };
+    out[Number(id)] = { cum: r.gdd_cum, normal: r.gdd_normal_cum };
   }
   return out;
 }
@@ -128,7 +112,7 @@ export async function getHomeGrowth(
   const today = koreanDate(now().toISOString());
   const [heat, sun] = await Promise.all([
     attempt("적산온도", () =>
-      readHeatLatest(createHeat(), CROP_DB_ID[crop], today, { annual: true }),
+      readHeatLatest(createHeat(), CROP_DB_ID[crop], today),
     ),
     attempt("적산일사", () => readSunLatest(createSun(), today)),
   ]);

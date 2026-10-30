@@ -24,15 +24,10 @@ function heatSource(over: Partial<HeatSource> = {}) {
     stages: async () => null,
     onDate: async (_ids, _crop, date) => {
       asked.push(`onDate ${date}`);
-      return date === "2026-12-31"
-        ? [
-            heatRow("101", date, null, null, 4100),
-            heatRow("216", date, null, null, 2600),
-          ]
-        : [
-            heatRow("101", date, 20, 4165, 3973),
-            heatRow("216", date, null, 2700, 2650),
-          ];
+      return [
+        heatRow("101", date, 20, 4165, 3973),
+        heatRow("216", date, null, 2700, 2650),
+      ];
     },
     recent: async (ids) => {
       asked.push(`recent ${ids.length}`);
@@ -72,27 +67,16 @@ describe("readHeatLatest", () => {
   it("어제 값, 없는 지점은 최근 며칠에서 보충", async () => {
     const { src, asked } = heatSource();
     const m = await readHeatLatest(src, "apple", TODAY);
-    expect(m[101]).toEqual({
-      lead: 20,
-      cum: 4165,
-      normal: 3973,
-      annualNormal: null,
-    });
-    expect(m[119]).toMatchObject({ lead: 6, cum: 2200 });
+    expect(m[101]).toEqual({ cum: 4165, normal: 3973 });
+    expect(m[119]).toEqual({ cum: 2200, normal: 2100 });
     expect(m[136]).toBeUndefined();
     expect(asked).toEqual(["onDate 2026-10-24", "recent 8"]);
   });
 
-  it("평년 한 해 합(12/31)은 바랄 때만 한 번 더 읽는다", async () => {
+  it("평년 한 해 합(12/31)은 읽지 않는다", async () => {
     const { src, asked } = heatSource();
-    const m = await readHeatLatest(src, "apple", TODAY, { annual: true });
-    expect(m[216]).toEqual({
-      lead: null,
-      cum: 2700,
-      normal: 2650,
-      annualNormal: 2600,
-    });
-    expect(asked).toContain("onDate 2026-12-31");
+    await readHeatLatest(src, "apple", TODAY);
+    expect(asked).not.toContain("onDate 2026-12-31");
   });
 });
 
@@ -106,12 +90,12 @@ describe("readSunLatest", () => {
 });
 
 describe("getHomeGrowth", () => {
-  it("적산온도(평년 한 해 합 포함)와 적산일사를 함께, 배추는 kimchi_cabbage 로", async () => {
+  it("적산온도와 적산일사를 함께, 배추는 kimchi_cabbage 로", async () => {
     const crops: string[] = [];
     const { src } = heatSource({
       onDate: async (_ids, crop, date) => (
         crops.push(crop),
-        date === "2026-12-31" ? [] : [heatRow("101", date, 3, 1000, 990)]
+        [heatRow("101", date, 3, 1000, 990)]
       ),
     });
     const g = await getHomeGrowth("cabbage", {
@@ -121,7 +105,7 @@ describe("getHomeGrowth", () => {
     });
     expect(g.heatOk).toBe(true);
     expect(g.sunOk).toBe(true);
-    expect(g.heat[101]).toMatchObject({ lead: 3, cum: 1000 });
+    expect(g.heat[101]).toEqual({ cum: 1000, normal: 990 });
     expect(g.sun[101]).toEqual({ cum: 3218, normal: 3352 });
     expect(new Set(crops)).toEqual(new Set(["kimchi_cabbage"]));
   });

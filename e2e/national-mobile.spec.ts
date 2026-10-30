@@ -24,14 +24,12 @@ test("휴대폰: 전국 종합 목록이 보이고 줄 10개, 기본 탭은 물"
   await expect(list(page)).toContainText("부족한 물 / 관수 시작점");
 });
 
-test("휴대폰: 온도 탭은 '일 빠름', 3일 탭은 머리글 '내일'", async ({
+test("휴대폰: 온도 탭은 평년 대비 ℃, 3일 탭은 머리글 '내일'", async ({
   page,
 }) => {
   await open(page, "?st=101&crop=apple");
   await list(page).getByRole("tab", { name: "온도" }).click();
-  await expect(rowsOf(page).filter({ hasText: "춘천" })).toContainText(
-    "일 빠름",
-  );
+  await expect(rowsOf(page).filter({ hasText: "춘천" })).toContainText("+192℃");
   await list(page).getByRole("tab", { name: "3일" }).click();
   await expect(list(page).getByRole("tabpanel")).toContainText("내일");
   await expect(list(page).getByRole("tabpanel")).toContainText("모레");

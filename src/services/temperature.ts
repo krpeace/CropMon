@@ -1,10 +1,12 @@
 import {
   gddNumbers,
-  leadShort,
-  leadVerdict,
+  heatDiff,
+  heatVerdict,
   monthDay,
   pickStages,
   reachDate,
+  stageLag,
+  type StageLag,
 } from "@/domain/heat";
 import type { Selection } from "@/domain/selection";
 import { CROP_DB_ID, koreanDate, observedBasis } from "@/domain/water-outlook";
@@ -19,18 +21,20 @@ import { readHeatLatest } from "./growth-latest";
 import type { Station } from "./shell";
 
 /**
- * 온도 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.4, 결정 0013·0015).
+ * 온도 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.4, 결정 0013·0015·0032).
  * 계산하지 않는다. 숫자는 반올림해 문구로 바꾸고, 단계 도달일은 표에서 처음 넘는 날을 찾기만 한다.
  */
 
 export type StageCard = {
-  /** "적산온도 1,000 ℃·일" */
+  /** "적산온도 1,000℃" */
   title: string;
   /** 올해 도달일 "4월 23일" 또는 "아직" */
   thisYear: string;
   /** "평년 4월 30일" */
   normal: string;
   reached: boolean;
+  /** 날짜 옆 꼬리표 "5일 빠름". 올해·평년 도달일을 둘 다 모르면 null. */
+  lag: StageLag | null;
 };
 
 /** 그래프용 날짜별 값. 올해는 관측한 날까지만. */
@@ -44,15 +48,16 @@ export type CompareRow = {
   id: number;
   name: string;
   selected: boolean;
-  lead: number | null;
-  /** "+5일" 또는 "자료 없음" */
+  /** 평년 대비 적산온도 차이 (℃). 자료가 없으면 null. */
+  diff: number | null;
+  /** "+180℃" 또는 "자료 없음" */
   text: string;
 };
 
 export type TemperatureView = {
   /** "어제까지 관측 기준" */
   basis: string | null;
-  /** "평년보다 생육 20일 빠름" 또는 "자료 없음" */
+  /** "평년보다 +180℃" · "평년과 같아요" · "자료 없음" */
   verdict: string;
   numbers: { thisYear: string; normal: string; diff: string } | null;
   /** 계산에 쓴 기준온도 (℃) */
@@ -145,13 +150,12 @@ async function readMain(
 function mainView(rows: HeatRow[], stages: number[], today: string): Main {
   // 마지막 관측일 = 올해 누적이 있는 마지막 줄 (앞날 줄은 평년 값만 있다)
   const last = rows.findLast((r) => r.gdd_cum != null) ?? null;
-  const annual = rows.at(-1)?.gdd_normal_cum ?? null;
   const cum = last?.gdd_cum ?? null;
   const first = rows[0];
 
   return {
     basis: last ? observedBasis(last.date, today) : null,
-    verdict: leadVerdict(last?.lead_days ?? null, cum, annual),
+    verdict: heatVerdict(cum, last?.gdd_normal_cum ?? null),
     numbers:
       cum != null && last?.gdd_normal_cum != null
         ? gddNumbers(cum, last.gdd_normal_cum)
@@ -172,10 +176,11 @@ function stageCard(rows: HeatRow[], stage: number): StageCard {
   const mine = reachDate(rows, (r) => r.gdd_cum, stage);
   const normal = reachDate(rows, (r) => r.gdd_normal_cum, stage);
   return {
-    title: `적산온도 ${nf(stage)} ℃·일`,
+    title: `적산온도 ${nf(stage)}℃`,
     thisYear: mine ? monthDay(mine) : "아직",
     normal: normal ? `평년 ${monthDay(normal)}` : "평년에는 닿지 않아요",
     reached: mine != null,
+    lag: stageLag(mine, normal),
   };
 }
 
@@ -190,13 +195,14 @@ async function readCompare(
     const found = await readHeatLatest(db, cropId, today);
     return {
       compare: STATIONS.filter((s) => s.isRepresentative).map((s) => {
-        const lead = found[s.id]?.lead ?? null;
+        const h = found[s.id];
+        const diff = h ? heatDiff(h.cum, h.normal) : null;
         return {
           id: s.id,
           name: s.name,
           selected: s.id === selectedId,
-          lead,
-          text: leadShort(lead) ?? NO_DATA,
+          diff: diff?.value ?? null,
+          text: diff?.text ?? NO_DATA,
         };
       }),
       compareProblem: null,

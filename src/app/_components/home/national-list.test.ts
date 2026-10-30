@@ -7,19 +7,26 @@ import {
   sunBar,
 } from "./national-list";
 
-describe("heatBar (온도 막대)", () => {
-  it("빠름은 가운데에서 오른쪽으로 하루 2%", () => {
-    expect(heatBar(20)).toEqual({ side: "right", pct: 40 });
+describe("heatBar (온도 막대, ℃ 차이)", () => {
+  it("0 은 최소 1.5% (오른쪽)", () => {
+    expect(heatBar(0)).toEqual({ side: "right", pct: 1.5 });
   });
-  it("늦음은 왼쪽으로", () => {
-    expect(heatBar(-3)).toEqual({ side: "left", pct: 6 });
+  it("앞섬은 가운데에서 오른쪽으로, 300℃ 가 한쪽 끝(50%)", () => {
+    expect(heatBar(150)).toEqual({ side: "right", pct: 25 });
+    expect(heatBar(300)).toEqual({ side: "right", pct: 50 });
+    expect(heatBar(180)).toEqual({ side: "right", pct: 30 });
   });
-  it("0 은 최소 1.5%", () => {
-    expect(heatBar(0)?.pct).toBe(1.5);
+  it("뒤처짐은 왼쪽으로", () => {
+    expect(heatBar(-60)).toEqual({ side: "left", pct: 10 });
   });
-  it("±40일은 50% 에서 자른다", () => {
-    expect(heatBar(40)).toEqual({ side: "right", pct: 50 });
-    expect(heatBar(-40)).toEqual({ side: "left", pct: 50 });
+  it("300℃ 를 넘으면 50% 에서 자른다", () => {
+    expect(heatBar(900)).toEqual({ side: "right", pct: 50 });
+    expect(heatBar(-900)).toEqual({ side: "left", pct: 50 });
+  });
+  it("작은 값은 최소 1.5% 로 보이게 (9℃ 까지), 10℃ 부터는 눈금대로", () => {
+    expect(heatBar(-5)).toEqual({ side: "left", pct: 1.5 });
+    expect(heatBar(-9)?.pct).toBe(1.5);
+    expect(heatBar(-10)?.pct).toBeCloseTo(10 / 6);
   });
   it("값이 없으면 막대 없음", () => {
     expect(heatBar(null)).toBeNull();
