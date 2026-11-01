@@ -38,6 +38,25 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // services·infra 는 Next.js 를 모른다 (모바일 앱 대비, 결정 0033).
+  // Next.js 서버 기능은 src/app 에만 둔다. 테스트 파일도 같은 규칙.
+  {
+    files: ["src/services/**", "src/infra/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["next", "next/*"],
+              message:
+                "src/services·src/infra 에는 Next.js 코드를 넣지 마세요. Next.js 기능은 src/app 에만 둡니다 (결정 0033, docs/ARCHITECTURE.md).",
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
   // Override default ignores of eslint-config-next.
   globalIgnores([

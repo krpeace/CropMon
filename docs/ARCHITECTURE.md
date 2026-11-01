@@ -58,6 +58,14 @@ app  →  services  →  domain
 - 이렇게 하면 domain 규칙은 DB나 화면 없이 테스트만으로 확인할 수 있고, DB나 화면이 바뀌어도 규칙은 그대로 남습니다.
 - 이 원칙은 ESLint가 자동으로 검사합니다. `src/domain`에서 화면·DB·다른 폴더 코드를 불러오면 `npm run lint`가 실패합니다.
 
+## 앱 대비 (결정 0033)
+
+모바일 앱은 Capacitor가 배포된 웹 주소를 불러오는 방식이라 웹 구조는 그대로입니다. 네이티브로 붙이는 것은 푸시·지오펜스·로컬 알림뿐입니다.
+
+- `src/services`, `src/infra` 는 `next`, `next/*` 를 불러오지 않습니다 (테스트 포함). ESLint가 자동으로 검사합니다.
+- Next.js 서버 기능(`next/cache`, `next/headers`, `use cache` 등)은 `src/app` 에만 둡니다.
+- 새 판정 규칙은 `src/domain` 순수 함수로 둡니다.
+
 ## 기술
 
 - Next.js (App Router, TypeScript strict), Tailwind CSS
