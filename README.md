@@ -40,6 +40,8 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 1. Supabase 대시보드에서 왼쪽 메뉴 SQL Editor 를 엽니다.
 2. `supabase/migrations/` 안의 `.sql` 파일을 파일 이름 순서대로 하나씩 열어, 내용을 모두 붙여 넣고 Run 을 누릅니다.
 3. 여러 번 실행해도 괜찮습니다.
+4. 새 프로젝트라면 `20261026010000_ops_dispatch_cron.sql` 을 실행하기 **전에** Supabase Vault 에 GitHub 토큰(`github_dispatch_token`)을 먼저 넣습니다. 방법은 그 파일 맨 위 설명과 `docs/decisions/0014-ops-cron-dispatch.md` 에 있습니다. 토큰 값은 이 저장소나 대화창에 적지 않습니다.
+5. Supabase 프로젝트는 서울(Seoul) 리전으로 만듭니다. 옮기는 순서는 `docs/decisions/0034-supabase-seoul-region.md` 에 있습니다.
 
 ### 3. 확인하기
 
