@@ -77,3 +77,7 @@ app  →  services  →  domain
 ## 운영 예약 (결정 0014)
 
 croplib-dp 수집은 Supabase pg_cron 이 정해진 시각에 GitHub 워크플로를 실행시킨다(`ops.dispatch_workflow`, 토큰은 Vault `github_dispatch_token`). 운영용 이름공간 `ops` 는 화면·회원이 볼 수 없다. 최근 실행 요청 결과는 `select * from ops.dispatch_recent;`.
+
+## 리전 (결정 0034)
+
+Supabase 는 서울(ap-northeast-2), Vercel 함수도 서울(icn1)에 둔다. 두 곳이 다른 리전이면 화면 요청마다 먼 길을 오가 느려지므로, 한쪽을 바꿀 때는 다른 쪽도 같은 리전인지 확인한다. 프로젝트를 새로 만들어 옮기는 순서는 결정 0034 에 있다.
