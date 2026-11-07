@@ -58,27 +58,27 @@
 
 ## 테이블 한눈에
 
-| 테이블                  | 무엇                              | 누가 쓰나  | 한 줄 =                                      |
-| ----------------------- | --------------------------------- | ---------- | -------------------------------------------- |
-| `stations`              | 장소 사전: ASOS 지점              | 처음 한 번 | 지점 하나                                    |
-| `crops`                 | 작물 사전: FAO-56 Table 12        | 처음 한 번 | 작물 하나                                    |
-| `crop_seasons`          | 작형 사전: 시작일과 생육단계 일수 | 처음 한 번 | 작물 × 작형                                  |
-| `soil_types`            | 토성 12종: FAO-56 Table 19        | 처음 한 번 | 토성 하나                                    |
-| `crop_kc_sets`          | 재배 방식별 Kc: FAO-56 Table 12   | 처음 한 번 | 작물 × 재배 방식                             |
-| `scenarios`             | 대표 계산 조건                    | 처음 한 번 | 지점 × 작물 × 작형 × 재배 방식 × 토성 × 연도 |
-| `forecast_runs`         | 수집 회차 기록 (수집 감시)        | 회차마다   | 발표 회차 × 지점 × 수집 방식                 |
-| `weather_daily`         | 지점별 일 관측값과 ETo            | 매일       | 지점 × 날짜                                  |
-| `water_balance_daily`   | 관측 물수지와 그날 상태           | 매일       | 조건 × 날짜                                  |
-| `water_outlook`         | 앞으로 3일 전망                   | 회차마다   | 회차 × 조건 × 대상일                         |
-| `water_outlook_summary` | 3일 전망 요약 (관수 필요 예상일)  | 회차마다   | 회차 × 조건                                  |
-| `heat_daily`            | 적산온도와 평년 (v1.4)            | 매일       | 지점 × 작물 × 날짜                           |
-| `sun_daily`             | 적산일사와 평년 (v1.4)            | 매일       | 지점 × 날짜                                  |
-| `soil_water_daily`      | 작물 공통 토양 물 상태 (v1.5)     | 매일       | 지점 × 토성 × 날짜                           |
-| `app_health`            | 연결 확인용                       | 처음 한 번 | 행 하나                                      |
+| 테이블                  | 무엇                              | 누가 쓰나                     | 한 줄 =                                      |
+| ----------------------- | --------------------------------- | ----------------------------- | -------------------------------------------- |
+| `stations`              | 장소 사전: ASOS 지점              | 처음 한 번                    | 지점 하나                                    |
+| `crops`                 | 작물 사전: FAO-56 Table 12        | 처음 한 번                    | 작물 하나                                    |
+| `crop_seasons`          | 작형 사전: 시작일과 생육단계 일수 | 처음 한 번                    | 작물 × 작형                                  |
+| `soil_types`            | 토성 12종: FAO-56 Table 19        | 처음 한 번                    | 토성 하나                                    |
+| `crop_kc_sets`          | 재배 방식별 Kc: FAO-56 Table 12   | 처음 한 번                    | 작물 × 재배 방식                             |
+| `scenarios`             | 대표 계산 조건                    | 처음 한 번 + 해마다 말 새해분 | 지점 × 작물 × 작형 × 재배 방식 × 토성 × 연도 |
+| `forecast_runs`         | 수집 회차 기록 (수집 감시)        | 회차마다                      | 발표 회차 × 지점 × 수집 방식                 |
+| `weather_daily`         | 지점별 일 관측값과 ETo            | 매일                          | 지점 × 날짜                                  |
+| `water_balance_daily`   | 관측 물수지와 그날 상태           | 매일                          | 조건 × 날짜                                  |
+| `water_outlook`         | 앞으로 3일 전망                   | 회차마다                      | 회차 × 조건 × 대상일                         |
+| `water_outlook_summary` | 3일 전망 요약 (관수 필요 예상일)  | 회차마다                      | 회차 × 조건                                  |
+| `heat_daily`            | 적산온도와 평년 (v1.4)            | 매일                          | 지점 × 작물 × 날짜                           |
+| `sun_daily`             | 적산일사와 평년 (v1.4)            | 매일                          | 지점 × 날짜                                  |
+| `soil_water_daily`      | 작물 공통 토양 물 상태 (v1.5)     | 매일                          | 지점 × 토성 × 날짜                           |
+| `app_health`            | 연결 확인용                       | 처음 한 번                    | 행 하나                                      |
 
 ## 테이블별 열
 
-만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다.
+만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다.
 
 ### `public.stations`
 
@@ -225,6 +225,43 @@
 - 같은 지점·작물·작형·재배 방식·토성·연도의 조건은 하나뿐입니다.
 - 공개 조건은 지점 10곳 × (사과 재배 방식 4 + 배추 1) = 50개입니다. 화면은 재배 방식을 고르면 그 조건의 미리 계산된 값을 읽습니다. 화면이 계산하지 않습니다.
 - 사용자가 시작일을 고치는 기능은 1/1 회원 버전부터 엽니다. 고친 값은 보정값 층(v2)에 저장하고, 서버가 다음 수집 회차에 다시 계산합니다. 11/06 비회원 화면은 기본값으로 고정합니다.
+
+#### 새해 계산 조건 등록 절차
+
+croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들지 않으므로, 해마다 연말에 새해 조건 줄을 미리 넣어 둡니다(구조·의미 변경이 아니라서 데이터 계약 버전은 올리지 않음). 화면과 croplib-dp 모두 `season_year`로 걸러 읽으므로 12월 전에 넣어도 화면이 새해로 미리 바뀌지 않습니다.
+
+1. **12월 중순까지(늦어도 12/31)** 새 마이그레이션 `supabase/migrations/YYYYMMDD000000_seed_scenarios_<새해>.sql`을 더합니다. 전년 시드 파일을 복사해 `scenario_id` 끝의 `-<전년>`, `season_year`, `season_start`·`season_end`의 연도만 `<새해>`로 바꿉니다.
+   - 날짜 주의: 작기 시작이 3/1 이전인 작형이 생기면 윤년에 끝 날짜를 생육단계 일수로 다시 계산합니다(지금 작형인 사과 4/1·여름배추 7/1 시작은 윤년이어도 시작·끝 날짜가 같음).
+2. `src/infra/supabase/seed.test.ts`에 `describeAnnualScenarios(<새해>, ...)` 시험을 더해 전년 줄과 맞대어 연도만 다른지 확인합니다.
+3. 서울 DB의 SQL Editor에서 적용 전후 조회로 줄 수와 값을 확인합니다:
+   ```sql
+   -- (1) 적용 전후 연도별 줄 수 확인 (연도마다 n = 50, n_default = 20)
+   select season_year, count(*) as n, count(*) filter (where is_default) as n_default
+   from public.scenarios group by 1 order by 1;
+
+   -- (2) 마이그레이션 파일 내용 전체 붙여 넣고 Run
+
+   -- (3) 값 비교: 0줄이어야 함 (전년과 연도만 다르고 나머지가 같은지, 예: 2026 → 2027)
+   select a.scenario_id
+   from public.scenarios a
+   left join public.scenarios b
+     on b.scenario_id = replace(a.scenario_id, '-2026', '-2027')
+    and b.season_year = 2027
+    and b.stn_id = a.stn_id and b.crop_id = a.crop_id and b.season_type_id = a.season_type_id
+    and b.kc_set_id = a.kc_set_id and b.soil_code = a.soil_code
+    and b.dr0_mm = a.dr0_mm and b.taw_mm = a.taw_mm and b.raw_mm = a.raw_mm
+    and b.is_default = a.is_default
+    and b.season_start = (a.season_start + interval '1 year')::date
+    and b.season_end = (a.season_end + interval '1 year')::date
+   where a.season_year = 2026 and b.scenario_id is null;
+   ```
+4. **1월 1일 오후 운영 확인**: 물 화면(사과·배추)에 `"이 지역·작물의 <새해> 계산 조건이 아직 없어요."`가 뜨지 않는지 확인합니다(사과는 4/1, 배추는 7/1부터 작기가 시작되므로 1월에는 물 계산 줄이 없는 것이 정상).
+
+#### 연도별 등록 기록
+
+| 연도 | 파일                                     | 서울 DB 적용일 | 확인자 |
+| ---- | ---------------------------------------- | -------------- | ------ |
+| 2027 | `20261107000000_seed_scenarios_2027.sql` |                |        |
 
 ### `public.forecast_runs`
 

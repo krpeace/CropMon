@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -9,16 +9,20 @@ import { STATIONS } from "@/infra/stations";
  * 사전 자료가 데이터 계약 v1.1(docs/DATA_CONTRACT.md)의 값과 규칙대로 들어가는지 검사한다.
  *   - 20261024010000_seed_dictionaries.sql: 지점·작물·작형·토성 (v1)
  *   - 20261024030000_seed_kc_sets.sql: 재배 방식별 Kc, 기본 계산 조건 (v1.1)
+ *   - 20261107000000_seed_scenarios_2027.sql: 2027년 계산 조건 (2026년 줄과 연도만 다름)
  * 계산 값(TAW, RAW, 작기 끝)은 FAO-56 식으로 다시 계산해 같은지 본다.
  */
 
-const read = (name: string) =>
-  readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8");
+const read = (name: string) => {
+  const path = join(process.cwd(), "supabase/migrations", name);
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+};
 const SEED_V1 = read("20261024010000_seed_dictionaries.sql");
 const SEED_V1_1 = read("20261024030000_seed_kc_sets.sql");
 const SEED_V1_6 = read("20261028030000_seed_stations_asos.sql");
 const SEED_SOIL = read("20261028010000_seed_soil_estimates.sql");
 const COMMON_STAGES = read("20261030000000_common_gdd_stages.sql");
+const SEED_2027 = read("20261107000000_seed_scenarios_2027.sql");
 const SEED = `${SEED_V1}\n${SEED_V1_1}`;
 
 type Value = string | number | boolean | null;
@@ -90,7 +94,50 @@ const crops = rowsOf("crops");
 const seasons = rowsOf("crop_seasons");
 const soils = rowsOf("soil_types");
 const scenarios = rowsOf("scenarios");
+const scenarios2027 = rowsOf("scenarios", SEED_2027);
 const kcSets = rowsOf("crop_kc_sets");
+
+const SCENARIO_FIXED_COLS = [
+  "stn_id",
+  "crop_id",
+  "season_type_id",
+  "kc_set_id",
+  "soil_code",
+  "dr0_mm",
+  "taw_mm",
+  "raw_mm",
+  "is_default",
+] as const;
+
+/** 날짜 문자열(YYYY-MM-DD)이나 조건 이름(...-YYYY)의 연도를 새해로 바꾼다. */
+function shiftYear(text: string, fromYear: number, toYear: number): string {
+  return text
+    .replace(new RegExp(`^${fromYear}-`), `${toYear}-`)
+    .replace(new RegExp(`-${fromYear}$`), `-${toYear}`);
+}
+
+/** 전년(기준) 조건 줄을 새해 조건 줄과 짝지은 목록을 돌려준다. */
+function pairScenariosByYear(
+  baseRows: Row[],
+  targetRows: Row[],
+  fromYear: number,
+  toYear: number,
+): Array<{ base: Row; target: Row | undefined; expectedId: string }> {
+  const byId = new Map(targetRows.map((r) => [String(r.scenario_id), r]));
+  return baseRows.map((base) => {
+    const expectedId = shiftYear(String(base.scenario_id), fromYear, toYear);
+    return { base, target: byId.get(expectedId), expectedId };
+  });
+}
+
+function conflictUpdateClause(sql: string, table: string): string | null {
+  const m = sql.match(
+    new RegExp(
+      `insert into public\\.${table}[\\s\\S]*?(on conflict \\([a-z_]+\\) do update set[\\s\\S]*?;)`,
+    ),
+  );
+  return m ? m[1].replace(/\s+/g, " ").trim() : null;
+}
 
 function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -495,3 +542,75 @@ describe("사전 자료: 여러 번 실행", () => {
     );
   });
 });
+
+function describeAnnualScenarios(
+  year: number,
+  targetRows: Row[],
+  targetSql: string,
+  baseYear = 2026,
+  baseRows = scenarios,
+  baseSql = SEED_V1_1,
+) {
+  describe(`사전 자료: ${year}년 계산 조건 (${baseYear}년 줄과 비교)`, () => {
+    it("50개이다", () => {
+      expect(targetRows).toHaveLength(50);
+    });
+
+    it(`scenario_id 집합이 ${baseYear}년 이름의 끝 -${baseYear}을 -${year}로 바꾼 집합과 정확히 같다`, () => {
+      const expected = baseRows
+        .map((r) => shiftYear(String(r.scenario_id), baseYear, year))
+        .sort();
+      const actual = targetRows.map((r) => String(r.scenario_id)).sort();
+      expect(actual).toEqual(expected);
+      expect(new Set(actual).size).toBe(50);
+    });
+
+    it(`짝지은 줄마다 season_year = ${year}, season_start·season_end 는 ${baseYear}년 날짜에서 연도만 바뀐다`, () => {
+      const pairs = pairScenariosByYear(baseRows, targetRows, baseYear, year);
+      expect(pairs).toHaveLength(50);
+      for (const { base, target, expectedId } of pairs) {
+        expect(target, expectedId).toBeDefined();
+        expect(target?.season_year, expectedId).toBe(year);
+        expect(target?.season_start, expectedId).toBe(
+          shiftYear(String(base.season_start), baseYear, year),
+        );
+        expect(target?.season_end, expectedId).toBe(
+          shiftYear(String(base.season_end), baseYear, year),
+        );
+      }
+    });
+
+    it(`나머지 열(${SCENARIO_FIXED_COLS.join(", ")})은 ${baseYear}년과 완전히 같다`, () => {
+      const pairs = pairScenariosByYear(baseRows, targetRows, baseYear, year);
+      expect(targetRows).toHaveLength(baseRows.length);
+      for (const { base, target, expectedId } of pairs) {
+        expect(target, expectedId).toBeDefined();
+        for (const col of SCENARIO_FIXED_COLS) {
+          expect(target?.[col], `${expectedId}.${col}`).toBe(base[col]);
+        }
+      }
+    });
+
+    it("is_default 참이 20개이고, 지점·작물마다 1개이다", () => {
+      expect(targetRows.filter((r) => r.is_default)).toHaveLength(20);
+      for (const st of stations) {
+        for (const c of crops) {
+          const d = targetRows.filter(
+            (s) =>
+              s.stn_id === st.stn_id && s.crop_id === c.crop_id && s.is_default,
+          );
+          expect(d, `${st.stn_id}-${c.crop_id}-${year}`).toHaveLength(1);
+        }
+      }
+    });
+
+    it(`on conflict (scenario_id) do update set 이 있고 갱신 열이 ${baseYear} 시드와 같다`, () => {
+      const baseClause = conflictUpdateClause(baseSql, "scenarios");
+      const targetClause = conflictUpdateClause(targetSql, "scenarios");
+      expect(baseClause).not.toBeNull();
+      expect(targetClause).toBe(baseClause);
+    });
+  });
+}
+
+describeAnnualScenarios(2027, scenarios2027, SEED_2027);
