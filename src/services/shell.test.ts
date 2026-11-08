@@ -129,26 +129,39 @@ describe("getPageMeta", () => {
     });
   });
 
-  const observed = {
+  // 온도·햇빛 자료 상자는 heat_daily·sun_daily 의 마지막 계산 시각(updated_at)을 쓴다 (계약 v1.8)
+  const calculated = {
     date: "2026-10-24",
-    fetchedAt: "2026-10-24T17:20:00+00:00",
+    updatedAt: "2026-10-25T00:20:05.123+00:00", // 09:20 KST
   };
 
-  it("햇빛·온도는 그 지점 ASOS 관측을 받은 실제 시각을 쓴다", () => {
-    expect(getPageMeta("sunlight", chuncheon, observed)).toEqual({
+  it("햇빛·온도는 그 지점 자료를 마지막으로 계산한 실제 시각을 쓴다", () => {
+    expect(getPageMeta("sunlight", chuncheon, calculated)).toEqual({
       // 평년 기간은 DB 값이라 햇빛 화면이 붙인다 (결정 0013·0016, 시안의 "평년값 1991–2020" 지움)
       source: "기상청 ASOS 춘천(101) 일사 관측",
       issue: "해당 없음 (관측 자료)",
-      updated: "10월 25일 02:20 (10월 24일까지 관측)",
-      short: "10월 25일 02:20 갱신",
+      updated: "10월 25일 09:20 (10월 24일까지 관측)",
+      short: "10월 25일 09:20 갱신",
     });
-    expect(getPageMeta("temperature", chuncheon, observed)).toMatchObject({
+    expect(getPageMeta("temperature", chuncheon, calculated)).toMatchObject({
       issue: "해당 없음 (관측 자료)",
-      updated: "10월 25일 02:20 (10월 24일까지 관측)",
+      updated: "10월 25일 09:20 (10월 24일까지 관측)",
     });
   });
 
-  it("관측 시각을 읽지 못하면 '자료 없음'", () => {
+  it("마지막 관측일을 모르면 시각만 적는다", () => {
+    expect(
+      getPageMeta("temperature", chuncheon, {
+        date: null,
+        updatedAt: calculated.updatedAt,
+      }),
+    ).toMatchObject({
+      updated: "10월 25일 09:20",
+      short: "10월 25일 09:20 갱신",
+    });
+  });
+
+  it("계산 시각을 읽지 못하면 '자료 없음'", () => {
     expect(getPageMeta("temperature", chuncheon, null)).toMatchObject({
       updated: "자료 없음",
       short: "자료 없음",

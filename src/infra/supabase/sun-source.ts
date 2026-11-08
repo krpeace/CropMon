@@ -39,12 +39,15 @@ export type SunSource = {
     from: string,
     until: string,
   ): Promise<SunLatestRow[]>;
+  /** 이 지점 줄 중 가장 늦은 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 줄이 없으면 null. */
+  lastUpdated(stnId: string): Promise<string | null>;
 };
 
 export const COLUMNS = {
   sun_daily:
     "date,rs_day_mj,rs_cum_mj,rs_normal_day_mj,rs_normal_cum_mj,normal_from,normal_to,filled",
   sun_latest: "stn_id,date,rs_cum_mj,rs_normal_cum_mj",
+  updated: "updated_at",
 } as const;
 
 const TEXT = ["stn_id", "date"];
@@ -98,5 +101,19 @@ export function createSunSource(
           .retry(false)
           .abortSignal(signal()),
       ),
+    lastUpdated: async (stnId) => {
+      const rows = await many<{ updated_at: string }>(
+        "sun_daily",
+        client
+          .from("sun_daily")
+          .select(COLUMNS.updated)
+          .eq("stn_id", stnId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .retry(false)
+          .abortSignal(signal()),
+      );
+      return rows[0]?.updated_at ?? null;
+    },
   };
 }

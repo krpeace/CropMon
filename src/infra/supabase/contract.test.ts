@@ -71,8 +71,45 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.7 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.7\b/);
+  it("계약서의 현재 버전이 v1.8 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.8\b/);
+  });
+
+  describe.each(["heat_daily", "sun_daily"])(
+    "public.%s 올린 시각 (v1.8)",
+    (table) => {
+      it("updated_at 열이 비어 있지 않고 기본값은 now() 이다", () => {
+        expect(SQL).toMatch(
+          new RegExp(
+            `alter table public\\.${table}\\s+add column if not exists updated_at timestamptz not null default now\\(\\)`,
+          ),
+        );
+      });
+
+      it("고쳐 쓸 때(upsert 포함)도 updated_at 을 갱신하는 트리거가 있다", () => {
+        expect(SQL).toMatch(
+          new RegExp(
+            `create trigger ${table}_set_updated_at\\s+before update on public\\.${table}\\s+for each row execute function public\\.set_updated_at\\(\\)`,
+          ),
+        );
+      });
+
+      it("계약서 표에 updated_at 이 적혀 있다", () => {
+        const section = CONTRACT.split(`### \`public.${table}\``)[1].split(
+          "### `public.",
+        )[0];
+        expect(section).toContain("`updated_at`");
+      });
+    },
+  );
+
+  it("updated_at 갱신 함수는 직접 부를 수 없게 막는다 (v1.8)", () => {
+    expect(SQL).toMatch(
+      /create or replace function public\.set_updated_at\(\)\s+returns trigger/,
+    );
+    expect(SQL).toMatch(
+      /revoke all on function public\.set_updated_at\(\) from public, anon, authenticated/,
+    );
   });
 
   it("지점 사전에 시도·대표 여부·운영 여부·일사 관측·동기화 시각 열이 있다 (v1.6)", () => {

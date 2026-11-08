@@ -118,6 +118,28 @@ describe("sun-source", () => {
     );
   });
 
+  it("마지막 계산 시각: 그 지점 줄 중 가장 늦은 updated_at 한 줄 (v1.8)", async () => {
+    const { client, calls } = fakeClient({
+      data: [{ updated_at: "2026-11-08T00:20:05.123+00:00" }],
+      error: null,
+    });
+    expect(await createSunSource(client).lastUpdated("101")).toBe(
+      "2026-11-08T00:20:05.123+00:00",
+    );
+    expect(calls).toEqual([
+      "from(sun_daily)",
+      `select(${JSON.stringify(COLUMNS.updated)})`,
+      'eq("stn_id","101")',
+      'order("updated_at",{"ascending":false})',
+      "limit(1)",
+    ]);
+  });
+
+  it("줄이 없으면(햇빛을 재지 않는 지점) 마지막 계산 시각은 null", async () => {
+    const { client } = fakeClient({ data: [], error: null });
+    expect(await createSunSource(client).lastUpdated("216")).toBeNull();
+  });
+
   it("DB 오류는 표 이름과 함께 던진다 (서비스가 잡아 '자료 없음'으로 바꾼다)", async () => {
     const { client } = fakeClient({
       data: null,

@@ -51,6 +51,10 @@ export type SunlightView = {
   /** "올해 햇빛은 평년의 96%" 또는 "자료 없음" */
   verdict: string;
   numbers: { thisYear: string; normal: string } | null;
+  /** 마지막 관측일 "2026-10-24". 올해 누적이 아직 없으면 null. */
+  observedDate: string | null;
+  /** 이 지점 sun_daily 를 마지막으로 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 모르면 null. */
+  updatedAt: string | null;
   /** "평년보다 조금 적었어요. 3월이 가장 적었어요 (평년의 85%)." */
   summary: string | null;
   /** "2016–2025" */
@@ -77,6 +81,8 @@ const EMPTY: Main = {
   basis: null,
   verdict: NO_DATA,
   numbers: null,
+  observedDate: null,
+  updatedAt: null,
   summary: null,
   normalPeriod: null,
   days: [],
@@ -112,10 +118,13 @@ async function readMain(
 ): Promise<Main> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
-    const rows = await db.year(String(station.id), Number(today.slice(0, 4)));
+    const [rows, updatedAt] = await Promise.all([
+      db.year(String(station.id), Number(today.slice(0, 4))),
+      readUpdatedAt(db, station.id),
+    ]);
     // 햇빛을 재지 않는 지점은 DB 에 줄이 없다 (stations.ts 의 measuresSunlight 가 아니라 DB 기준)
     if (rows.length === 0) return { ...EMPTY, kind: "notMeasured" };
-    return mainView(rows, today);
+    return { ...mainView(rows, today), updatedAt };
   } catch (error) {
     console.error("[sunlight] DB 읽기 실패:", error);
     return {
@@ -125,7 +134,17 @@ async function readMain(
   }
 }
 
-function mainView(rows: SunRow[], today: string): Main {
+/** 올린 시각만 못 읽어도 화면 자료는 보여 준다 (갱신 시각만 "자료 없음"). */
+async function readUpdatedAt(db: SunSource, stationId: number) {
+  try {
+    return await db.lastUpdated(String(stationId));
+  } catch (error) {
+    console.error("[sunlight] 계산 시각 읽기 실패:", error);
+    return null;
+  }
+}
+
+function mainView(rows: SunRow[], today: string): Omit<Main, "updatedAt"> {
   const first = rows[0];
   const last = rows.findLast((r) => r.rs_cum_mj != null) ?? null;
   const pct = sunPercent(
@@ -142,6 +161,7 @@ function mainView(rows: SunRow[], today: string): Main {
       last?.rs_cum_mj != null && last.rs_normal_cum_mj != null
         ? { thisYear: nf(last.rs_cum_mj), normal: nf(last.rs_normal_cum_mj) }
         : null,
+    observedDate: last?.date ?? null,
     summary: pct == null ? null : sunSummary(pct, lowestMonth(months)),
     normalPeriod: `${first.normal_from}–${first.normal_to}`,
     days: rows.map((r) => ({

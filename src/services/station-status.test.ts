@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { StatusSource } from "@/infra/supabase/status-source";
 
-import { getObserved, getStationBoard, statusesOf } from "./station-status";
+import { getStationBoard, statusesOf } from "./station-status";
 
 /** 가짜 DB. 값은 지어낸 것이다. */
 const S101 = "101-apple-main-k3-loam-2026";
@@ -128,10 +128,6 @@ function fake(
         },
       ]
     ),
-    lastObserved: async () => ({
-      date: "2026-10-24",
-      fetched_at: "2026-10-24T17:20:00+00:00",
-    }),
     recentSoilWater: async (since) => (
       calls.push(`recentSoilWater ${since}`),
       [
@@ -259,21 +255,6 @@ describe("getStationBoard", () => {
     });
     expect(Object.values(b.water.apple).every((v) => v === null)).toBe(true);
     expect(b.ok).toBe(false);
-  });
-});
-
-describe("getObserved", () => {
-  it("마지막 관측 받은 시각, 실패하면 null", async () => {
-    expect(await getObserved(101, { createSource: () => fake() })).toEqual({
-      date: "2026-10-24",
-      fetchedAt: "2026-10-24T17:20:00+00:00",
-    });
-    expect(
-      await getObserved(101, {
-        createSource: () =>
-          fake({ lastObserved: async () => Promise.reject(new Error("x")) }),
-      }),
-    ).toBeNull();
   });
 });
 

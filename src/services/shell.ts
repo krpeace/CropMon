@@ -125,14 +125,19 @@ export function listRegionPicker(
   return buildRegionSections(withStatus, query);
 }
 
-export type Observed = { date: string; fetchedAt: string } | null;
+/**
+ * 온도·햇빛 자료를 마지막으로 계산해 올린 시각(heat_daily·sun_daily 의 updated_at, 계약 v1.8)과
+ * 마지막 관측일. 관측일을 모르면 date 는 null.
+ */
+export type Calculated = { date: string | null; updatedAt: string } | null;
 
-/** ASOS 관측을 받은 시각: "10월 25일 02:20 (10월 24일까지 관측)". */
-function observedTimes(observed: Observed) {
-  const c = koreanClock(observed?.fetchedAt);
-  if (!observed || !c) return { updated: NO_DATA, short: NO_DATA };
-  const [, m, d] = observed.date.split("-").map(Number);
+/** 마지막 계산 시각: "10월 25일 09:20 (10월 24일까지 관측)". */
+function calculatedTimes(calculated: Calculated) {
+  const c = koreanClock(calculated?.updatedAt);
+  if (!calculated || !c) return { updated: NO_DATA, short: NO_DATA };
   const at = `${c.month}월 ${c.day}일 ${c.hour}:${c.minute}`;
+  if (!calculated.date) return { updated: at, short: `${at} 갱신` };
+  const [, m, d] = calculated.date.split("-").map(Number);
   return { updated: `${at} (${m}월 ${d}일까지 관측)`, short: `${at} 갱신` };
 }
 
@@ -148,8 +153,8 @@ export function getPageMeta(
   // 물 화면은 DB 값으로 따로 만든다 (src/services/water.ts)
   page: Exclude<PageKey, "home" | "water">,
   station: Station,
-  /** 그 지점의 마지막 ASOS 관측 (온도·햇빛). 모르면 null. */
-  observed: Observed = null,
+  /** 그 지점 온도·햇빛 자료의 마지막 계산 시각 (heat_daily·sun_daily). 모르면 null. */
+  calculated: Calculated = null,
 ): PageMeta {
   const { forecastIssue, updated } = MOCK_META;
   switch (page) {
@@ -157,7 +162,7 @@ export function getPageMeta(
       return {
         source: `${asos(station)} 일 관측`,
         issue: "해당 없음 (관측 자료)",
-        ...observedTimes(observed),
+        ...calculatedTimes(calculated),
       };
     case "sunlight":
       if (!station.measuresSunlight) {
@@ -171,7 +176,7 @@ export function getPageMeta(
       return {
         source: `${asos(station)} 일사 관측`,
         issue: "해당 없음 (관측 자료)",
-        ...observedTimes(observed),
+        ...calculatedTimes(calculated),
       };
     case "soil":
       return noData("농촌진흥청 흙토람");

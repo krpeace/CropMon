@@ -22,6 +22,7 @@ function heatSource(over: Partial<HeatSource> = {}) {
   const src: HeatSource = {
     year: async () => [],
     stages: async () => null,
+    lastUpdated: async () => null,
     onDate: async (_ids, _crop, date) => {
       asked.push(`onDate ${date}`);
       return [
@@ -57,6 +58,7 @@ const sunRow = (
 function sunSource(over: Partial<SunSource> = {}): SunSource {
   return {
     year: async () => [],
+    lastUpdated: async () => null,
     onDate: async () => [sunRow("101", 3218, 3352), sunRow("216", 3500, 3333)],
     recent: async () => [],
     ...over,

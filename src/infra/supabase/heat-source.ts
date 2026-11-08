@@ -48,12 +48,15 @@ export type HeatSource = {
   ): Promise<HeatLatestRow[]>;
   /** 작물 사전의 적산온도 단계. 없으면 null. */
   stages(cropId: string): Promise<number[] | null>;
+  /** 이 지점 줄 중 가장 늦은 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 줄이 없으면 null. */
+  lastUpdated(stnId: string): Promise<string | null>;
 };
 
 export const COLUMNS = {
   heat_daily:
     "date,t_base_c,gdd_day,gdd_cum,gdd_normal_cum,lead_days,normal_from,normal_to,filled",
   heat_latest: "stn_id,date,lead_days,gdd_cum,gdd_normal_cum",
+  updated: "updated_at",
   crops: "gdd_stages",
 } as const;
 
@@ -111,6 +114,20 @@ export function createHeatSource(
           .retry(false)
           .abortSignal(signal()),
       ),
+    lastUpdated: async (stnId) => {
+      const rows = await many<{ updated_at: string }>(
+        "heat_daily",
+        client
+          .from("heat_daily")
+          .select(COLUMNS.updated)
+          .eq("stn_id", stnId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .retry(false)
+          .abortSignal(signal()),
+      );
+      return rows[0]?.updated_at ?? null;
+    },
     stages: async (cropId) => {
       const row = unwrap(
         "crops",

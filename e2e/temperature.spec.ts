@@ -28,6 +28,10 @@ test("온도: 생육 속도가 DB 값으로 (문구·숫자·평년 기간·기�
   const meta = page.getByRole("region", { name: "자료 정보" });
   await expect(meta).toContainText("기상청 ASOS 춘천(101) 일 관측");
   await expect(meta).toContainText("평년 2016–2025");
+  // 갱신 시각 = heat_daily 마지막 계산 시각(09:20). 관측 받은 시각(02:20)이 아니다.
+  await expect(meta).toContainText("09:20");
+  await expect(meta).toContainText("일까지 관측");
+  await expect(meta).not.toContainText("02:20");
 });
 
 test("온도: 단계 카드 2개 — 올해·평년 도달일, 아직이면 '아직'", async ({

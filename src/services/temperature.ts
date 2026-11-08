@@ -60,6 +60,10 @@ export type TemperatureView = {
   /** "평년보다 +180℃" · "평년과 같아요" · "자료 없음" */
   verdict: string;
   numbers: { thisYear: string; normal: string; diff: string } | null;
+  /** 마지막 관측일 "2026-10-24". 올해 누적이 아직 없으면 null. */
+  observedDate: string | null;
+  /** 이 지점 heat_daily 를 마지막으로 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 모르면 null. */
+  updatedAt: string | null;
   /** 계산에 쓴 기준온도 (℃) */
   baseTemp: number | null;
   /** "2016–2025" */
@@ -84,6 +88,8 @@ const EMPTY: Main = {
   basis: null,
   verdict: NO_DATA,
   numbers: null,
+  observedDate: null,
+  updatedAt: null,
   baseTemp: null,
   normalPeriod: null,
   stages: [],
@@ -124,9 +130,10 @@ async function readMain(
   const year = Number(today.slice(0, 4));
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
-    const [rows, stages] = await Promise.all([
+    const [rows, stages, updatedAt] = await Promise.all([
       db.year(String(station.id), cropId, year),
       db.stages(cropId),
+      readUpdatedAt(db, station.id),
     ]);
     if (rows.length === 0) {
       return {
@@ -137,7 +144,7 @@ async function readMain(
             : `이 지역·작물의 ${year} 적산온도가 아직 없어요.`,
       };
     }
-    return mainView(rows, stages ?? [], today);
+    return { ...mainView(rows, stages ?? [], today), updatedAt };
   } catch (error) {
     console.error("[temperature] DB 읽기 실패:", error);
     return {
@@ -147,7 +154,21 @@ async function readMain(
   }
 }
 
-function mainView(rows: HeatRow[], stages: number[], today: string): Main {
+/** 올린 시각만 못 읽어도 화면 자료는 보여 준다 (갱신 시각만 "자료 없음"). */
+async function readUpdatedAt(db: HeatSource, stationId: number) {
+  try {
+    return await db.lastUpdated(String(stationId));
+  } catch (error) {
+    console.error("[temperature] 계산 시각 읽기 실패:", error);
+    return null;
+  }
+}
+
+function mainView(
+  rows: HeatRow[],
+  stages: number[],
+  today: string,
+): Omit<Main, "updatedAt"> {
   // 마지막 관측일 = 올해 누적이 있는 마지막 줄 (앞날 줄은 평년 값만 있다)
   const last = rows.findLast((r) => r.gdd_cum != null) ?? null;
   const cum = last?.gdd_cum ?? null;
@@ -160,6 +181,7 @@ function mainView(rows: HeatRow[], stages: number[], today: string): Main {
       cum != null && last?.gdd_normal_cum != null
         ? gddNumbers(cum, last.gdd_normal_cum)
         : null,
+    observedDate: last?.date ?? null,
     baseTemp: first.t_base_c,
     normalPeriod: `${first.normal_from}–${first.normal_to}`,
     stages: pickStages(stages, cum).map((s) => stageCard(rows, s)),
