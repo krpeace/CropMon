@@ -181,8 +181,7 @@ describe("종합 화면 물 카드 (DB)", () => {
     });
     expect(v.growth).toEqual({
       verdict: "자료 없음",
-      numbers:
-        "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+      numbers: "이 지역의 적산온도 자료가 아직 없어요",
       missing: true,
     });
     expect(v.sunlight).toEqual({
@@ -240,6 +239,15 @@ describe("온도·햇빛 카드 (DB)", () => {
     expect(view(192).sunlight).toEqual({
       verdict: "자료 없음",
       numbers: "진주 관측소의 햇빛 자료가 없어요",
+      missing: true,
+    });
+  });
+
+  it("대표 밖 지점(홍천 212)도 온도 카드는 NON_REP_GUIDE 대신 '이 지역의 적산온도 자료가 아직 없어요'로 통일된다", () => {
+    const v = view(212);
+    expect(v.growth).toEqual({
+      verdict: "자료 없음",
+      numbers: "이 지역의 적산온도 자료가 아직 없어요",
       missing: true,
     });
   });

@@ -18,6 +18,7 @@ function fakeClient(answer: {
     "gte",
     "order",
     "limit",
+    "range",
     "retry",
     "abortSignal",
   ]) {
@@ -68,6 +69,9 @@ describe("status-source", () => {
       "from(soil_water_latest)",
       'select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")',
       'in("stn_id",["101"])',
+      'order("stn_id",{"ascending":true})',
+      'order("soil_code",{"ascending":true})',
+      "range(0,999)",
     ]);
   });
 
@@ -104,7 +108,9 @@ describe("status-source", () => {
       'select("stn_id,date,fetched_at")',
       'gte("date","2026-10-18")',
       'in("stn_id",["101"])',
+      'order("stn_id",{"ascending":true})',
       'order("date",{"ascending":false})',
+      "range(0,999)",
     ]);
   });
 

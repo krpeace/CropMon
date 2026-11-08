@@ -183,7 +183,9 @@ export function createStatusSource(
       ),
     recentWeather: async (since, stnIds) => {
       if (stnIds && stnIds.length === 0) return [];
-      const makeQuery = () => {
+      const all: WeatherFetchRow[] = [];
+      let from = 0;
+      while (true) {
         let q = client
           .from("weather_daily")
           .select("stn_id,date,fetched_at")
@@ -191,26 +193,9 @@ export function createStatusSource(
         if (stnIds && stnIds.length > 0) {
           q = q.in("stn_id", stnIds);
         }
-        return q;
-      };
-      const initial = makeQuery();
-      const supportsRange =
-        typeof (initial as unknown as { range?: unknown }).range === "function";
-      if (!supportsRange) {
-        return read<WeatherFetchRow[]>(
-          "weather_daily",
-          initial
-            .order("date", { ascending: false })
-            .retry(false)
-            .abortSignal(signal()),
-        );
-      }
-      const all: WeatherFetchRow[] = [];
-      let from = 0;
-      while (true) {
         const batch = await read<WeatherFetchRow[]>(
           "weather_daily",
-          makeQuery()
+          q
             .order("stn_id", { ascending: true })
             .order("date", { ascending: false })
             .range(from, from + PAGE_SIZE - 1)
@@ -224,31 +209,16 @@ export function createStatusSource(
       return all;
     },
     latestSoilWater: async (stnIds) => {
-      if (stnIds && stnIds.length === 0) return [];
-      const makeQuery = () => {
-        let q = client
-          .from("soil_water_latest")
-          .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status");
-        if (stnIds && stnIds.length > 0) {
-          q = q.in("stn_id", stnIds);
-        }
-        return q;
-      };
-      const initial = makeQuery();
-      const supportsRange =
-        typeof (initial as unknown as { range?: unknown }).range === "function";
-      if (!supportsRange) {
-        return read<SoilWaterStatusRow[]>(
-          "soil_water_latest",
-          initial.retry(false).abortSignal(signal()),
-        );
-      }
+      if (stnIds.length === 0) return [];
       const all: SoilWaterStatusRow[] = [];
       let from = 0;
       while (true) {
         const batch = await read<SoilWaterStatusRow[]>(
           "soil_water_latest",
-          makeQuery()
+          client
+            .from("soil_water_latest")
+            .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")
+            .in("stn_id", stnIds)
             .order("stn_id", { ascending: true })
             .order("soil_code", { ascending: true })
             .range(from, from + PAGE_SIZE - 1)

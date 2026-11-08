@@ -197,7 +197,7 @@ test("지역 고르기에서 비대표 지점(홍천 212)을 검색해 고르고
     "자료 없음",
   );
   await expect(
-    page.getByText("이 지점은 아직 물 계산을 하지 않아요"),
+    page.getByText("이 지역·작물의 2026 적산온도가 아직 없어요."),
   ).toBeVisible();
 
   await region(page).getByRole("link", { name: "춘천" }).click();
