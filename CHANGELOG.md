@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 수정 (CI gitleaks 설치 안정성 — 이슈 #87)
+
+- GitHub Releases 일시 장애(504 등) 대응을 위해 curl 다운로드에 `-f --retry 3 --retry-delay 5` 및 `gh release download` 대체 경로 추가
+- `actions/cache`로 gitleaks 바이너리를 캐시하여 반복 다운로드 제거 (체크섬 검증 유지)
+
 ### 성능 (켜 둔 화면 반복 읽기 방지 및 30분 캐시 — 이슈 #80)
 
 - 첫 화면의 5초 주기 자동 순환을 서버 요청(RSC) 없이 클라이언트 상태로만 전환(`HomeBoardClient`, `replaceState`)하도록 개선하여 5초 순환 시 서버 요청 0회 달성
