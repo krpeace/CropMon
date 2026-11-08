@@ -412,4 +412,31 @@ describe("데이터 계약과 마이그레이션", () => {
       expect(section).toContain("`rs_source`");
     });
   });
+
+  describe("public.db_size_bytes (croplib-dp 용량 경고 RPC, #77)", () => {
+    it("db_size_bytes 함수가 정의되어 있고 jsonb 를 돌려준다", () => {
+      expect(SQL).toMatch(
+        /create or replace function public\.db_size_bytes\(\)\s*returns jsonb/,
+      );
+    });
+
+    it("security definer 가 없고(기본 invoker) service_role 만 실행 권한이 있다", () => {
+      const fnSql = SQL.split("function public.db_size_bytes")[1]?.split(
+        ";",
+      )[0];
+      expect(fnSql).not.toContain("security definer");
+      expect(SQL).toMatch(
+        /revoke all on function public\.db_size_bytes\(\) from public, anon, authenticated;/,
+      );
+      expect(SQL).toMatch(
+        /grant execute on function public\.db_size_bytes\(\) to service_role;/,
+      );
+    });
+
+    it("계약서에 db_size_bytes() 함수와 service_role 권한이 적혀 있다", () => {
+      expect(CONTRACT).toContain("`public.db_size_bytes()`");
+      expect(CONTRACT).toContain("`service_role`");
+      expect(CONTRACT).toContain("`POST /rest/v1/rpc/db_size_bytes`");
+    });
+  });
 });
