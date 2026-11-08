@@ -122,18 +122,13 @@ function sunShort(s: SunLatest | undefined): string | null {
 function growthCard(
   h: HeatLatest | undefined,
   ok: boolean,
-  isRepresentative: boolean,
 ): HomeView["growth"] {
   const cum = h?.cum ?? null;
   const normal = h?.normal ?? null;
   if (cum == null || normal == null) {
     return {
       verdict: NO_DATA,
-      numbers: !ok
-        ? DB_FAILED
-        : isRepresentative
-          ? "이 지역의 적산온도 자료가 아직 없어요"
-          : NON_REP_GUIDE,
+      numbers: !ok ? DB_FAILED : "이 지역의 적산온도 자료가 아직 없어요",
       missing: true,
     };
   }
@@ -183,7 +178,6 @@ function soilWaterCard(
   sw: SoilStationWater | null | undefined,
   soil: SoilCode,
   ok: boolean,
-  isRepresentative: boolean,
 ): HomeView["water"] {
   if (!sw) {
     return {
@@ -191,11 +185,7 @@ function soilWaterCard(
       tone: "dormant",
       badge: null,
       grayBadge: NO_DATA,
-      numbers: !ok
-        ? DB_FAILED
-        : isRepresentative
-          ? "이 지역의 물 판정 자료가 아직 없어요"
-          : NON_REP_GUIDE,
+      numbers: !ok ? DB_FAILED : "이 지역의 물 판정 자료가 아직 없어요",
       gauge: null,
     };
   }
@@ -352,12 +342,7 @@ export function getHomeView(
 
   const water =
     crop === "common"
-      ? soilWaterCard(
-          board.soil[soil][station.id],
-          soil,
-          board.ok,
-          station.isRepresentative,
-        )
+      ? soilWaterCard(board.soil[soil][station.id], soil, board.ok)
       : waterCard(
           board.water[crop][station.id],
           { ...selection, crop },
@@ -369,11 +354,7 @@ export function getHomeView(
   return {
     meta: metaLine(board, station),
     water,
-    growth: growthCard(
-      growth.heat[station.id],
-      growth.heatOk,
-      station.isRepresentative,
-    ),
+    growth: growthCard(growth.heat[station.id], growth.heatOk),
     sunlight: sunCard(growth.sun[station.id], growth.sunOk, station),
     rows,
   };

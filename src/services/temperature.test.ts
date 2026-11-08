@@ -297,9 +297,59 @@ describe("getTemperatureView — 자료 없음·실패", () => {
         now: NOW,
       },
     );
-    expect(vOut.problem).toBe(
-      "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+    expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
+    expect(vOut.verdict).toBe("자료 없음");
+  });
+
+  it("비대표 지점 배추(cabbage)도 물 계산 안내 대신 적산온도 안내를 보여 준다", async () => {
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      lat: 37.683,
+      lon: 127.88,
+      altitude: 140,
+      isRepresentative: false,
+      isActive: true,
+      hasForecast: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const vOut = await getTemperatureView(
+      { stationId: 212, crop: "cabbage" },
+      hongcheon,
+      {
+        createSource: () => source({ year: async () => [] }),
+        now: NOW,
+      },
     );
+    expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
+    expect(vOut.verdict).toBe("자료 없음");
+  });
+
+  it("작물 공통(common)은 비대표 지점이어도 물 계산 안내 대신 일반 안내를 보여 준다", async () => {
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      lat: 37.683,
+      lon: 127.88,
+      altitude: 140,
+      isRepresentative: false,
+      isActive: true,
+      hasForecast: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const vOut = await getTemperatureView(
+      { stationId: 212, crop: "common" },
+      hongcheon,
+      {
+        createSource: () => source({ year: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
     expect(vOut.verdict).toBe("자료 없음");
   });
 

@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 변경 (운영 97곳 물 표시 정리 및 회차·기상 지점 필터링 — 이슈 #98)
+
+- 판정 표 범위 확장: 종합 화면 및 지역 칩의 토양수분(`board.soil`)과 갱신 시각(`board.updated`)을 기상청 ASOS 운영 97곳 전체로 확장 (`board.ts`, `station-status.ts`)
+- 비대표 지점 화면 정상화: 비대표 지점도 토양수분 자료가 있으면 물 카드 게이지와 갱신 줄("어제까지 관측")이 정상 표출되며, 자료가 없을 때만 "이 지역의 물 판정 자료가 아직 없어요" 표출 (`home.ts`)
+- 안내 문구 정리: 작물 공통 물 화면에서 대표 밖 안내를 제거하고 토양 계산 자료 유무로 안내 (`water.ts`), 적산온도 화면에서 대표 밖 안내는 작물별(사과·배추) 화면에만 적용 (`temperature.ts`)
+- 쿼리 최적화 및 페이징: `forecast_runs` 조회 시 대표 지점(`repStnIds`)으로 필터링하고 지점 수 기반 동적 한도(지점 수 × 4 = 40줄) 적용. `weather_daily` 및 `soil_water_latest`는 고정 정렬과 1,000줄 단위 `range` 페이징 적용 (`status-source.ts`)
+- 데이터 계약 `docs/DATA_CONTRACT.md` 갱신: 물 계산 대상 기준 명시 (관측 = 운영 지점 `is_active`, 예보 = `has_forecast`)
+
 ### 추가 (DB 용량 측정 RPC 함수 db_size_bytes() — 이슈 #77)
 
 - croplib-dp #28 S3(croplib-dp#61) DB 400MB 경고 및 450MB 오류 감시를 위한 RPC 함수 `public.db_size_bytes()` 추가 (`supabase/migrations/20261108050000_db_size_bytes.sql`)

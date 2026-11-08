@@ -196,9 +196,7 @@ test("지역 고르기에서 비대표 지점(홍천 212)을 검색해 고르고
   await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(
     "자료 없음",
   );
-  await expect(
-    page.getByText("이 지점은 아직 물 계산을 하지 않아요"),
-  ).toBeVisible();
+  await expect(page.getByText("적산온도가 아직 없어요")).toBeVisible();
 
   await region(page).getByRole("link", { name: "춘천" }).click();
   await expect(page).toHaveURL(/\/temperature\?st=101&crop=apple$/);

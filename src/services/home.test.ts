@@ -181,8 +181,7 @@ describe("종합 화면 물 카드 (DB)", () => {
     });
     expect(v.growth).toEqual({
       verdict: "자료 없음",
-      numbers:
-        "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
+      numbers: "이 지역의 적산온도 자료가 아직 없어요",
       missing: true,
     });
     expect(v.sunlight).toEqual({
@@ -240,6 +239,15 @@ describe("온도·햇빛 카드 (DB)", () => {
     expect(view(192).sunlight).toEqual({
       verdict: "자료 없음",
       numbers: "진주 관측소의 햇빛 자료가 없어요",
+      missing: true,
+    });
+  });
+
+  it("대표 밖 지점(홍천 212)도 온도 카드는 NON_REP_GUIDE 대신 '이 지역의 적산온도 자료가 아직 없어요'로 통일된다", () => {
+    const v = view(212);
+    expect(v.growth).toEqual({
+      verdict: "자료 없음",
+      numbers: "이 지역의 적산온도 자료가 아직 없어요",
       missing: true,
     });
   });
@@ -360,6 +368,65 @@ describe("종합 화면 작물 공통 (토양 물 상태)", () => {
       tone: "very_dry",
       badge: { status: "very_dry", label: "매우 건조" },
       numbers: "사토 기준 · 남은 물 3 / 담을 수 있는 물 30 mm",
+    });
+  });
+
+  it("비대표 지점(홍천 212): 토양 자료가 있으면 물 카드와 갱신 줄('어제까지 관측')이 모두 정상 표출된다", () => {
+    const customBoard: StationBoard = {
+      ...BOARD,
+      soil: {
+        ...BOARD.soil,
+        loam: {
+          ...BOARD.soil.loam,
+          212: {
+            status: "fair",
+            awPct: 50,
+            drMm: 30,
+            tawMm: 60,
+            rawMm: 24,
+            observedDate: "2026-10-24",
+          },
+        },
+      },
+      updated: {
+        ...BOARD.updated,
+        212: { at: "2026-10-24T09:00:00+00:00", runHour: null }, // 18:00 KST
+      },
+    };
+
+    const v = view(212, "common", customBoard);
+    expect(v.meta).toBe(
+      "10월 24일 18:00 갱신 · 기상청 ASOS 홍천(212) · 어제까지 관측",
+    );
+    expect(v.water).toEqual({
+      verdict: "토양 속 남은 물 50%",
+      tone: "fair",
+      badge: { status: "fair", label: "보통" },
+      grayBadge: null,
+      numbers: "양토 기준 · 남은 물 30 / 담을 수 있는 물 60 mm",
+      gauge: { status: "fair", fillPct: 50, rawPct: 60 },
+    });
+  });
+
+  it("비대표 지점(홍천 212): 토양 자료가 없으면 '이 지역의 물 판정 자료가 아직 없어요'만 표출된다", () => {
+    const customBoard: StationBoard = {
+      ...BOARD,
+      soil: {
+        ...BOARD.soil,
+        loam: {
+          ...BOARD.soil.loam,
+          212: null,
+        },
+      },
+    };
+
+    const v = view(212, "common", customBoard);
+    expect(v.water).toMatchObject({
+      verdict: "자료 없음",
+      badge: null,
+      grayBadge: "자료 없음",
+      numbers: "이 지역의 물 판정 자료가 아직 없어요",
+      gauge: null,
     });
   });
 });

@@ -580,4 +580,52 @@ describe("작물 공통 (토양 물 상태)", () => {
       "Saxton & Rawls (2006) 식으로 추정한 값이에요.",
     );
   });
+
+  it("forecast_runs 줄이 없는 지점에서도 작물 공통 물 화면이 정상 표출된다 (P6)", async () => {
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      isRepresentative: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const v = await getWaterView(
+      { stationId: 212, crop: "common", soil: "loam" },
+      hongcheon,
+      TODAY,
+      {
+        createSource: () => fake({ recentRuns: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(v.problem).toBeNull();
+    expect(v.commonNow).not.toBeNull();
+    expect(v.commonNow?.status).toBe("fair");
+    expect(v.meta.updated).toBe("자료 없음");
+    expect(v.meta.source).toBe(
+      "기상청 ASOS 홍천(212) · 단기예보 · FAO-56 물수지",
+    );
+  });
+
+  it("비대표 지점의 토양 자료가 없으면 대표 밖 안내 대신 지역 토양 안내를 보여 준다", async () => {
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      isRepresentative: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const v = await getWaterView(
+      { stationId: 212, crop: "common", soil: "loam" },
+      hongcheon,
+      TODAY,
+      {
+        createSource: () => fake({ soilWater: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(v.problem).toBe("이 지역·토양의 2026 물 계산 자료가 아직 없어요.");
+  });
 });

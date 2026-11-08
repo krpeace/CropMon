@@ -12,7 +12,7 @@ import { getStationBoard } from "@/services/station-status";
 async function cached() {
   "use cache";
   cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 });
-  return getStationBoard();
+  return getStationBoard({ stationScope: "active" });
 }
 
 export async function loadBoard() {
