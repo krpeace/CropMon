@@ -9,10 +9,10 @@
 
 - 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.4 적산온도 `heat_daily`·적산일사 `sun_daily` + v1.5 작물 공통 토양 물 상태 `soil_water_daily`)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블).
 - 회원제 개인 테이블(내 농장, 관수 기록, 농장별 보정값)은 1/1 회원 공개에 맞춰 v2로 더합니다.
-- 지점 사전(`stations`)은 v1.6에서 기상청 ASOS 지점 105곳(현행 운영 97곳 + 폐지·휴지 보존 8곳)으로 현행화하고, 지역 고르기에 필요한 열(`sido`, `is_representative`, `is_active`, `measures_sunlight`, `synced_at`)을 더했습니다. 물 계산·예보는 대표 10곳(`is_representative = true`)만 켜 두고, 나머지 지점은 전 지점 계산 확대 전까지 `has_forecast = false`·예보 격자 빈 칸으로 둡니다.
+- 지점 사전(`stations`)은 v1.6에서 기상청 ASOS 지점 105곳(현행 운영 97곳 + 폐지·휴지 보존 8곳)으로 현행화하고, 지역 고르기에 필요한 열(`sido`, `is_representative`, `is_active`, `measures_sunlight`, `synced_at`)을 더했습니다. 물 계산·예보는 대표 10곳(`is_representative = true`)만 켜 두고(`has_forecast = true`), 운영 97곳의 단기예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`로 미리 채워 둡니다(예보 확대는 croplib-dp S4에서 20곳씩).
 - 작물 공통(흙만 본 물 상태)은 v1.5에서 더했습니다. "기준작물(잔디)" 대신 **"작물 공통"**으로 부르며, 고정 조건(겉흙 깊이 0.5 m, 증발 수요 = ETo × 1.0, p = 0.40, 3/1에 Dr = 0(포장용수량)으로 시작, 지표유출·모관상승 0, FAO-56 식 (84)~(88))으로 계산합니다.
 - 적산온도·적산일사는 v1.4에서 더했습니다. 평년은 지난 10년(2016–2025) 같은 날의 평균입니다(cropweather 방식). 기상청 공식 30년 평년값(1991–2020)은 아직 쓰지 않습니다.
-- 사전 자료(실제 값): 초기 지점·작물·작형·토성은 `supabase/migrations/20261024010000_seed_dictionaries.sql`, 재배 방식별 Kc와 기본 계산 조건은 `20261024030000_seed_kc_sets.sql`, 추정 토성 3종 및 작물 공통(common)은 `20261028010000_seed_soil_estimates.sql`, 기상청 ASOS 105곳 현행화는 `20261028030000_seed_stations_asos.sql`에 있습니다. 값을 고칠 때는 기존 파일들을 고치지 않고 새 파일을 더합니다. 기본 계산 조건의 TAW·RAW는 사과 130·65 mm, 여름배추 65·29.25 mm입니다(양토, 뿌리깊이 사과 1.0 m·배추 0.5 m).
+- 사전 자료(실제 값): 초기 지점·작물·작형·토성은 `supabase/migrations/20261024010000_seed_dictionaries.sql`, 재배 방식별 Kc와 기본 계산 조건은 `20261024030000_seed_kc_sets.sql`, 추정 토성 3종 및 작물 공통(common)은 `20261028010000_seed_soil_estimates.sql`, 기상청 ASOS 105곳 현행화는 `20261028030000_seed_stations_asos.sql`, 운영 97곳 예보 격자는 `20261108020000_seed_stations_forecast_grid.sql`에 있습니다. 값을 고칠 때는 기존 파일들을 고치지 않고 새 파일을 더합니다. 기본 계산 조건의 TAW·RAW는 사과 130·65 mm, 여름배추 65·29.25 mm입니다(양토, 뿌리깊이 사과 1.0 m·배추 0.5 m).
 
 ## 공통 규칙
 
@@ -81,27 +81,27 @@
 
 ## 테이블별 열
 
-만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다.
+만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다.
 
 ### `public.stations`
 
 장소 사전입니다 (v1.6 기준 기상청 ASOS 105곳: 현행 운영 97곳 + 폐지·휴지 보존 8곳).
 
-| 열                   | 형식               | 뜻                                                                                           |
-| -------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
-| `stn_id`             | 문자, 키           | ASOS 지점번호 (예: "101")                                                                    |
-| `name_ko`            | 문자               | 지점 이름 (춘천)                                                                             |
-| `sido`               | 문자, 비어도 됨    | 시·도 약칭 (강원·경기·충북 등 17개, 화면 검색·목록 표시, v1.6)                               |
-| `lat`, `lon`         | 수                 | 위도·경도                                                                                    |
-| `elev_m`             | 수                 | 해발고도 (m)                                                                                 |
-| `wind_height_m`      | 수                 | 풍속계 높이 (m), ETo 계산에 씀                                                               |
-| `grid_nx`, `grid_ny` | 정수, 비어도 됨    | 단기예보 격자 (대표 10곳만 채움, 나머지 지점은 예보 수집 확대 전까지 빈 칸)                  |
-| `has_forecast`       | 참/거짓            | 예보를 수집하는 지점인지 (대표 10곳 `true`, 나머지 지점 `false`)                             |
-| `is_representative`  | 참/거짓, 기본 거짓 | 대표 지점 10곳 여부 (자동 전환·종합 표·기본 지점, 지금은 `has_forecast`인 10곳과 같음, v1.6) |
-| `is_active`          | 참/거짓, 기본 참   | 운영 중인 지점 여부. 폐지·휴지 지점은 지우지 않고 거짓으로 두어 과거 자료를 보존 (v1.6)      |
-| `measures_sunlight`  | 참/거짓, 비어도 됨 | 일사 관측 여부 (춘천 등 9곳 참, 태백 거짓, 아직 확인 안 된 지점은 빈 칸, v1.6)               |
-| `synced_at`          | 시각, 비어도 됨    | 마지막으로 기상청 지점정보와 맞춘 시각 (v1.6)                                                |
-| `sort_order`         | 정수               | 화면 목록 순서 (대표 10곳 1~10번 유지, 나머지 95곳은 가나다순 11~105번)                      |
+| 열                   | 형식               | 뜻                                                                                                                                                                                                                                    |
+| -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stn_id`             | 문자, 키           | ASOS 지점번호 (예: "101")                                                                                                                                                                                                             |
+| `name_ko`            | 문자               | 지점 이름 (춘천)                                                                                                                                                                                                                      |
+| `sido`               | 문자, 비어도 됨    | 시·도 약칭 (강원·경기·충북 등 17개, 화면 검색·목록 표시, v1.6)                                                                                                                                                                        |
+| `lat`, `lon`         | 수                 | 위도·경도                                                                                                                                                                                                                             |
+| `elev_m`             | 수                 | 해발고도 (m)                                                                                                                                                                                                                          |
+| `wind_height_m`      | 수                 | 풍속계 높이 (m), ETo 계산에 씀                                                                                                                                                                                                        |
+| `grid_nx`, `grid_ny` | 정수, 비어도 됨    | 단기예보 격자 (운영 97곳 채움, 폐지·휴지 8곳은 빈 칸). 출처는 croplib-dp CSV(`docs/data/stations_grid_20261108.csv`, Lambert 정각원추 `kma_lcc_5km_v1` 계산). DB에 값이 있으면 그 값이 예보 수집의 기준입니다 (croplib-dp 결정 0025). |
+| `has_forecast`       | 참/거짓            | 예보를 수집하는 지점인지 (대표 10곳 `true`, 나머지 지점 `false`)                                                                                                                                                                      |
+| `is_representative`  | 참/거짓, 기본 거짓 | 대표 지점 10곳 여부 (자동 전환·종합 표·기본 지점, 지금은 `has_forecast`인 10곳과 같음, v1.6)                                                                                                                                          |
+| `is_active`          | 참/거짓, 기본 참   | 운영 중인 지점 여부. 폐지·휴지 지점은 지우지 않고 거짓으로 두어 과거 자료를 보존 (v1.6)                                                                                                                                               |
+| `measures_sunlight`  | 참/거짓, 비어도 됨 | 일사 관측 여부 (춘천 등 9곳 참, 태백 거짓, 아직 확인 안 된 지점은 빈 칸, v1.6)                                                                                                                                                        |
+| `synced_at`          | 시각, 비어도 됨    | 마지막으로 기상청 지점정보와 맞춘 시각 (v1.6)                                                                                                                                                                                         |
+| `sort_order`         | 정수               | 화면 목록 순서 (대표 10곳 1~10번 유지, 나머지 95곳은 가나다순 11~105번)                                                                                                                                                               |
 
 ### `public.crops`
 

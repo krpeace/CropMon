@@ -8,6 +8,8 @@
 --   1. 먼저 20261028020000_data_contract_v1_6.sql 을 실행해 둔다.
 --   2. Supabase 대시보드 → SQL Editor 에 이 파일 내용을 모두 붙여 넣고 Run 을 누른다.
 --   여러 번 실행해도 오류가 나지 않는다. 같은 키가 있으면 값만 이 파일 내용으로 고친다.
+--   주의: 이 파일을 다시 실행하면 대표 밖 87곳의 예보 격자가 null로 돌아가므로,
+--         다시 실행한 뒤에는 20261108020000_seed_stations_forecast_grid.sql 을 다시 실행해야 한다 (결정 0039).
 --
 -- 자동 검사: src/infra/supabase/seed.test.ts 가 화면 지점 사전(src/infra/stations.ts)과의 일치를 검사한다.
 
