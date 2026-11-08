@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 추가 (DB 용량 측정 RPC 함수 db_size_bytes() — 이슈 #77)
+
+- croplib-dp #28 S3(croplib-dp#61) DB 400MB 경고 및 450MB 오류 감시를 위한 RPC 함수 `public.db_size_bytes()` 추가 (`supabase/migrations/20261108050000_db_size_bytes.sql`)
+- 전체 데이터베이스 크기(`db_bytes`) 및 `public`·`krei` 스키마에서 용량이 큰 상위 10개 테이블 크기(`tables`)를 JSON 객체로 반환
+- 보안 및 권한 격리: `service_role` 전용 호출로 `anon`, `authenticated` 권한을 완전히 회수하고 `service_role`에만 실행 권한 부여
+- `docs/DATA_CONTRACT.md`에 함수 명세 및 권한 규칙 추가
+
 ### 문서 (PR 전 로컬 확인 목록에 test:e2e 명시 — 이슈 #92)
 
 - `CLAUDE.md`에 PR을 올리기 전 로컬에서 필수적으로 확인해야 하는 6단계 체크리스트(`lint` → `typecheck` → `format:check` → `test` → `build` → `test:e2e`) 및 가짜 Supabase 연동 안내 명시

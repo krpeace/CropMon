@@ -81,7 +81,7 @@
 
 ## 테이블별 열
 
-만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다. `weather_daily`의 `rs_source` 열은 `20261108030000_weather_daily_rs_source.sql`이 더합니다.
+만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다. `weather_daily`의 `rs_source` 열은 `20261108030000_weather_daily_rs_source.sql`이 더합니다. DB 크기 측정 함수 `db_size_bytes()`는 `20261108050000_db_size_bytes.sql`이 만듭니다.
 
 ### `public.stations`
 
@@ -443,6 +443,23 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 | `note`       | `text`        | 아니요           | 상태 메모. 지금은 `ok` |
 | `updated_at` | `timestamptz` | 아니요           | 행을 만든 시각         |
 
+### 운영용 함수: `public.db_size_bytes()`
+
+croplib-dp의 DB 용량 감시(400MB 경고, 450MB 오류 알림)를 위한 RPC 함수입니다 (`supabase/migrations/20261108050000_db_size_bytes.sql`, #77). 전체 데이터베이스 크기와 `public` 및 `krei` 스키마에서 용량이 큰 상위 10개 기본 테이블 크기(`pg_total_relation_size`)를 바이트 단위 JSON 객체로 돌려줍니다. 비회원·회원(`anon, authenticated`)의 실행 권한은 완전히 회수되며, 오직 `service_role`만 실행할 수 있습니다.
+
+- **호출:** `POST /rest/v1/rpc/db_size_bytes`
+- **반환 규격:**
+  ```json
+  {
+    "db_bytes": 59768832,
+    "tables": {
+      "heat_daily": 25165824,
+      "sun_daily": 15728640,
+      "weather_daily": 8388608
+    }
+  }
+  ```
+
 ## 바꿀 때의 순서
 
 열을 더하거나 바꾸려면 이 저장소에서 마이그레이션과 이 계약서를 같은 PR로 고치고 버전을 올립니다(v1 → v1.1). 그다음 croplib-dp의 업로드 코드와 계약 검사를 새 버전에 맞추고, 두 PR에 서로의 링크를 답니다. 화면이 아직 쓰는 열은 지우지 않고, 새 열을 더하는 방식으로 바꿉니다.
@@ -451,6 +468,7 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 
 | 버전 | 날짜       | 내용                                                                                                                                                                    |
 | ---- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -    | 2026-11-08 | croplib-dp DB 용량 감시용 RPC 함수 `public.db_size_bytes()` 추가 (service_role 전용, #77)                                                                               |
 | v1.9 | 2026-11-08 | `soil_water_daily`의 한국 기준 최근 7일 지점·토성별 최신 1줄 뷰 `soil_water_latest` 및 `(stn_id, soil_code, date desc)` 복합 색인 추가 (#82)                            |
 | v1.8 | 2026-11-08 | `heat_daily`·`sun_daily`에 올린 시각 `updated_at`(not null, 기본 now()) 및 고쳐 쓸 때 갱신하는 트리거 추가. 온도·햇빛 화면 갱신 시각이 이 값을 씀 (결정 0035)           |
 | v1.7 | 2026-10-30 | (구조 그대로, 사전 값만) 작물 공통(`common`) `gdd_stages`를 [1000, 2000] → [500, 1000, 1500, 2000, 2500, 3000]으로 (결정 0032). 화면은 `lead_days`를 더 이상 쓰지 않음  |
