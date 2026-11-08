@@ -12,7 +12,7 @@
 ## 결정
 
 1. **외부 계산 CSV 복사 및 보존 (`docs/data/stations_grid_20261108.csv`)**:
-   - `croplib-dp` main 커밋 `2038b4b8606c9617852e7b4e7184248387de9159`의 CSV를 `docs/data/`에 복사하고 SHA-256 체크섬(`32A58E3772F25A9514DD2EB7FC44CC333F488A9ACE710CE4A8C0F908F451C366`)을 기록했습니다.
+   - `croplib-dp` main 커밋 `2038b4b8606c9617852e7b4e7184248387de9159`의 CSV를 `docs/data/`에 복사하고 SHA-256 체크섬(`4e4e5f918d024b4a1412e8f64c50cbbcf03c3a45ef05c1fc9c389c93cb9fd624`, 저장소에 저장된 LF 기준, Windows CRLF 체크아웃에서는 값이 다르게 나옴)을 기록했습니다.
    - 값을 손으로 옮겨 적지 않고, 마이그레이션 SQL 생성(`scripts/generate_migration.py`)과 테스트 검증의 단일 기준(Single Source of Truth)으로 삼습니다.
 
 2. **사전 검증 확인**:

@@ -10,7 +10,7 @@
 - **출처**: `krpeace/croplib-dp` 저장소 `docs/data/stations_grid_20261108.csv`
 - **기준 커밋**: `2038b4b8606c9617852e7b4e7184248387de9159` (PR #75, 결정 0025)
 - **가져온 날짜**: 2026-11-08
-- **SHA-256**: `32A58E3772F25A9514DD2EB7FC44CC333F488A9ACE710CE4A8C0F908F451C366`
+- **SHA-256**: `4e4e5f918d024b4a1412e8f64c50cbbcf03c3a45ef05c1fc9c389c93cb9fd624` (저장소에 저장된 LF 기준, Windows CRLF 체크아웃에서는 값이 다르게 나옴)
 - **내용**: 기상청 ASOS 현행 운영 지점 97곳의 단기예보 격자(`grid_nx`, `grid_ny`) 및 반올림 경계 근접 여부(`near_boundary`). 계산 방식은 `kma_lcc_5km_v1`(Lambert 정각원추).
 
 ## 마이그레이션 SQL 생성
