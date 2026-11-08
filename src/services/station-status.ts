@@ -71,13 +71,17 @@ export type StationStatuses = {
   soil: Record<SoilCode, Record<number, SoilWaterStatus | null>>;
 };
 
-type Deps = { createSource?: () => StatusSource; now?: () => Date };
+export type Deps = {
+  createSource?: () => StatusSource;
+  now?: () => Date;
+  stationScope?: "rep" | "active";
+};
 
-const RECENT_RUNS = 40; // 지점 10곳 × 하루 2회 × 이틀
 const RECENT_DAYS = 7;
 /** 이보다 오래된 회차는 예보로 쓰지 않는다 (관측 기준으로 돌린다). */
 const RUN_MAX_AGE_H = 36;
 const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
+const ACTIVE_STATIONS = STATIONS.filter((s) => s.isActive);
 const SPECIFIC_CROPS = ["apple", "cabbage"] as const;
 
 function code(v: string | undefined): WaterStatus | null {
@@ -86,20 +90,29 @@ function code(v: string | undefined): WaterStatus | null {
     : null;
 }
 
-function emptyBoard(ok: boolean): StationBoard {
-  const blank = <T>() =>
-    Object.fromEntries(REP_STATIONS.map((s) => [s.id, null])) as Record<
+function emptyBoard(
+  ok: boolean,
+  soilStations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
+  updatedStations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
+): StationBoard {
+  const blank = <T>(
+    stations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
+  ) =>
+    Object.fromEntries(stations.map((s) => [s.id, null])) as Record<
       number,
       T | null
     >;
   const soil = Object.fromEntries(
-    SOIL_CODES.map((c) => [c, blank<SoilStationWater>()]),
+    SOIL_CODES.map((c) => [c, blank<SoilStationWater>(soilStations)]),
   ) as Record<SoilCode, Record<number, SoilStationWater | null>>;
   return {
     ok,
-    water: { apple: blank<StationWater>(), cabbage: blank<StationWater>() },
+    water: {
+      apple: blank<StationWater>(REP_STATIONS),
+      cabbage: blank<StationWater>(REP_STATIONS),
+    },
     soil,
-    updated: blank<NonNullable<StationUpdated>>(),
+    updated: blank<NonNullable<StationUpdated>>(updatedStations),
   };
 }
 
@@ -110,14 +123,21 @@ function runHour(r: RunRefRow): "02" | "17" {
 export async function getStationBoard({
   createSource = () => createStatusSource(),
   now = () => new Date(),
+  stationScope = "rep",
 }: Deps = {}): Promise<StationBoard> {
+  const repStations = REP_STATIONS;
+  const targetStations =
+    stationScope === "active" ? ACTIVE_STATIONS : repStations;
+  const repStnIds = repStations.map((s) => String(s.id));
+  const targetStnIds = targetStations.map((s) => String(s.id));
+
   try {
     const db = createSource();
     const at = now();
     const today = koreanDate(at.toISOString());
     const since = addDays(today, -RECENT_DAYS);
     const scen = await db.defaultScenarios(Number(today.slice(0, 4)));
-    const runs = await db.recentRuns(RECENT_RUNS);
+    const runs = await db.recentRuns(repStnIds.length * 4, repStnIds);
     const latest = new Map<string, RunRefRow>(); // 지점 → 최신 회차 (runs 는 새것부터)
     for (const r of runs) {
       const fresh =
@@ -127,19 +147,18 @@ export async function getStationBoard({
     const runIds = [...latest.values()].map((r) => r.run_id);
     const ids = scen.map((s) => s.scenario_id);
     const none = Promise.resolve([]);
-    const repStnIds = REP_STATIONS.map((s) => String(s.id));
     const [sums, bal, days, weather, soilRows] = await Promise.all([
       runIds.length && ids.length ? db.summaries(runIds, ids) : none,
       ids.length ? db.recentBalance(ids, since) : none,
       runIds.length && ids.length ? db.outlookDays(runIds, ids) : none,
-      db.recentWeather(since),
-      db.latestSoilWater(repStnIds),
+      db.recentWeather(since, targetStnIds),
+      db.latestSoilWater(targetStnIds),
     ]);
     const newestFirst = <T extends { date: string }>(xs: T[]) =>
       [...xs].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-    const board = emptyBoard(true);
-    for (const s of REP_STATIONS) {
+    const board = emptyBoard(true, targetStations, targetStations);
+    for (const s of targetStations) {
       const run = latest.get(String(s.id));
       if (run?.finished_at) {
         board.updated[s.id] = { at: run.finished_at, runHour: runHour(run) };
@@ -215,7 +234,7 @@ export async function getStationBoard({
     return board;
   } catch (error) {
     console.error("[status] 지점 판정 읽기 실패:", error);
-    return emptyBoard(false);
+    return emptyBoard(false, targetStations, targetStations);
   }
 }
 
@@ -229,7 +248,10 @@ export function statusesOf(board: StationBoard): StationStatuses {
     SOIL_CODES.map((c) => [
       c,
       Object.fromEntries(
-        REP_STATIONS.map((s) => [s.id, board.soil[c][s.id]?.status ?? null]),
+        Object.entries(board.soil[c]).map(([id, val]) => [
+          Number(id),
+          val?.status ?? null,
+        ]),
       ) as Record<number, SoilWaterStatus | null>,
     ]),
   ) as Record<SoilCode, Record<number, SoilWaterStatus | null>>;

@@ -362,4 +362,63 @@ describe("종합 화면 작물 공통 (토양 물 상태)", () => {
       numbers: "사토 기준 · 남은 물 3 / 담을 수 있는 물 30 mm",
     });
   });
+
+  it("비대표 지점(홍천 212): 토양 자료가 있으면 물 카드와 갱신 줄('어제까지 관측')이 모두 정상 표출된다", () => {
+    const customBoard: StationBoard = {
+      ...BOARD,
+      soil: {
+        ...BOARD.soil,
+        loam: {
+          ...BOARD.soil.loam,
+          212: {
+            status: "fair",
+            awPct: 50,
+            drMm: 30,
+            tawMm: 60,
+            rawMm: 24,
+            observedDate: "2026-10-24",
+          },
+        },
+      },
+      updated: {
+        ...BOARD.updated,
+        212: { at: "2026-10-24T09:00:00+00:00", runHour: null }, // 18:00 KST
+      },
+    };
+
+    const v = view(212, "common", customBoard);
+    expect(v.meta).toBe(
+      "10월 24일 18:00 갱신 · 기상청 ASOS 홍천(212) · 어제까지 관측",
+    );
+    expect(v.water).toEqual({
+      verdict: "토양 속 남은 물 50%",
+      tone: "fair",
+      badge: { status: "fair", label: "보통" },
+      grayBadge: null,
+      numbers: "양토 기준 · 남은 물 30 / 담을 수 있는 물 60 mm",
+      gauge: { status: "fair", fillPct: 50, rawPct: 60 },
+    });
+  });
+
+  it("비대표 지점(홍천 212): 토양 자료가 없으면 '이 지역의 물 판정 자료가 아직 없어요'만 표출된다", () => {
+    const customBoard: StationBoard = {
+      ...BOARD,
+      soil: {
+        ...BOARD.soil,
+        loam: {
+          ...BOARD.soil.loam,
+          212: null,
+        },
+      },
+    };
+
+    const v = view(212, "common", customBoard);
+    expect(v.water).toMatchObject({
+      verdict: "자료 없음",
+      badge: null,
+      grayBadge: "자료 없음",
+      numbers: "이 지역의 물 판정 자료가 아직 없어요",
+      gauge: null,
+    });
+  });
 });

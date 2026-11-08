@@ -303,6 +303,32 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     expect(vOut.verdict).toBe("자료 없음");
   });
 
+  it("작물 공통(common)은 비대표 지점이어도 물 계산 안내 대신 일반 안내를 보여 준다", async () => {
+    const hongcheon = {
+      id: 212,
+      name: "홍천",
+      sido: "강원",
+      lat: 37.683,
+      lon: 127.88,
+      altitude: 140,
+      isRepresentative: false,
+      isActive: true,
+      hasForecast: false,
+      measuresSunlight: false,
+      sunlightMeasured: null,
+    };
+    const vOut = await getTemperatureView(
+      { stationId: 212, crop: "common" },
+      hongcheon,
+      {
+        createSource: () => source({ year: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
+    expect(vOut.verdict).toBe("자료 없음");
+  });
+
   it("DB 가 오류를 주면 '자료 없음'과 쉬운 이유, 지역 비교는 따로 보인다", async () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () =>

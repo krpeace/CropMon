@@ -424,12 +424,7 @@ async function readCommonView(
 
   if (soilRows.length === 0) {
     return {
-      ...empty(
-        meta,
-        station.isRepresentative === false
-          ? "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요"
-          : `이 지역·토양의 ${year} 물 계산 자료가 아직 없어요.`,
-      ),
+      ...empty(meta, `이 지역·토양의 ${year} 물 계산 자료가 아직 없어요.`),
       soils,
     };
   }

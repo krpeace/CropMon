@@ -368,4 +368,126 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       }
     }
   });
+
+  describe("운영 97곳 물 표시 정리 및 지점 필터링 (이슈 #98)", () => {
+    const activeStations = STATIONS.filter((s) => s.isActive);
+    const repStations = STATIONS.filter((s) => s.isRepresentative);
+
+    it("getStationBoard가 latestSoilWater, recentWeather, recentRuns 세 곳 모두에 지점 목록을 넘긴다", async () => {
+      let queriedRunsStnIds: string[] | undefined;
+      let queriedWeatherStnIds: string[] | undefined;
+      let queriedSoilStnIds: string[] | undefined;
+
+      await getStationBoard({
+        stationScope: "active",
+        createSource: () =>
+          fake({
+            recentRuns: async (limit, stnIds) => {
+              queriedRunsStnIds = stnIds;
+              expect(limit).toBe(repStations.length * 4); // 10 * 4 = 40
+              return RUNS;
+            },
+            recentWeather: async (_since, stnIds) => {
+              queriedWeatherStnIds = stnIds;
+              return [];
+            },
+            latestSoilWater: async (stnIds) => {
+              queriedSoilStnIds = stnIds;
+              return [];
+            },
+          }),
+        now: NOW,
+      });
+
+      // recentRuns는 대표 10곳
+      expect(queriedRunsStnIds).toBeDefined();
+      expect(queriedRunsStnIds?.sort()).toEqual(
+        repStations.map((s) => String(s.id)).sort(),
+      );
+
+      // recentWeather와 latestSoilWater는 운영 97곳
+      expect(queriedWeatherStnIds).toBeDefined();
+      expect(queriedWeatherStnIds).toHaveLength(97);
+      expect(queriedWeatherStnIds?.sort()).toEqual(
+        activeStations.map((s) => String(s.id)).sort(),
+      );
+
+      expect(queriedSoilStnIds).toBeDefined();
+      expect(queriedSoilStnIds).toHaveLength(97);
+      expect(queriedSoilStnIds?.sort()).toEqual(
+        activeStations.map((s) => String(s.id)).sort(),
+      );
+    });
+
+    it("대표 아닌 지점 회차가 많아도 대표 10곳 최신 회차가 밀려나지 않고 정상 수집된다", async () => {
+      let filteredStnIds: string[] | undefined;
+      let queriedLimit = 0;
+
+      await getStationBoard({
+        createSource: () =>
+          fake({
+            recentRuns: async (limit, stnIds) => {
+              queriedLimit = limit;
+              filteredStnIds = stnIds;
+              return RUNS;
+            },
+          }),
+        now: NOW,
+      });
+
+      expect(queriedLimit).toBe(40);
+      expect(filteredStnIds).toEqual(repStations.map((s) => String(s.id)));
+    });
+
+    it("stationScope: active 시 97곳의 토양수분(board.soil)과 갱신 시각(board.updated)이 모두 채워진다", async () => {
+      const mockSoilRows = activeStations.flatMap((stn) =>
+        SOIL_CODES.map((soil) => ({
+          stn_id: String(stn.id),
+          soil_code: soil,
+          date: "2026-10-25",
+          dr_mm: 15,
+          taw_mm: 60,
+          raw_mm: 24,
+          aw_pct: 75,
+          status: "fair" as const,
+        })),
+      );
+      const mockWeatherRows = activeStations.map((stn) => ({
+        stn_id: String(stn.id),
+        date: "2026-10-24",
+        fetched_at: "2026-10-24T18:00:00+09:00",
+      }));
+
+      const board = await getStationBoard({
+        stationScope: "active",
+        createSource: () =>
+          fake({
+            recentWeather: async () => mockWeatherRows,
+            latestSoilWater: async () => mockSoilRows,
+          }),
+        now: NOW,
+      });
+
+      // 1. 97곳 모두 board.soil에 키가 있고 채워져 있음
+      for (const soil of SOIL_CODES) {
+        expect(Object.keys(board.soil[soil])).toHaveLength(97);
+        for (const stn of activeStations) {
+          expect(board.soil[soil][stn.id]?.status).toBe("fair");
+        }
+      }
+
+      // 2. 97곳 모두 board.updated에 채워져 있음 (비대표 지점은 runHour: null)
+      expect(Object.keys(board.updated)).toHaveLength(97);
+      const nonRepStation = activeStations.find((s) => !s.isRepresentative)!;
+      expect(board.updated[nonRepStation.id]).toEqual({
+        at: "2026-10-24T18:00:00+09:00",
+        runHour: null,
+      });
+
+      // 3. statusesOf 결과도 97곳을 모두 포함
+      const statuses = statusesOf(board);
+      expect(Object.keys(statuses.soil.loam)).toHaveLength(97);
+      expect(statuses.soil.loam[nonRepStation.id]).toBe("fair");
+    });
+  });
 });

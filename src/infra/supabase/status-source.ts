@@ -62,8 +62,8 @@ export type SoilWaterStatusRow = {
 
 export type StatusSource = {
   defaultScenarios(year: number): Promise<DefaultScenarioRow[]>;
-  /** 서버 수집 중 실패가 아닌 최근 회차들 (모든 지점), 새것부터. */
-  recentRuns(limit: number): Promise<RunRefRow[]>;
+  /** 서버 수집 중 실패가 아닌 최근 회차들 (stnIds 지정 시 해당 지점들만), 새것부터. */
+  recentRuns(limit: number, stnIds?: string[]): Promise<RunRefRow[]>;
   summaries(
     runIds: number[],
     scenarioIds: string[],
@@ -78,13 +78,14 @@ export type StatusSource = {
     runIds: number[],
     scenarioIds: string[],
   ): Promise<OutlookDayRow[]>;
-  /** since 이후 지점별 ASOS 관측 받은 시각 (예보가 없는 지점의 갱신 시각). */
-  recentWeather(since: string): Promise<WeatherFetchRow[]>;
-  /** 지정한 지점들의 작물 공통 최신 토양 물 상태 (soil_water_latest 뷰, 지점·토성별 최신 1줄). */
+  /** since 이후 지점별 ASOS 관측 받은 시각 (stnIds 지정 시 해당 지점들만). 1,000줄 넘으면 range 페이징. */
+  recentWeather(since: string, stnIds?: string[]): Promise<WeatherFetchRow[]>;
+  /** 지정한 지점들의 작물 공통 최신 토양 물 상태 (soil_water_latest 뷰, 지점·토성별 최신 1줄). 1,000줄 넘으면 range 페이징. */
   latestSoilWater(stnIds: string[]): Promise<SoilWaterStatusRow[]>;
 };
 
 const TIMEOUT_MS = 8000;
+const PAGE_SIZE = 1000;
 type Result<T> = { data: T | null; error: { message: string } | null };
 
 const NUMERIC = ["raw_mm", "taw_mm", "dr_start_mm", "dr_mm", "aw_pct"];
@@ -125,19 +126,25 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    recentRuns: (limit) =>
-      read<RunRefRow[]>(
+    recentRuns: (limit, stnIds) => {
+      if (stnIds && stnIds.length === 0) return Promise.resolve([]);
+      let q = client
+        .from("forecast_runs")
+        .select("run_id,stn_id,run_at,run_name,finished_at")
+        .eq("collector", "actions")
+        .neq("result", "실패");
+      if (stnIds && stnIds.length > 0) {
+        q = q.in("stn_id", stnIds);
+      }
+      return read<RunRefRow[]>(
         "forecast_runs",
-        client
-          .from("forecast_runs")
-          .select("run_id,stn_id,run_at,run_name,finished_at")
-          .eq("collector", "actions")
-          .neq("result", "실패")
+        q
           .order("run_at", { ascending: false })
           .limit(limit)
           .retry(false)
           .abortSignal(signal()),
-      ),
+      );
+    },
     summaries: (runIds, scenarioIds) =>
       read<SummaryStatusRow[]>(
         "water_outlook_summary",
@@ -174,28 +181,85 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    recentWeather: (since) =>
-      read<WeatherFetchRow[]>(
-        "weather_daily",
-        client
+    recentWeather: async (since, stnIds) => {
+      if (stnIds && stnIds.length === 0) return [];
+      const makeQuery = () => {
+        let q = client
           .from("weather_daily")
           .select("stn_id,date,fetched_at")
-          .gte("date", since)
-          .order("date", { ascending: false })
-          .retry(false)
-          .abortSignal(signal()),
-      ),
-    latestSoilWater: (stnIds) => {
-      if (stnIds.length === 0) return Promise.resolve([]);
-      return read<SoilWaterStatusRow[]>(
-        "soil_water_latest",
-        client
+          .gte("date", since);
+        if (stnIds && stnIds.length > 0) {
+          q = q.in("stn_id", stnIds);
+        }
+        return q;
+      };
+      const initial = makeQuery();
+      const supportsRange =
+        typeof (initial as unknown as { range?: unknown }).range === "function";
+      if (!supportsRange) {
+        return read<WeatherFetchRow[]>(
+          "weather_daily",
+          initial
+            .order("date", { ascending: false })
+            .retry(false)
+            .abortSignal(signal()),
+        );
+      }
+      const all: WeatherFetchRow[] = [];
+      let from = 0;
+      while (true) {
+        const batch = await read<WeatherFetchRow[]>(
+          "weather_daily",
+          makeQuery()
+            .order("stn_id", { ascending: true })
+            .order("date", { ascending: false })
+            .range(from, from + PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(signal()),
+        );
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return all;
+    },
+    latestSoilWater: async (stnIds) => {
+      if (stnIds && stnIds.length === 0) return [];
+      const makeQuery = () => {
+        let q = client
           .from("soil_water_latest")
-          .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")
-          .in("stn_id", stnIds)
-          .retry(false)
-          .abortSignal(signal()),
-      );
+          .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status");
+        if (stnIds && stnIds.length > 0) {
+          q = q.in("stn_id", stnIds);
+        }
+        return q;
+      };
+      const initial = makeQuery();
+      const supportsRange =
+        typeof (initial as unknown as { range?: unknown }).range === "function";
+      if (!supportsRange) {
+        return read<SoilWaterStatusRow[]>(
+          "soil_water_latest",
+          initial.retry(false).abortSignal(signal()),
+        );
+      }
+      const all: SoilWaterStatusRow[] = [];
+      let from = 0;
+      while (true) {
+        const batch = await read<SoilWaterStatusRow[]>(
+          "soil_water_latest",
+          makeQuery()
+            .order("stn_id", { ascending: true })
+            .order("soil_code", { ascending: true })
+            .range(from, from + PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(signal()),
+        );
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return all;
     },
   };
 }

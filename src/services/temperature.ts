@@ -139,7 +139,7 @@ async function readMain(
       return {
         ...EMPTY,
         problem:
-          station.isRepresentative === false
+          station.isRepresentative === false && cropId !== "common"
             ? "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요"
             : `이 지역·작물의 ${year} 적산온도가 아직 없어요.`,
       };
