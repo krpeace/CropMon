@@ -5,7 +5,7 @@
 ## 현재 버전: v1.9 (2026-11-08)
 
 - **v1.9:** 작물 공통 토양 물 상태(`soil_water_daily`)의 지점·토성별 최신 1줄을 돌려주는 뷰 `soil_water_latest`를 더했습니다 (`supabase/migrations/20261108010000_data_contract_v1_9.sql`, 이슈 #82). 한국 기준 최근 7일 이내(`date >= ((now() at time zone 'Asia/Seoul')::date - 7)`)의 지점·토성별 최신 1줄만 돌려주며, 전 지점 확대(croplib-dp #28 S2) 때 1,000줄 제한 절단으로 인한 지점 누락을 막고 화면 읽기량을 줄입니다. 정렬 가속을 위한 복합 색인 `(stn_id, soil_code, date desc)`도 함께 더했습니다.
-- **v1.8:** 적산온도(`heat_daily`)·적산일사(`sun_daily`)에 올린 시각 `updated_at`을 더했습니다. 온도·햇빛 화면의 "마지막 갱신 시각"은 이 열의 지점별 가장 늦은 값(매일 09:20 KST `heat-sun`이 올린 시각)을 보여 줍니다. croplib-dp는 고치지 않아도 됩니다. 줄을 고쳐 쓸 때(upsert 포함) DB의 트리거가 `updated_at`을 지금으로 바꿉니다 (`supabase/migrations/20261108000000_data_contract_v1_8.sql`, 결정 0035). 물 화면은 그대로 물 회차 시각을 씁니다.
+- **v1.8:** 적산온도(`heat_daily`)·적산일사(`sun_daily`)에 올린 시각 `updated_at`을 더했습니다. 온도·햇빛 화면의 "마지막 갱신 시각"은 이 열의 지점별 가장 늦은 값(매일 09:20 KST `heat-sun`이 올린 시각)을 보여 줍니다. croplib-dp는 고치지 않아도 됩니다. 줄을 고쳐 쓸 때(upsert 포함) DB의 트리거가 `updated_at`을 지금으로 바꿉니다 (`supabase/migrations/20261108000000_data_contract_v1_8.sql`, 결정 0035). 물 화면은 그대로 물 회차 시각을 씁니다. 관측 일자료(`weather_daily`)에는 일사 산출 출처(`rs_source`) 칸을 더했습니다 (`supabase/migrations/20261108030000_weather_daily_rs_source.sql`, croplib-dp #28 C7, #76 선행). ETo 계산에 쓴 일사가 관측(`observed`), 일조시간 추정(`sunshine`), 기온차 추정(`temp_range`) 중 무엇인지 남기며, 비어 있으면 일사 없음입니다.
 
 - 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.4 적산온도 `heat_daily`·적산일사 `sun_daily` + v1.5 작물 공통 토양 물 상태 `soil_water_daily`)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블).
 - 회원제 개인 테이블(내 농장, 관수 기록, 농장별 보정값)은 1/1 회원 공개에 맞춰 v2로 더합니다.
@@ -81,7 +81,7 @@
 
 ## 테이블별 열
 
-만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다.
+만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다. `weather_daily`의 `rs_source` 열은 `20261108030000_weather_daily_rs_source.sql`이 더합니다.
 
 ### `public.stations`
 
@@ -294,19 +294,20 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 
 지점별 일 관측값과 ETo입니다. 키는 지점 × 날짜(`stn_id`, `date`)입니다.
 
-| 열                           | 형식          | 뜻                                   |
-| ---------------------------- | ------------- | ------------------------------------ |
-| `tmax_c`, `tmin_c`, `tavg_c` | 수, 비어도 됨 | 기온 (°C), −40~50                    |
-| `rh_mean_pct`, `rh_min_pct`  | 수, 비어도 됨 | 상대습도 (%), 0~100                  |
-| `wind_ms`                    | 수, 비어도 됨 | 평균 풍속 (m/s), 풍속계 높이 기준    |
-| `u2_ms`                      | 수, 비어도 됨 | 2 m 풍속으로 환산 (m/s)              |
-| `sunshine_h`                 | 수, 비어도 됨 | 일조시간 (h), 0~15                   |
-| `rs_mj`                      | 수, 비어도 됨 | 일사량 (MJ/m²), 0~40                 |
-| `rain_mm`                    | 수, 비어도 됨 | 강수량 (mm), 0~500                   |
-| `eto_mm`                     | 수, 비어도 됨 | 기준 증발산량 (mm), 0~15             |
-| `filled`                     | 참/거짓       | 결측을 채운 날 (앞 7일 평균, 강수 0) |
-| `fetched_at`                 | 시각          | 받은 시각                            |
-| `calc_version`               | 문자          | 계산 버전                            |
+| 열                           | 형식            | 뜻                                                                                                            |
+| ---------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `tmax_c`, `tmin_c`, `tavg_c` | 수, 비어도 됨   | 기온 (°C), −40~50                                                                                             |
+| `rh_mean_pct`, `rh_min_pct`  | 수, 비어도 됨   | 상대습도 (%), 0~100                                                                                           |
+| `wind_ms`                    | 수, 비어도 됨   | 평균 풍속 (m/s), 풍속계 높이 기준                                                                             |
+| `u2_ms`                      | 수, 비어도 됨   | 2 m 풍속으로 환산 (m/s)                                                                                       |
+| `sunshine_h`                 | 수, 비어도 됨   | 일조시간 (h), 0~15                                                                                            |
+| `rs_mj`                      | 수, 비어도 됨   | 일사량 (MJ/m²), 0~40                                                                                          |
+| `rs_source`                  | 문자, 비어도 됨 | 일사 산출 출처: `observed`(관측), `sunshine`(일조시간 추정), `temp_range`(기온차 추정). 비어 있으면 일사 없음 |
+| `rain_mm`                    | 수, 비어도 됨   | 강수량 (mm), 0~500                                                                                            |
+| `eto_mm`                     | 수, 비어도 됨   | 기준 증발산량 (mm), 0~15                                                                                      |
+| `filled`                     | 참/거짓         | 결측을 채운 날 (앞 7일 평균, 강수 0)                                                                          |
+| `fetched_at`                 | 시각            | 받은 시각                                                                                                     |
+| `calc_version`               | 문자            | 계산 버전                                                                                                     |
 
 ### `public.water_balance_daily`
 

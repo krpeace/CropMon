@@ -10,6 +10,12 @@
 - `getStationBoard`가 7일치 전체(1,000줄 제한) 대신 대표 10곳의 최신 1줄(120줄, 약 0.015MB)만 직접 조회하도록 변경 (`status-source.ts`, `station-status.ts`)
 - 전 지점 확대(croplib-dp #28 S2) 시 1,000줄 초과로 인한 지점 데이터 누락 장애를 예방하고, 토양수분 1회 읽기량 91% 절감
 
+### 추가 (관측 일자료 일사 산출 출처 열 추가 — 이슈 #93)
+
+- `weather_daily`에 일사 산출 출처를 기록하는 `rs_source text null` 열 추가 (`supabase/migrations/20261108030000_weather_daily_rs_source.sql`, croplib-dp #28 C7, #76 선행)
+- 허용 값: `observed`(관측), `sunshine`(일조시간 추정), `temp_range`(기온차 추정), 없을 때 `null` (`check (rs_source is null or rs_source in ('observed', 'sunshine', 'temp_range'))`)
+- 데이터 계약 `docs/DATA_CONTRACT.md` 갱신
+
 ### 수정 (CI gitleaks 설치 안정성 — 이슈 #87)
 
 - GitHub Releases 일시 장애(504 등) 대응을 위해 curl 다운로드에 `-f --retry 3 --retry-delay 5` 및 `gh release download` 대체 경로 추가

@@ -394,4 +394,22 @@ describe("데이터 계약과 마이그레이션", () => {
   it("서버 키는 이 저장소 문서에 쓰지 않는다", () => {
     expect(CONTRACT.toLowerCase()).not.toMatch(/eyj[a-z0-9_-]{20,}/);
   });
+
+  describe("public.weather_daily 일사 출처 (rs_source)", () => {
+    it("rs_source 열이 추가되고 허용값은 null 또는 observed, sunshine, temp_range 이다", () => {
+      expect(SQL).toMatch(
+        /alter table public\.weather_daily\s+add column if not exists rs_source text null/,
+      );
+      expect(SQL).toMatch(
+        /check\s*\(\s*rs_source is null or rs_source in \('observed',\s*'sunshine',\s*'temp_range'\)\s*\)/,
+      );
+    });
+
+    it("계약서 weather_daily 표에 rs_source 가 적혀 있다", () => {
+      const section = CONTRACT.split("### `public.weather_daily`")[1].split(
+        "### `public.",
+      )[0];
+      expect(section).toContain("`rs_source`");
+    });
+  });
 });
