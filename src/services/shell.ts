@@ -74,6 +74,22 @@ export function getStation(id: number): Station | null {
   return found ? toStation(found) : null;
 }
 
+/**
+ * 폐지·휴지 지점(isActive=false인 8곳) 안내 문구 (결정 0037).
+ * from 값이 지점 사전에 있고 isActive: false인 8곳일 때만 사전에서 이름을 가져와 표시한다.
+ * 그 외의 값(사전에 없거나, 운영 지점이거나, 숫자가 아닌 경우)은 null 을 돌려준다.
+ */
+export function inactiveStationNotice(
+  from: string | number | null | undefined,
+): string | null {
+  if (from == null) return null;
+  const id = typeof from === "number" ? from : Number(from);
+  if (!Number.isInteger(id)) return null;
+  const found = STATIONS.find((s) => s.id === id && !s.isActive);
+  if (!found) return null;
+  return `${found.name}(${found.id})은 관측이 중단된 지점이라 기본 지점을 보여 드려요`;
+}
+
 type Statuses = {
   apple: Partial<Record<number, WaterStatus | null>>;
   cabbage: Partial<Record<number, WaterStatus | null>>;

@@ -22,6 +22,7 @@ import {
 import { WATER_STATUS_LABEL, type WaterStatus } from "@/domain/water-status";
 import {
   getStation,
+  inactiveStationNotice,
   listRegionPicker,
   listStationChips,
   STATION_ENTRIES,
@@ -86,25 +87,29 @@ function cropInfo(
  */
 export function SiteHeader({ statuses }: { statuses: StationStatuses | null }) {
   const params = useSearchParams();
+  const notice = inactiveStationNotice(params.get("from"));
   return (
     <SiteHeaderView
       selection={parseSelection(params, STATION_ENTRIES)}
       statuses={statuses}
+      notice={notice}
     />
   );
 }
 
 /** 주소창·판정을 읽기 전(첫 화면)에 보이는 헤더. 아무 지역도 고르지 않은 모양. */
 export function SiteHeaderFallback() {
-  return <SiteHeaderView selection={null} statuses={null} />;
+  return <SiteHeaderView selection={null} statuses={null} notice={null} />;
 }
 
 function SiteHeaderView({
   selection,
   statuses,
+  notice,
 }: {
   selection: Selection | null;
   statuses: StationStatuses | null;
+  notice: string | null;
 }) {
   const pathname = usePathname();
   const { open } = useSheet();
@@ -112,6 +117,15 @@ function SiteHeaderView({
   return (
     <>
       <header className="glass border-ink-2/15 bg-card/88 sticky top-0 z-20 border-b-(length:--hairline)">
+        {notice && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="border-ink-2/12 bg-tile text-13 desktop:text-14 text-ink-2/95 border-b-(length:--hairline) px-(--page-gutter) py-2 text-center font-medium"
+          >
+            {notice}
+          </div>
+        )}
         <div className="desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
           <Link
             href={withSelection("/", selection)}

@@ -4,6 +4,7 @@ import {
   getComingSoon,
   getPageMeta,
   getStation,
+  inactiveStationNotice,
   listRegionPicker,
   listStationChips,
   STATION_IDS,
@@ -69,6 +70,32 @@ describe("getStation", () => {
       measuresSunlight: false,
       sunlightMeasured: null,
     });
+  });
+
+  it("폐지·휴지 지점 안내: 116 관악산, 175 진도(첨찰산) (결정 0037)", () => {
+    expect(inactiveStationNotice(116)).toBe(
+      "관악산(116)은 관측이 중단된 지점이라 기본 지점을 보여 드려요",
+    );
+    expect(inactiveStationNotice("116")).toBe(
+      "관악산(116)은 관측이 중단된 지점이라 기본 지점을 보여 드려요",
+    );
+    expect(inactiveStationNotice(175)).toBe(
+      "진도(첨찰산)(175)은 관측이 중단된 지점이라 기본 지점을 보여 드려요",
+    );
+    expect(inactiveStationNotice("175")).toBe(
+      "진도(첨찰산)(175)은 관측이 중단된 지점이라 기본 지점을 보여 드려요",
+    );
+  });
+
+  it("사전에 없는 번호(from=999), 운영 지점(from=108 서울), 숫자가 아닌 값(from=abc)은 무시된다", () => {
+    expect(inactiveStationNotice("abc")).toBeNull();
+    expect(inactiveStationNotice("999")).toBeNull();
+    expect(inactiveStationNotice(999)).toBeNull();
+    expect(inactiveStationNotice("108")).toBeNull();
+    expect(inactiveStationNotice(108)).toBeNull();
+    expect(inactiveStationNotice(101)).toBeNull();
+    expect(inactiveStationNotice(null)).toBeNull();
+    expect(inactiveStationNotice(undefined)).toBeNull();
   });
 });
 
