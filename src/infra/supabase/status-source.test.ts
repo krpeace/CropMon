@@ -44,7 +44,7 @@ describe("status-source", () => {
     await db.recentRuns(40);
     await db.summaries([9], ["a", "b"]);
     await db.recentBalance(["a"], "2026-10-18");
-    await db.recentSoilWater("2026-10-18");
+    await db.latestSoilWater(["101"]);
     expect(calls).toEqual([
       "from(scenarios)",
       'select("scenario_id,stn_id,crop_id,raw_mm,taw_mm,season_start,season_end")',
@@ -65,11 +65,9 @@ describe("status-source", () => {
       'in("scenario_id",["a"])',
       'gte("date","2026-10-18")',
       'order("date",{"ascending":false})',
-      "from(soil_water_daily)",
+      "from(soil_water_latest)",
       'select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")',
-      'gte("date","2026-10-18")',
-      'order("date",{"ascending":false})',
-      "limit(1000)",
+      'in("stn_id",["101"])',
     ]);
   });
 
@@ -79,5 +77,13 @@ describe("status-source", () => {
         fakeClient({ data: null, error: { message: "denied" } }).client,
       ).recentRuns(4),
     ).rejects.toThrow("forecast_runs 읽기 실패: denied");
+  });
+
+  it("지점 목록이 비어 있으면 DB를 부르지 않고 빈 배열을 돌려준다", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    const db = createStatusSource(client);
+    const rows = await db.latestSoilWater([]);
+    expect(rows).toEqual([]);
+    expect(calls).toEqual([]);
   });
 });
