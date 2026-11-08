@@ -59,7 +59,6 @@ export type SoilWaterStatusRow = {
   aw_pct: number | null;
   status: string | null;
 };
-export type ObservedRow = { date: string; fetched_at: string };
 
 export type StatusSource = {
   defaultScenarios(year: number): Promise<DefaultScenarioRow[]>;
@@ -83,8 +82,6 @@ export type StatusSource = {
   recentWeather(since: string): Promise<WeatherFetchRow[]>;
   /** since 이후 지점·토성별 작물 공통 토양 물 상태 (새것부터). */
   recentSoilWater(since: string): Promise<SoilWaterStatusRow[]>;
-  /** 이 지점의 마지막 ASOS 관측일과 받은 시각. 없으면 null. */
-  lastObserved(stnId: string): Promise<ObservedRow | null>;
 };
 
 const TIMEOUT_MS = 8000;
@@ -200,19 +197,5 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    lastObserved: async (stnId) => {
-      const rows = await read<ObservedRow[]>(
-        "weather_daily",
-        client
-          .from("weather_daily")
-          .select("date,fetched_at")
-          .eq("stn_id", stnId)
-          .order("date", { ascending: false })
-          .limit(1)
-          .retry(false)
-          .abortSignal(signal()),
-      );
-      return rows[0] ?? null;
-    },
   };
 }

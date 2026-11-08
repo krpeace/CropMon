@@ -1,4 +1,3 @@
-import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 
 import { parseSelection, withSelection } from "@/domain/selection";
@@ -9,7 +8,6 @@ import {
   STATION_ENTRIES,
   type PageKey,
 } from "@/services/shell";
-import { getObserved } from "@/services/station-status";
 
 import { ComingSoon } from "./ComingSoon";
 import { MetaBox } from "./MetaBox";
@@ -40,7 +38,7 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
   const selection = parseSelection(await searchParams, STATION_ENTRIES);
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page={page} meta={null} />;
-  // 토양·도매시장·내 농장은 관측 시각이 필요 없다 (온도·햇빛은 각 보드가 cachedObserved 를 쓴다)
+  // 토양·도매시장·내 농장은 계산 시각이 필요 없다 (온도·햇빛은 각 보드가 view.updatedAt 으로 만든다)
   const meta = getPageMeta(page, station, null);
 
   return (
@@ -56,11 +54,4 @@ async function ResolvedShellPage({ page, searchParams }: Props) {
       <MetaBox meta={meta} />
     </>
   );
-}
-
-/** 그 지점의 마지막 ASOS 관측 받은 시각. 하루 두 번 바뀌므로 5분 동안 같은 값을 쓴다. */
-export async function cachedObserved(stationId: number) {
-  "use cache";
-  cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
-  return getObserved(stationId);
 }

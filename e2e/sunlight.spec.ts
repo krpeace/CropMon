@@ -25,6 +25,10 @@ test("햇빛: 평년 대비 %·적산일사·설명·평년 기간이 DB 값으�
   const meta = page.getByRole("region", { name: "자료 정보" });
   await expect(meta).toContainText("기상청 ASOS 춘천(101) 일사 관측");
   await expect(meta).toContainText("평년 2016–2025");
+  // 갱신 시각 = sun_daily 마지막 계산 시각(09:20). 관측 받은 시각(02:20)이 아니다.
+  await expect(meta).toContainText("09:20");
+  await expect(meta).toContainText("일까지 관측");
+  await expect(meta).not.toContainText("02:20");
 });
 
 test("햇빛: 누적 그래프(올해·평년·오늘)와 월별 막대 %(95% 미만은 주황)", async ({

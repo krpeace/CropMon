@@ -308,6 +308,8 @@ const HEAT = {
   189: [2900, 2750, 7],
 };
 const yesterday = add(today, -1);
+// heat-sun 이 매일 09:20(KST)에 올리는 시각 = 00:20Z (계약 v1.8). weather_daily 의 받은 시각(02:20)과 일부러 다르게 둔다.
+const HEAT_SUN_UPDATED_AT = `${today}T00:20:05.000Z`;
 const yearDays = [];
 for (let d = `${year}-01-01`; d <= `${year}-12-31`; d = add(d, 1)) {
   yearDays.push(d);
@@ -342,6 +344,7 @@ for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
         normal_to: 2025,
         filled: false,
         calc_version: "fake",
+        updated_at: HEAT_SUN_UPDATED_AT,
       });
     });
   }
@@ -393,6 +396,7 @@ for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
       normal_to: 2025,
       filled: false,
       calc_version: "fake",
+      updated_at: HEAT_SUN_UPDATED_AT,
     });
   });
 }

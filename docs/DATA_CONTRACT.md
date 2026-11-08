@@ -2,7 +2,9 @@
 
 계산 저장소(croplib-dp, Python)가 Supabase에 올리는 자료와, 이 웹이 읽는 자료의 약속입니다. 테이블을 바꾸면 이 문서와 `supabase/migrations/`를 같은 PR에서 고치고 버전을 올립니다. `src/infra/supabase/contract.test.ts`가 이 문서의 테이블 목록과 마이그레이션이 같은지 자동으로 검사합니다.
 
-## 현재 버전: v1.7 (2026-10-30)
+## 현재 버전: v1.8 (2026-11-08)
+
+- **v1.8:** 적산온도(`heat_daily`)·적산일사(`sun_daily`)에 올린 시각 `updated_at`을 더했습니다. 온도·햇빛 화면의 "마지막 갱신 시각"은 이 열의 지점별 가장 늦은 값(매일 09:20 KST `heat-sun`이 올린 시각)을 보여 줍니다. croplib-dp는 고치지 않아도 됩니다. 줄을 고쳐 쓸 때(upsert 포함) DB의 트리거가 `updated_at`을 지금으로 바꿉니다 (`supabase/migrations/20261108000000_data_contract_v1_8.sql`, 결정 0035). 물 화면은 그대로 물 회차 시각을 씁니다.
 
 - 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.4 적산온도 `heat_daily`·적산일사 `sun_daily` + v1.5 작물 공통 토양 물 상태 `soil_water_daily`)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블).
 - 회원제 개인 테이블(내 농장, 관수 기록, 농장별 보정값)은 1/1 회원 공개에 맞춰 v2로 더합니다.
@@ -78,7 +80,7 @@
 
 ## 테이블별 열
 
-만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다.
+만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다.
 
 ### `public.stations`
 
@@ -379,6 +381,7 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 | `normal_from`, `normal_to`         | 정수            | 평년 기간 (2016, 2025)                                                                                                                                     |
 | `filled`                           | 참/거짓         | 기온 결측을 채운 날                                                                                                                                        |
 | `calc_version`                     | 문자            | 계산 버전                                                                                                                                                  |
+| `updated_at`                       | 시각            | 올린 시각 (v1.8). 줄을 고쳐 쓰면 DB 트리거가 지금으로 바꿈. 화면은 지점별 가장 늦은 값을 "마지막 갱신 시각"으로 보여 줌                                    |
 
 ### `public.sun_daily`
 
@@ -391,6 +394,7 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 | `normal_from`, `normal_to`             | 정수          | 평년 기간 (2016, 2025)                               |
 | `filled`                               | 참/거짓       | 일사 결측을 채운 날                                  |
 | `calc_version`                         | 문자          | 계산 버전                                            |
+| `updated_at`                           | 시각          | 올린 시각 (v1.8). `heat_daily`와 같음                |
 
 ### `public.soil_water_daily`
 
@@ -431,6 +435,7 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 
 | 버전 | 날짜       | 내용                                                                                                                                                                    |
 | ---- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.8 | 2026-11-08 | `heat_daily`·`sun_daily`에 올린 시각 `updated_at`(not null, 기본 now()) 및 고쳐 쓸 때 갱신하는 트리거 추가. 온도·햇빛 화면 갱신 시각이 이 값을 씀 (결정 0035)           |
 | v1.7 | 2026-10-30 | (구조 그대로, 사전 값만) 작물 공통(`common`) `gdd_stages`를 [1000, 2000] → [500, 1000, 1500, 2000, 2500, 3000]으로 (결정 0032). 화면은 `lead_days`를 더 이상 쓰지 않음  |
 | v1.6 | 2026-10-28 | 지점 사전(`stations`) 기상청 ASOS 105곳(현행 97곳 + 폐지·휴지 8곳) 현행화 및 `sido`·`is_representative`·`is_active`·`measures_sunlight`·`synced_at` 열 추가 (#38)       |
 | v1.5 | 2026-10-28 | 작물 공통 토양 물 상태 표 `soil_water_daily` 추가, `soil_types`에 `is_estimated` 열 및 추정 3종(사질식양토·식양토·사질식토) 값 추가, `crops`에 적산온도용 `common` 추가 |

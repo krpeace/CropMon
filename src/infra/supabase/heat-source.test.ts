@@ -133,6 +133,28 @@ describe("heat-source", () => {
     ]);
   });
 
+  it("마지막 계산 시각: 그 지점 줄 중 가장 늦은 updated_at 한 줄 (v1.8)", async () => {
+    const { client, calls } = fakeClient({
+      data: [{ updated_at: "2026-11-08T00:20:05.123+00:00" }],
+      error: null,
+    });
+    expect(await createHeatSource(client).lastUpdated("101")).toBe(
+      "2026-11-08T00:20:05.123+00:00",
+    );
+    expect(calls).toEqual([
+      "from(heat_daily)",
+      `select(${JSON.stringify(COLUMNS.updated)})`,
+      'eq("stn_id","101")',
+      'order("updated_at",{"ascending":false})',
+      "limit(1)",
+    ]);
+  });
+
+  it("줄이 없으면 마지막 계산 시각은 null", async () => {
+    const { client } = fakeClient({ data: [], error: null });
+    expect(await createHeatSource(client).lastUpdated("101")).toBeNull();
+  });
+
   it("작물 사전의 적산온도 단계", async () => {
     const { client, calls } = fakeClient({
       data: { gdd_stages: [500, 1000] },

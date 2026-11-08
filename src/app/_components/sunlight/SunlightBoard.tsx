@@ -7,7 +7,6 @@ import { getSunlightView } from "@/services/sunlight";
 
 import { MetaBox } from "../shell/MetaBox";
 import { PageHead } from "../shell/PageHead";
-import { cachedObserved } from "../shell/ShellPage";
 import { HeatChartCard } from "../temperature/HeatChartCard";
 import { Grid } from "../ui/Grid";
 import {
@@ -39,12 +38,16 @@ async function ResolvedSunlightBoard({ searchParams }: Props) {
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page="sunlight" meta={null} />;
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
-  const [view, observed] = await Promise.all([
-    getSunlightView(selection, station),
-    station.measuresSunlight ? cachedObserved(station.id) : null,
-  ]);
-  // 자료 상자는 공통 틀과 같은 값(measuresSunlight 기준, 정리는 별도 이슈). 평년 기간만 DB 값으로 붙인다.
-  const base = getPageMeta("sunlight", station, observed);
+  const view = await getSunlightView(selection, station);
+  // 자료 상자의 갱신 시각 = sun_daily 마지막 계산 시각(매일 09:20 heat-sun).
+  // 일사를 재는지는 아직 사전(measuresSunlight) 기준이다 (DB 기준으로 고치는 것은 별도 이슈). 평년 기간은 DB 값으로 붙인다.
+  const base = getPageMeta(
+    "sunlight",
+    station,
+    view.updatedAt
+      ? { date: view.observedDate, updatedAt: view.updatedAt }
+      : null,
+  );
   const meta =
     station.measuresSunlight && view.normalPeriod
       ? { ...base, source: `${base.source} · 평년 ${view.normalPeriod}` }

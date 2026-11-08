@@ -54,6 +54,8 @@ const latest = (
 function source(over: Partial<SunSource> = {}): SunSource {
   return {
     year: async () => yearRows(),
+    // heat-sun 이 매일 09:20(KST)에 올리는 시각 = 00:20Z (계약 v1.8)
+    lastUpdated: async () => "2026-10-25T00:20:05.123+00:00",
     onDate: async () => [
       latest("101", "2026-10-24", 3218, 3352),
       latest("216", "2026-10-24", 3500, 3333),
@@ -89,6 +91,23 @@ describe("getSunlightView — 정상", () => {
       "평년보다 조금 많았어요. 3월이 가장 적었어요 (평년의 80%).",
     );
     expect(v.normalPeriod).toBe("2016–2025");
+  });
+
+  it("마지막 계산 시각(sun_daily 올린 시각)과 마지막 관측일을 함께 준다", async () => {
+    const v = await getSunlightView(SEL, CHUNCHEON, opts());
+    expect(v.updatedAt).toBe("2026-10-25T00:20:05.123+00:00");
+    expect(v.observedDate).toBe("2026-10-24");
+  });
+
+  it("계산 시각만 읽지 못하면 그 값만 null 이고 화면 자료는 그대로다", async () => {
+    const v = await getSunlightView(
+      SEL,
+      CHUNCHEON,
+      opts({ lastUpdated: async () => Promise.reject(new Error("x")) }),
+    );
+    expect(v.kind).toBe("data");
+    expect(v.updatedAt).toBeNull();
+    expect(v.observedDate).toBe("2026-10-24");
   });
 
   it("월별: 1월 ~ 마지막 관측 달, 막대 위 %, 95% 미만 표시, 마지막 달 설명", async () => {
@@ -138,6 +157,8 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
       opts({ year: async () => [] }),
     );
     expect(v.kind).toBe("notMeasured");
+    expect(v.updatedAt).toBeNull();
+    expect(v.observedDate).toBeNull();
     expect(v.problem).toBeNull();
     expect(v.compare).toHaveLength(10);
   });

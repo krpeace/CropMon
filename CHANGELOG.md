@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 변경 (온도·햇빛 갱신 시각 — 데이터 계약 v1.8)
+
+- 온도·햇빛 화면 자료 상자의 갱신 시각을 ASOS 관측을 받은 시각이 아니라 `heat_daily`·`sun_daily`를 마지막으로 올린 시각(매일 09:20 `heat-sun`)으로 바꿈. 지점별 가장 늦은 `updated_at`. 물 화면은 그대로
+- `heat_daily`·`sun_daily`에 `updated_at timestamptz not null default now()`와 고쳐 쓸 때 시각을 바꾸는 트리거 추가 (`20261108000000_data_contract_v1_8.sql`). croplib-dp 수정 없음
+- 쓸 곳이 없어진 `getObserved`·`cachedObserved`·`lastObserved` 정리
+- 결정 0035, `docs/DATA_CONTRACT.md` v1.8
+
 ### 변경 (Supabase 서울 리전 이전)
 
 - Supabase 프로젝트를 시드니(ap-southeast-2)에서 서울(ap-northeast-2)로 옮김 (2026-11-02). Vercel 함수(icn1)와 같은 리전이 되어 화면이 빨라짐. 코드·DB 구조 변경 없음

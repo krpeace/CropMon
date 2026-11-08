@@ -99,10 +99,12 @@ test("지역 칩 점은 DB 의 오늘 물 판정, 없으면 '자료 없음'", as
   ).toBeVisible();
 });
 
-test("온도 화면 자료 상자는 ASOS 관측을 받은 실제 시각", async ({ page }) => {
+test("온도 화면 자료 상자는 heat_daily 마지막 계산 시각(09:20)", async ({
+  page,
+}) => {
   await page.goto("/temperature?st=101&crop=apple");
   const meta = page.getByRole("region", { name: "자료 정보" });
-  await expect(meta).toContainText("02:20");
+  await expect(meta).toContainText("09:20");
   await expect(meta).toContainText("일까지 관측");
   await page.goto("/temperature?st=216&crop=apple");
   await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(

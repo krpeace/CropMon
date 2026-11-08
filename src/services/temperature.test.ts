@@ -54,6 +54,8 @@ function source(over: Partial<HeatSource> = {}): HeatSource {
   return {
     year: async () => yearRows(),
     stages: async () => [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000],
+    // heat-sun 이 매일 09:20(KST)에 올리는 시각 = 00:20Z (계약 v1.8)
+    lastUpdated: async () => "2026-10-25T00:20:05.123+00:00",
     onDate: async () => [
       latest("101", "2026-10-24", 4180, 4000),
       latest("119", "2026-10-24", 3950, 4000),
@@ -90,6 +92,26 @@ describe("getTemperatureView — 정상", () => {
     });
     expect(v.baseTemp).toBe(4);
     expect(v.normalPeriod).toBe("2016–2025");
+  });
+
+  it("마지막 계산 시각(heat_daily 올린 시각)과 마지막 관측일을 함께 준다", async () => {
+    const v = await getTemperatureView(SEL, CHUNCHEON, {
+      createSource: () => source(),
+      now: NOW,
+    });
+    expect(v.updatedAt).toBe("2026-10-25T00:20:05.123+00:00");
+    expect(v.observedDate).toBe("2026-10-24");
+  });
+
+  it("계산 시각만 읽지 못하면 그 값만 null 이고 화면 자료는 그대로다", async () => {
+    const v = await getTemperatureView(SEL, CHUNCHEON, {
+      createSource: () =>
+        source({ lastUpdated: async () => Promise.reject(new Error("x")) }),
+      now: NOW,
+    });
+    expect(v.updatedAt).toBeNull();
+    expect(v.problem).toBeNull();
+    expect(v.observedDate).toBe("2026-10-24");
   });
 
   it("단계 카드: 막 지난 단계와 다음 단계, 올해·평년 도달일", async () => {

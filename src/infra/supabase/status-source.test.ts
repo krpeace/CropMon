@@ -73,18 +73,7 @@ describe("status-source", () => {
     ]);
   });
 
-  it("마지막 관측은 한 줄, 없으면 null. 오류는 표 이름과 함께 던진다", async () => {
-    const row = { date: "2026-10-24", fetched_at: "2026-10-24T17:20:00+00:00" };
-    expect(
-      await createStatusSource(
-        fakeClient({ data: [row], error: null }).client,
-      ).lastObserved("101"),
-    ).toEqual(row);
-    expect(
-      await createStatusSource(
-        fakeClient({ data: [], error: null }).client,
-      ).lastObserved("101"),
-    ).toBeNull();
+  it("오류는 표 이름과 함께 던진다", async () => {
     await expect(
       createStatusSource(
         fakeClient({ data: null, error: { message: "denied" } }).client,

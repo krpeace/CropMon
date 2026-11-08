@@ -246,17 +246,3 @@ export function statusMapFor(
   }
   return statuses[selection.crop];
 }
-
-/** 이 지점의 마지막 ASOS 관측일과 받은 시각 (온도·햇빛 자료 상자). 실패하면 null. */
-export async function getObserved(
-  stationId: number,
-  { createSource = () => createStatusSource() }: Deps = {},
-): Promise<{ date: string; fetchedAt: string } | null> {
-  try {
-    const row = await createSource().lastObserved(String(stationId));
-    return row ? { date: row.date, fetchedAt: row.fetched_at } : null;
-  } catch (error) {
-    console.error("[status] 관측 시각 읽기 실패:", error);
-    return null;
-  }
-}
