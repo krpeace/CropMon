@@ -127,12 +127,15 @@ export async function getStationBoard({
     const runIds = [...latest.values()].map((r) => r.run_id);
     const ids = scen.map((s) => s.scenario_id);
     const none = Promise.resolve([]);
+    const repIds = REP_STATIONS.map((s) => String(s.id));
     const [sums, bal, days, weather, soilRows] = await Promise.all([
       runIds.length && ids.length ? db.summaries(runIds, ids) : none,
       ids.length ? db.recentBalance(ids, since) : none,
       runIds.length && ids.length ? db.outlookDays(runIds, ids) : none,
       db.recentWeather(since),
-      db.recentSoilWater(since),
+      db.latestSoilWater
+        ? db.latestSoilWater(repIds)
+        : db.recentSoilWater(since),
     ]);
     const newestFirst = <T extends { date: string }>(xs: T[]) =>
       [...xs].sort((a, b) => (a.date < b.date ? 1 : -1));

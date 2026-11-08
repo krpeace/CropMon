@@ -82,6 +82,8 @@ export type StatusSource = {
   recentWeather(since: string): Promise<WeatherFetchRow[]>;
   /** since 이후 지점·토성별 작물 공통 토양 물 상태 (새것부터). */
   recentSoilWater(since: string): Promise<SoilWaterStatusRow[]>;
+  /** 판정 표 작물 공통: 지점·토성별 최신 1줄 뷰(한국 최근 7일). 1,000줄 넘으면 range 로 나눠 읽음. */
+  latestSoilWater?(stnIds?: string[]): Promise<SoilWaterStatusRow[]>;
 };
 
 const TIMEOUT_MS = 8000;
@@ -197,5 +199,28 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
+    latestSoilWater: async (stnIds) => {
+      if (stnIds && stnIds.length === 0) return [];
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      const allRows: SoilWaterStatusRow[] = [];
+      while (true) {
+        let query = client
+          .from("soil_water_latest")
+          .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")
+          .range(from, from + PAGE_SIZE - 1);
+        if (stnIds && stnIds.length > 0) {
+          query = query.in("stn_id", stnIds);
+        }
+        const rows = await read<SoilWaterStatusRow[]>(
+          "soil_water_latest",
+          query.retry(false).abortSignal(signal()),
+        );
+        allRows.push(...rows);
+        if (rows.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return allRows;
+    },
   };
 }

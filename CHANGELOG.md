@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 성능·안정성 (판정 표 토양수분 읽기 지점·토성별 최신 1줄 뷰로 최적화 — 데이터 계약 v1.9, 이슈 #82)
+
+- 종합 화면 판정 표의 토양수분 읽기를 지점·토성별 최신 1줄 뷰(`soil_water_latest`)로 교체하여 전 지점 확대(croplib-dp #28 S2) 시 Supabase 1,000줄 제한 절단 누락을 방지하고 DB egress 대폭 절감
+- 마이그레이션 `supabase/migrations/20261108040000_data_contract_v1_9.sql`: 한국 기준 최근 7일 이내 지점·토성별 최신 1줄 보안 뷰 `public.soil_water_latest` 추가 (`security_invoker = true`, `anon, authenticated` select 권한 부여)
+- `src/infra/supabase/status-source.ts`: 1,000줄 초과 시 안전하게 나눠 읽는 `.range()` 페이징 구현
+- `src/services/station-status.ts`: 대표 10곳 지점 목록 필터링 적용
+- 데이터 계약 `docs/DATA_CONTRACT.md` v1.9 갱신
+
 ### 추가 (관측 일자료 일사 산출 출처 열 추가 — 이슈 #93)
 
 - `weather_daily`에 일사 산출 출처를 기록하는 `rs_source text null` 열 추가 (`supabase/migrations/20261108030000_weather_daily_rs_source.sql`, croplib-dp #28 C7, #76 선행)

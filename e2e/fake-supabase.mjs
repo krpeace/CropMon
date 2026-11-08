@@ -293,6 +293,29 @@ for (const cfg of SOIL_CONFIGS) {
   }
 }
 
+// 작물 공통 토양 물 상태 최신 뷰 (계약 v1.9, #82)
+// 한국 기준 최근 7일 이내의 지점·토성별 최신 1행
+const since7d = add(today, -7);
+const latestSoilMap = new Map();
+for (const row of soil_water_daily) {
+  if (row.date < since7d) continue;
+  const key = `${row.stn_id}:${row.soil_code}`;
+  const prev = latestSoilMap.get(key);
+  if (!prev || prev.date < row.date) {
+    latestSoilMap.set(key, {
+      stn_id: row.stn_id,
+      soil_code: row.soil_code,
+      date: row.date,
+      dr_mm: row.dr_mm,
+      taw_mm: row.taw_mm,
+      raw_mm: row.raw_mm,
+      aw_pct: row.aw_pct,
+      status: row.status,
+    });
+  }
+}
+const soil_water_latest = [...latestSoilMap.values()];
+
 // 적산온도 (온도 화면). 지점마다 어제의 [올해 누적, 평년 누적, 며칠 빠른가]를 정해 두고,
 // 1년 모양은 같은 곡선을 늘리고 줄인다. 춘천은 4,165 / 3,973 (+192), 수원은 다음 단계(2,500)에 아직 못 닿음.
 const HEAT = {
@@ -408,6 +431,7 @@ const TABLES = {
   crops,
   soil_types,
   soil_water_daily,
+  soil_water_latest,
   heat_daily,
   sun_daily,
   weather_daily,
@@ -466,7 +490,16 @@ http
     }
     const rows = TABLES[table];
     if (!rows) return send(404, { message: `없는 표 ${table}` });
-    const out = filter(rows, url.searchParams);
+    let out = filter(rows, url.searchParams);
+    const rangeHeader = req.headers["range"];
+    if (rangeHeader) {
+      const m = rangeHeader.match(/(\d+)-(\d+)/);
+      if (m) {
+        const from = Number(m[1]);
+        const to = Number(m[2]);
+        out = out.slice(from, to + 1);
+      }
+    }
     if ((req.headers.accept ?? "").includes("vnd.pgrst.object")) {
       return out.length === 1
         ? send(200, out[0])

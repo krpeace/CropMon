@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { SOIL_CODES } from "@/domain/selection";
+import { STATIONS } from "@/infra/stations";
 import type { StatusSource } from "@/infra/supabase/status-source";
 
 import { getStationBoard, statusesOf } from "./station-status";
@@ -272,5 +274,97 @@ describe("오래된 회차", () => {
       drMm: 50.7,
       forecast: null,
     });
+  });
+});
+
+describe("토양수분 최신 뷰 (이슈 #82)", () => {
+  const repStations = STATIONS.filter((s) => s.isRepresentative);
+
+  it("97곳 × 12종 자료 환경에서도 판정 표가 대표 10곳 × 12종 = 120줄을 빠짐없이 받는다", async () => {
+    let queriedStnIds: string[] = [];
+
+    // 97개 전 지점 × 12토성의 최신 행 mock 데이터 생성 (총 97 * 12 = 1,164행)
+    const activeStations = STATIONS.filter((s) => s.isActive);
+    const mockAllRows = activeStations.flatMap((stn) =>
+      SOIL_CODES.map((soil) => ({
+        stn_id: String(stn.id),
+        soil_code: soil,
+        date: "2026-10-25",
+        dr_mm: 20,
+        taw_mm: 60,
+        raw_mm: 24,
+        aw_pct: 66.7,
+        status: "fair" as const,
+      })),
+    );
+
+    const b = await getStationBoard({
+      createSource: () =>
+        fake({
+          latestSoilWater: async (stnIds = []) => {
+            queriedStnIds = stnIds;
+            return mockAllRows.filter((r) => stnIds.includes(r.stn_id));
+          },
+        }),
+      now: NOW,
+    });
+
+    // 1. 대표 10곳의 stn_id 목록으로 정확히 질의했는지 확인
+    expect(queriedStnIds.sort()).toEqual(
+      repStations.map((s) => String(s.id)).sort(),
+    );
+    expect(queriedStnIds).toHaveLength(10);
+
+    // 2. 대표 10곳 × 12종 = 120개 슬롯이 빠짐없이 채워졌는지 확인
+    let filledCount = 0;
+    for (const soil of SOIL_CODES) {
+      for (const stn of repStations) {
+        const val = b.soil[soil][stn.id];
+        expect(val).not.toBeNull();
+        expect(val?.status).toBe("fair");
+        expect(val?.observedDate).toBe("2026-10-25");
+        filledCount++;
+      }
+    }
+    expect(filledCount).toBe(120);
+  });
+
+  it("7일보다 오래된 줄만 있는 지점은 뷰에서 제외되어 '자료 없음'(null)이 된다", async () => {
+    // 대표 지점 중 101번 지점은 7일 전보다 오래되어 뷰(date >= now - 7d)에서 제외됨
+    // 나머지 9개 지점은 정상 데이터 존재
+    const rowsWithout101 = repStations
+      .filter((s) => s.id !== 101)
+      .flatMap((stn) =>
+        SOIL_CODES.map((soil) => ({
+          stn_id: String(stn.id),
+          soil_code: soil,
+          date: "2026-10-24",
+          dr_mm: 15,
+          taw_mm: 50,
+          raw_mm: 20,
+          aw_pct: 70,
+          status: "fair" as const,
+        })),
+      );
+
+    const b = await getStationBoard({
+      createSource: () =>
+        fake({
+          latestSoilWater: async () => rowsWithout101,
+        }),
+      now: NOW,
+    });
+
+    // 101번 지점은 12개 토성 모두 "자료 없음"(null)이어야 함
+    for (const soil of SOIL_CODES) {
+      expect(b.soil[soil][101]).toBeNull();
+    }
+
+    // 나머지 9개 지점은 12개 토성 모두 정상 채워져 있어야 함 (9 * 12 = 108개)
+    for (const stn of repStations.filter((s) => s.id !== 101)) {
+      for (const soil of SOIL_CODES) {
+        expect(b.soil[soil][stn.id]).not.toBeNull();
+      }
+    }
   });
 });
