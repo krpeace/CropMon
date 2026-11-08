@@ -23,6 +23,17 @@ const SEED_V1_6 = read("20261028030000_seed_stations_asos.sql");
 const SEED_SOIL = read("20261028010000_seed_soil_estimates.sql");
 const COMMON_STAGES = read("20261030000000_common_gdd_stages.sql");
 const SEED_2027 = read("20261107000000_seed_scenarios_2027.sql");
+const SEED_FORECAST_GRID = read(
+  "20261108020000_seed_stations_forecast_grid.sql",
+);
+const CSV_STATIONS_GRID = existsSync(
+  join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
+)
+  ? readFileSync(
+      join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
+      "utf8",
+    )
+  : "";
 const SEED = `${SEED_V1}\n${SEED_V1_1}`;
 
 type Value = string | number | boolean | null;
@@ -315,6 +326,66 @@ describe("사전 자료: 지점", () => {
     expect(SEED_V1_6).toMatch(
       /insert into public\.stations [\s\S]*?on conflict \(stn_id\) do update set/,
     );
+  });
+
+  it("운영 97곳 예보 격자 시드: docs/data/stations_grid_20261108.csv의 97곳 값과 마이그레이션이 100% 일치한다", () => {
+    // 1. CSV 파싱 (BOM 제거 포함)
+    const csvLines = CSV_STATIONS_GRID.trim().split(/\r?\n/).filter(Boolean);
+    const header = csvLines[0].replace(/^\uFEFF/, "").split(",");
+    const idIdx = header.indexOf("stn_id");
+    const nameIdx = header.indexOf("name_ko");
+    const nxIdx = header.indexOf("grid_nx");
+    const nyIdx = header.indexOf("grid_ny");
+    expect(idIdx).toBeGreaterThanOrEqual(0);
+    expect(nxIdx).toBeGreaterThanOrEqual(0);
+    expect(nyIdx).toBeGreaterThanOrEqual(0);
+
+    const csvData = new Map<string, { nx: number; ny: number; name: string }>();
+    for (const line of csvLines.slice(1)) {
+      const cols = line.split(",");
+      csvData.set(cols[idIdx].trim(), {
+        nx: Number(cols[nxIdx]),
+        ny: Number(cols[nyIdx]),
+        name: cols[nameIdx]?.trim() ?? "",
+      });
+    }
+    expect(csvData.size).toBe(97);
+
+    // 2. 마이그레이션 SQL 파싱
+    expect(SEED_FORECAST_GRID).not.toBe("");
+    const matches = Array.from(
+      SEED_FORECAST_GRID.matchAll(/\('(\d+)',\s*(\d+),\s*(\d+)\)/g),
+    );
+    expect(matches).toHaveLength(97);
+
+    const sqlData = new Map<string, { nx: number; ny: number }>();
+    for (const m of matches) {
+      sqlData.set(m[1], { nx: Number(m[2]), ny: Number(m[3]) });
+    }
+    expect(sqlData.size).toBe(97);
+
+    // 3. 97곳 값 전부 일치 검사
+    for (const [stnId, csvVal] of csvData.entries()) {
+      const sqlVal = sqlData.get(stnId);
+      expect(sqlVal, `지점 ${stnId} ${csvVal.name}`).toBeDefined();
+      expect(sqlVal?.nx, `지점 ${stnId} ${csvVal.name} nx`).toBe(csvVal.nx);
+      expect(sqlVal?.ny, `지점 ${stnId} ${csvVal.name} ny`).toBe(csvVal.ny);
+    }
+
+    // 4. 대표 10곳 값 덮어쓰기 방지 조건 검사
+    expect(SEED_FORECAST_GRID).toMatch(
+      /where\s+s\.stn_id\s*=\s*v\.stn_id\s+and\s+s\.grid_nx\s+is\s+null/i,
+    );
+
+    // 5. 실행 문(주석 제외)에서 has_forecast 열을 건드리지 않는지 검사
+    const sqlWithoutComments = SEED_FORECAST_GRID.replace(/--.*$/gm, "");
+    expect(sqlWithoutComments).not.toMatch(/has_forecast/i);
+
+    // 6. 97곳 격자 고유성(중복 0) 검사
+    const gridPairs = new Set(
+      Array.from(sqlData.values()).map((v) => `${v.nx},${v.ny}`),
+    );
+    expect(gridPairs.size).toBe(97);
   });
 });
 
