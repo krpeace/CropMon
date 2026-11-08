@@ -155,6 +155,11 @@ export function getPageMeta(
   station: Station,
   /** 그 지점 온도·햇빛 자료의 마지막 계산 시각 (heat_daily·sun_daily). 모르면 null. */
   calculated: Calculated = null,
+  /**
+   * 햇빛 화면 전용: sun_daily 에 이 지점 줄이 있는가 (DB 기준, 결정 0035).
+   * 사전(`measuresSunlight`)은 쓰지 않는다. 읽기에 실패했을 때는 줄이 있는 것으로 둔다.
+   */
+  measured = true,
 ): PageMeta {
   const { forecastIssue, updated } = MOCK_META;
   switch (page) {
@@ -165,7 +170,7 @@ export function getPageMeta(
         ...calculatedTimes(calculated),
       };
     case "sunlight":
-      if (!station.measuresSunlight) {
+      if (!measured) {
         return {
           source: `${asos(station)} 일사 관측 · ${NO_DATA}`,
           issue: NO_DATA,

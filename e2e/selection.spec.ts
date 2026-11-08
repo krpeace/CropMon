@@ -53,9 +53,9 @@ test("지역·작물을 바꾸면 다른 메뉴에서도 유지된다", async ({
 test("햇빛을 재지 않는 지점은 햇빛 화면에 '자료 없음'이 보인다", async ({
   page,
 }) => {
-  await page.goto("/sunlight?st=216&crop=apple");
+  await page.goto("/sunlight?st=192&crop=apple");
   await expect(page.getByRole("region", { name: "자료 정보" })).toContainText(
-    "태백(216) 일사 관측 · 자료 없음",
+    "진주(192) 일사 관측 · 자료 없음",
   );
 });
 

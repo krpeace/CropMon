@@ -69,9 +69,25 @@ test("햇빛: sun_daily 가 없는 지점은 '햇빛을 재지 않아요'와 가
   const none = page.getByRole("region", { name: "햇빛 자료 없음" });
   await expect(none).toContainText("자료 없음");
   await expect(none).toContainText("진주 관측소는 햇빛을 재지 않아요");
+  // 자료 상자도 같은 기준(sun_daily 줄 없음)으로 '자료 없음'
+  const meta = page.getByRole("region", { name: "자료 정보" });
+  await expect(meta).toContainText("일사 관측 · 자료 없음");
+  await expect(meta).not.toContainText("09:20");
   await none.getByRole("link", { name: "춘천 햇빛 보기" }).click();
   await expect(page).toHaveURL(/\/sunlight\?st=101&crop=apple$/);
   await expect(total(page)).toContainText("올해 햇빛은 평년의 96%");
+});
+
+test("햇빛: 사전은 '확인 안 됨'이어도 sun_daily 자료가 있으면 본문·자료 상자 모두 자료를 보여 준다 (홍천)", async ({
+  page,
+}) => {
+  await page.goto("/sunlight?st=212&crop=apple");
+  await expect(total(page)).toContainText("올해 햇빛은 평년의");
+  const meta = page.getByRole("region", { name: "자료 정보" });
+  await expect(meta).toContainText("기상청 ASOS 홍천(212) 일사 관측");
+  await expect(meta).not.toContainText("자료 없음");
+  await expect(meta).toContainText("09:20");
+  await expect(meta).toContainText("평년 2016–2025");
 });
 
 test("햇빛: DB 가 오류를 줘도 멈추지 않고 '자료 없음' (태백)", async ({
