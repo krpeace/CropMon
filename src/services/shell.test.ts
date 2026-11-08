@@ -120,10 +120,37 @@ describe("getPageMeta", () => {
   const chuncheon = getStation(101)!;
   const taebaek = getStation(216)!;
 
-  it("햇빛을 재지 않는 지점은 햇빛 화면이 모두 '자료 없음'이다", () => {
-    expect(getPageMeta("sunlight", taebaek)).toEqual({
+  // 햇빛 자료 상자의 '자료 없음'은 사전(measuresSunlight)이 아니라 sun_daily 에 이 지점 줄이 있는지(DB)로 정한다
+  it("sun_daily 에 줄이 없는 지점은 햇빛 화면이 모두 '자료 없음'이다", () => {
+    expect(getPageMeta("sunlight", taebaek, null, false)).toEqual({
       source: "기상청 ASOS 태백(216) 일사 관측 · 자료 없음",
       issue: "자료 없음",
+      updated: "자료 없음",
+      short: "자료 없음",
+    });
+  });
+
+  it("사전은 '관측 안 함'이어도 sun_daily 자료가 있으면 자료를 보여 준다", () => {
+    expect(getPageMeta("sunlight", taebaek, calculated)).toEqual({
+      source: "기상청 ASOS 태백(216) 일사 관측",
+      issue: "해당 없음 (관측 자료)",
+      updated: "10월 25일 09:20 (10월 24일까지 관측)",
+      short: "10월 25일 09:20 갱신",
+    });
+  });
+
+  it("사전은 '관측함'이어도 sun_daily 줄이 없으면 '자료 없음'이다", () => {
+    expect(getPageMeta("sunlight", chuncheon, null, false)).toMatchObject({
+      source: "기상청 ASOS 춘천(101) 일사 관측 · 자료 없음",
+      issue: "자료 없음",
+      updated: "자료 없음",
+    });
+  });
+
+  it("줄은 있는데 계산 시각만 모르면 시각만 '자료 없음'이다", () => {
+    expect(getPageMeta("sunlight", chuncheon, null)).toEqual({
+      source: "기상청 ASOS 춘천(101) 일사 관측",
+      issue: "해당 없음 (관측 자료)",
       updated: "자료 없음",
       short: "자료 없음",
     });
