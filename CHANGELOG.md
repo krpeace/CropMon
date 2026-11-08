@@ -9,7 +9,7 @@
 - 첫 화면의 5초 주기 자동 순환을 서버 요청(RSC) 없이 클라이언트 상태로만 전환(`HomeBoardClient`, `replaceState`)하도록 개선하여 5초 순환 시 서버 요청 0회 달성
 - 탭이 숨겨지면(`document.hidden`) 순환 및 갱신 타이머를 멈추고 다시 보이면 재개
 - 켜 둔 화면의 서버 자료 백그라운드 갱신을 30분에 한 번으로 제한
-- 판정 표 및 적산온도·일사 캐시(`board.ts` `cacheLife`)를 stale 1800초(30분)로 조정하여, 탭 수·방문자 수와 무관하게 Supabase DB 읽기 상한을 하루 최대 48회, 약 17MB로 제한
+- 판정 표 및 적산온도·일사 캐시(`board.ts` `cacheLife`)를 stale 1800초(30분)로 조정하여, 서버 인스턴스 1개당 Supabase DB 읽기 상한을 하루 최대 48회, 약 17MB로 제한
 - 결정 0038
 
 ### 추가 (Vercel Web Analytics — 이슈 #83)
