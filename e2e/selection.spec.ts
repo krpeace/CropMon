@@ -64,6 +64,46 @@ test("주소창의 잘못된 값은 춘천·작물 공통으로 돌린다", asyn
   await expectSelected(page, "춘천", "작물 공통");
 });
 
+test("폐지 지점(st=116 관악산)으로 접속하면 기본 지점(101)으로 이동하고 안내를 표시한다", async ({
+  page,
+}) => {
+  await page.goto("/temperature?st=116&crop=apple");
+  await expect(page).toHaveURL(/\/temperature\?st=101&crop=apple&from=116$/);
+  await expect(
+    page.getByText(
+      "관악산(116)은 관측이 중단된 지점이라 기본 지점을 보여 드려요",
+    ),
+  ).toBeVisible();
+});
+
+test("폐지 지점(st=175 진도 첨찰산)은 종합 화면에서도 101로 이동하고 안내를 표시한다", async ({
+  page,
+}) => {
+  await page.goto("/?st=175");
+  await expect(page).toHaveURL(/\/\?st=101&from=175$/);
+  await expect(
+    page.getByText(
+      "진도(첨찰산)(175)은 관측이 중단된 지점이라 기본 지점을 보여 드려요",
+    ),
+  ).toBeVisible();
+});
+
+test("사전에 없는 지점(st=999)이나 유효하지 않은 from(abc, 999, 108 운영 지점)은 안내 문구가 뜨지 않는다", async ({
+  page,
+}) => {
+  for (const url of [
+    "/temperature?st=999&crop=apple",
+    "/temperature?st=101&from=abc",
+    "/temperature?st=101&from=999",
+    "/temperature?st=101&from=108",
+  ]) {
+    await page.goto(url);
+    await expect(
+      page.getByText("관측이 중단된 지점이라 기본 지점을 보여 드려요"),
+    ).not.toBeVisible();
+  }
+});
+
 test("종합 화면은 5초마다 다음 지역으로 바뀌고(대표 10곳만), 멈출 수 있다", async ({
   page,
 }) => {
