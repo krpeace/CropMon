@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
@@ -13,26 +12,59 @@ import { STATION_IDS } from "@/services/shell";
 
 import { useSheet } from "../shell/sheet-context";
 import { Icon } from "../ui/Icon";
+import { shouldRunRotation } from "./auto-rotate-state";
 
 const INTERVAL_MS = 5000;
 
-/** 종합 화면 자동 전환: 고른 작물은 그대로 두고 5초마다 다음 대표 지역(10곳)으로 바꾼다. 창이 열리면 쉰다. */
-export function AutoRotate({ selection }: { selection: Selection }) {
-  const router = useRouter();
+/**
+ * 종합 화면 자동 전환: 고른 작물은 그대로 두고 5초마다 다음 대표 지역(10곳)으로 바꾼다.
+ * 이미 받은 자료 안에서 화면만 전환(서버 요청 0회)하며, 창이 열리거나 탭이 숨겨지면 쉰다.
+ */
+export function AutoRotate({
+  selection,
+  onRotate,
+}: {
+  selection: Selection;
+  onRotate?: (next: Selection) => void;
+}) {
   const { sheet, popover } = useSheet();
   const [auto, setAuto] = useState(true);
+  const [visible, setVisible] = useState(
+    typeof document !== "undefined" ? !document.hidden : true,
+  );
+
   const pos = rotationPosition(selection, STATION_IDS);
-  const running = auto && !sheet && !popover && pos !== null;
+  const running = shouldRunRotation({
+    auto,
+    visible,
+    sheet: !!sheet,
+    popover: !!popover,
+    pos,
+  });
   const { stationId, crop, soil, kc } = selection;
+
+  useEffect(() => {
+    function handleVisibility() {
+      setVisible(!document.hidden);
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     if (!running) return;
     const timer = setTimeout(() => {
       const next = nextInRotation({ stationId, crop, soil, kc }, STATION_IDS);
-      router.replace(withSelection("/", next), { scroll: false });
+      if (onRotate) {
+        onRotate(next);
+      } else {
+        window.history.replaceState(null, "", withSelection("/", next));
+      }
     }, INTERVAL_MS);
     return () => clearTimeout(timer);
-  }, [running, stationId, crop, soil, kc, router]);
+  }, [running, stationId, crop, soil, kc, onRotate]);
 
   const total = STATION_IDS.length;
 
