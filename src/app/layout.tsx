@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Analytics } from "@vercel/analytics/next";
 
 import { THEME_COLOR, THEME_STORAGE_KEY } from "@/domain/theme";
 
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={null}>
             <Sheets />
           </Suspense>
+          <Analytics />
         </SheetProvider>
       </body>
     </html>
