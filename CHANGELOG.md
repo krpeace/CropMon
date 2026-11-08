@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 문서 (PR 전 로컬 확인 목록에 test:e2e 명시 — 이슈 #92)
+
+- `CLAUDE.md`에 PR을 올리기 전 로컬에서 필수적으로 확인해야 하는 6단계 체크리스트(`lint` → `typecheck` → `format:check` → `test` → `build` → `test:e2e`) 및 가짜 Supabase 연동 안내 명시
+
 ### 성능 (판정 표 토양수분 읽기를 지점·토성별 최신 1줄 뷰로 최적화 — 이슈 #82)
 
 - 데이터 계약 v1.9: `soil_water_daily`의 한국 기준 최근 7일 이내 지점·토성별 최신 1줄을 반환하는 보안 뷰 `soil_water_latest` 및 `(stn_id, soil_code, date desc)` 복합 색인 추가 (`supabase/migrations/20261108010000_data_contract_v1_9.sql`)

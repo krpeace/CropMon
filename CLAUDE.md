@@ -47,3 +47,16 @@
 - 연결 확인: `/api/health`.
 
 자동 검사(CI)는 PR과 main 에서 lint → typecheck → format:check → test → build → test:e2e 순서로 돈다. 구조는 docs/ARCHITECTURE.md 참고.
+
+### PR 전 로컬 확인
+
+PR을 올리기 전 로컬에서 아래 6단계를 차례로 실행해 모두 통과하는지 확인한다 (CI의 `quality` 검사와 동일):
+
+1. `npm run lint` — ESLint 코드 규칙 검사
+2. `npm run typecheck` — TypeScript 타입 오류 검사
+3. `npm run format:check` — Prettier 서식 검사
+4. `npm run test` — Vitest 단위·통합·계약 테스트
+5. `npm run build` — 배포 빌드 (가짜 Supabase 환경변수: `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy`)
+6. `npm run test:e2e` — Playwright 화면 브라우저 테스트
+
+새 테이블·뷰·엔드포인트를 추가한 경우 `e2e/fake-supabase.mjs` 모의 서버에도 라우팅 매핑이 반영되어야 `test:e2e`가 통과한다.
