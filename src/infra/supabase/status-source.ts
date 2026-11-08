@@ -80,8 +80,8 @@ export type StatusSource = {
   ): Promise<OutlookDayRow[]>;
   /** since 이후 지점별 ASOS 관측 받은 시각 (예보가 없는 지점의 갱신 시각). */
   recentWeather(since: string): Promise<WeatherFetchRow[]>;
-  /** since 이후 지점·토성별 작물 공통 토양 물 상태 (새것부터). */
-  recentSoilWater(since: string): Promise<SoilWaterStatusRow[]>;
+  /** 지정한 지점들의 작물 공통 최신 토양 물 상태 (soil_water_latest 뷰, 지점·토성별 최신 1줄). */
+  latestSoilWater(stnIds: string[]): Promise<SoilWaterStatusRow[]>;
 };
 
 const TIMEOUT_MS = 8000;
@@ -185,17 +185,17 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    recentSoilWater: (since) =>
-      read<SoilWaterStatusRow[]>(
-        "soil_water_daily",
+    latestSoilWater: (stnIds) => {
+      if (stnIds.length === 0) return Promise.resolve([]);
+      return read<SoilWaterStatusRow[]>(
+        "soil_water_latest",
         client
-          .from("soil_water_daily")
+          .from("soil_water_latest")
           .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")
-          .gte("date", since)
-          .order("date", { ascending: false })
-          .limit(1000)
+          .in("stn_id", stnIds)
           .retry(false)
           .abortSignal(signal()),
-      ),
+      );
+    },
   };
 }

@@ -71,8 +71,38 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.8 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.8\b/);
+  it("계약서의 현재 버전이 v1.9 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.9\b/);
+  });
+
+  describe("soil_water_latest 뷰 (v1.9)", () => {
+    it("정렬 가속을 위한 복합 색인이 있다", () => {
+      expect(SQL).toMatch(
+        /create index if not exists idx_soil_water_daily_stn_soil_date_desc\s+on public\.soil_water_daily\s*\(stn_id,\s*soil_code,\s*date desc\)/,
+      );
+    });
+
+    it("with (security_invoker = true) 로 뷰를 생성한다", () => {
+      expect(SQL).toMatch(
+        /create or replace view public\.soil_water_latest\s+with\s*\(security_invoker\s*=\s*true\)\s+as\s+select distinct on\s*\(stn_id,\s*soil_code\)/,
+      );
+    });
+
+    it("한국 기준 최근 7일 이내 조건이 있다", () => {
+      expect(SQL).toMatch(
+        /where date >= \(\(now\(\) at time zone 'asia\/seoul'\)::date - 7\)/,
+      );
+    });
+
+    it("비회원·회원에게 select 권한을 부여한다", () => {
+      expect(SQL).toMatch(
+        /grant select on public\.soil_water_latest to anon, authenticated;/,
+      );
+    });
+
+    it("계약서에 soil_water_latest 뷰 설명이 있다", () => {
+      expect(CONTRACT).toContain("public.soil_water_latest");
+    });
   });
 
   describe.each(["heat_daily", "sun_daily"])(

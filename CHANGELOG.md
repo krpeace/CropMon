@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 성능 (판정 표 토양수분 읽기를 지점·토성별 최신 1줄 뷰로 최적화 — 이슈 #82)
+
+- 데이터 계약 v1.9: `soil_water_daily`의 한국 기준 최근 7일 이내 지점·토성별 최신 1줄을 반환하는 보안 뷰 `soil_water_latest` 및 `(stn_id, soil_code, date desc)` 복합 색인 추가 (`supabase/migrations/20261108010000_data_contract_v1_9.sql`)
+- `getStationBoard`가 7일치 전체(1,000줄 제한) 대신 대표 10곳의 최신 1줄(120줄, 약 0.015MB)만 직접 조회하도록 변경 (`status-source.ts`, `station-status.ts`)
+- 전 지점 확대(croplib-dp #28 S2) 시 1,000줄 초과로 인한 지점 데이터 누락 장애를 예방하고, 토양수분 1회 읽기량 91% 절감
+
 ### 추가 (관측 일자료 일사 산출 출처 열 추가 — 이슈 #93)
 
 - `weather_daily`에 일사 산출 출처를 기록하는 `rs_source text null` 열 추가 (`supabase/migrations/20261108030000_weather_daily_rs_source.sql`, croplib-dp #28 C7, #76 선행)
