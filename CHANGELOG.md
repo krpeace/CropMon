@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 데이터 (단기예보 지점 2차 확대 c2 — 이슈 #102)
+
+- 기상청 ASOS 현행 운영 지점 중 나머지 67곳의 `stations.has_forecast`를 true로 전환하는 마이그레이션(`20261109030000_stations_has_forecast_c2.sql`) 추가 (`croplib-dp` S4 연동)
+- 운영 97곳 전체의 `has_forecast`가 true로 완성 (대표 10곳 + 1차 c1 20곳 + 2차 c2 67곳)
+- 대표 10곳 보호(`is_representative = false` 조건) 및 멱등성 보장, 되돌리기 SQL 주석 포함
+
 ### 데이터 (일사 관측 실태 반영 — 이슈 #117)
 
 - 기상청 ASOS 관측소 중 태백(216) 및 비대표 운영 지점 55곳의 일사 관측 여부를 정상(`measures_sunlight = true`)으로 전환하고, 일사 센서 없이 일조시간만 관측하는 지점 32곳을 미관측(`measures_sunlight = false`)으로 전환하는 마이그레이션(`20261109020000_stations_measures_sunlight.sql`) 추가 (`croplib-dp` 결정 0021 및 실태표 연동)
