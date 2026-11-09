@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 데이터 (단기예보 지점 1차 확대 c1 — 이슈 #102)
+
+- 기상청 ASOS 현행 운영 지점 중 1차 대상 20곳(속초·북춘천·철원·동두천·파주·대관령·백령도·북강릉·강릉·동해·서울·인천·원주·울릉도·영월·충주·울진·대전·추풍령·상주)의 `stations.has_forecast`를 true로 전환하는 마이그레이션(`20261109010000_stations_has_forecast_c1.sql`) 추가 (`croplib-dp` S4 연동)
+- 대표 10곳 보호(`is_representative = false` 조건) 및 멱등성 보장, 되돌리기 SQL 주석 포함
+
 ### 문서 (하루 강수량 상한 1,000mm로 현실화 — 이슈 #109)
 
 - `docs/DATA_CONTRACT.md`의 `weather_daily.rain_mm` 상한을 `0~500`에서 `0~1,000`으로 현실화 (croplib-dp 결정 0027 연동, 2026-08-17 거제 654.3mm 사례 반영)
