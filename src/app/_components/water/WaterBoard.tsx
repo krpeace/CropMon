@@ -9,8 +9,9 @@ import {
   withWaterQuery,
 } from "@/domain/water-outlook";
 import { getStation, STATION_ENTRIES } from "@/services/shell";
-import { getWaterView, type WaterView } from "@/services/water";
+import type { WaterView } from "@/services/water";
 
+import { loadWater } from "../shell/detail-cache";
 import { MetaBox } from "../shell/MetaBox";
 import { PageHead } from "../shell/PageHead";
 import { Grid } from "../ui/Grid";
@@ -45,7 +46,7 @@ async function ResolvedWaterBoard({ searchParams }: Props) {
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
   const today = koreanDate(new Date().toISOString());
   const query = parseWaterQuery(params, today);
-  const view = await getWaterView(selection, station, query);
+  const view = await loadWater(selection, station, query, today);
   const base = withWaterQuery(selection, {});
 
   return (
