@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 안정성 (첫 화면 판정 표 DB 읽기 실패 시 캐시 방지 — 이슈 #106)
+
+- `board.ts`의 판정 표(`cached`) 및 생육 카드(`cachedGrowth`) 캐시 함수에서 DB 읽기 실패(`board.ok === false` 또는 `growth.heatOk/sunOk === false`) 시 Error를 throw하여 Next.js 캐시 저장을 취소(bypass)하도록 개선 (#81 선행)
+- `loadBoard` 및 `loadGrowth`에서 캐시 실패 시 폴백 객체를 반환하여 크래시를 방지하고, 일시 오류 발생 시에도 다음 요청에서 즉시 DB 재조회를 시도할 수 있도록 안정성 확보
+- 오늘 날짜(`today`)를 캐시 함수 인자로 전달하여 캐시 열쇠에 날짜 포함
+
 ### 성능 (water_balance_daily 읽기에 range 페이징 적용 — 이슈 #104)
 
 - 향후 대표 밖 87곳 계산 조건 확대(#103, croplib-dp #28 C6/S5) 시 194개 조건 × 최근 7일치(1,358줄) 조회 시 PostgREST 1,000줄 기본 제한으로 인한 데이터 누락을 방지하기 위해 `status-source.ts`의 `recentBalance`에 `while (true)` 및 `range(from, from + PAGE_SIZE - 1)` 분할 페이징 적용
