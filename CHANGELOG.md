@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-09
+
+첫 공개 버전. 2026-11-06 비회원 공개(물·온도·햇빛, 대표 10곳)와 그 뒤 11/09까지의 변경을 담는다. 화면 아래쪽 버전 표시가 v0.1.0 으로 바뀐다.
+
 ### 성능 (water_balance_daily 읽기에 range 페이징 적용 — 이슈 #104)
 
 - 향후 대표 밖 87곳 계산 조건 확대(#103, croplib-dp #28 C6/S5) 시 194개 조건 × 최근 7일치(1,358줄) 조회 시 PostgREST 1,000줄 기본 제한으로 인한 데이터 누락을 방지하기 위해 `status-source.ts`의 `recentBalance`에 `while (true)` 및 `range(from, from + PAGE_SIZE - 1)` 분할 페이징 적용
