@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 문서 (하루 강수량 상한 1,000mm로 현실화 — 이슈 #109)
+
+- `docs/DATA_CONTRACT.md`의 `weather_daily.rain_mm` 상한을 `0~500`에서 `0~1,000`으로 현실화 (croplib-dp 결정 0027 연동, 2026-08-17 거제 654.3mm 사례 반영)
+
 ### 안정성 (첫 화면 판정 표 DB 읽기 실패 시 캐시 방지 — 이슈 #106)
 
 - `board.ts`의 판정 표(`cachedBoard`), 적산온도(`cachedHeat`), 적산일사(`cachedSun`) 캐시 함수에서 DB 읽기 실패(`board.ok === false` 또는 에러 throw) 시 Error를 throw하여 Next.js 캐시 저장을 취소(bypass)하도록 개선 (#81 선행)
