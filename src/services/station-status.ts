@@ -69,6 +69,7 @@ export type StationStatuses = {
   apple: Record<number, WaterStatus | null>;
   cabbage: Record<number, WaterStatus | null>;
   soil: Record<SoilCode, Record<number, SoilWaterStatus | null>>;
+  failed?: boolean;
 };
 
 export type Deps = {
@@ -255,7 +256,12 @@ export function statusesOf(board: StationBoard): StationStatuses {
       ) as Record<number, SoilWaterStatus | null>,
     ]),
   ) as Record<SoilCode, Record<number, SoilWaterStatus | null>>;
-  return { apple: pick("apple"), cabbage: pick("cabbage"), soil };
+  return {
+    apple: pick("apple"),
+    cabbage: pick("cabbage"),
+    soil,
+    failed: !board.ok,
+  };
 }
 
 /** 현재 선택한 작물(및 토양)의 지점별 물 상태 맵을 돌려준다. */
