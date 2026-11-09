@@ -202,6 +202,7 @@ function SelectionBar({
 }) {
   const isPending = statuses === null;
   const isFailed = Boolean(statuses?.failed);
+  const isSelectionPending = selection === null;
   const crop = selection?.crop ?? CROPS[0];
   const soil = selection?.soil ?? DEFAULT_SOIL;
   const chips = listStationChips(crop, statuses, soil);
@@ -319,20 +320,42 @@ function SelectionBar({
             {/* 휴대폰: 이름과 회색 보조 글자를 "한 줄 높이 칸"에 담는다. 보조 글자가 다 안 들어가면
                 다음 줄로 넘어가 칸 밖(overflow-hidden)이 되어 통째로 안 보인다 — 반쪽 글자가 남지 않는다.
                 데스크톱은 칸을 없애(contents) 지금 모양 그대로. */}
-            <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
-              <span className="max-desktop:leading-6 shrink-0">
-                {CROP_LABEL[crop]}
-              </span>
-              <span
-                data-testid="crop-sub"
-                className="text-14 text-ink-2/85 desktop:hidden max-desktop:leading-6 font-medium whitespace-nowrap"
-              >
-                {info.short}
-              </span>
-            </span>
-            <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
-              · {info.sub}
-            </span>
+            {isSelectionPending ? (
+              <>
+                <span className="sr-only">작물 불러오는 중</span>
+                <span
+                  aria-hidden="true"
+                  className="desktop:contents flex h-6 min-w-0 flex-wrap items-center gap-x-1.5 overflow-hidden"
+                >
+                  <span className="bg-fill/25 my-auto h-5 w-14 shrink-0 rounded-full motion-safe:animate-pulse" />
+                  <span className="bg-fill/15 desktop:hidden my-auto h-4 w-12 shrink-0 rounded-full motion-safe:animate-pulse" />
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="text-14 text-ink-2/85 desktop:inline hidden font-medium"
+                >
+                  ·{" "}
+                  <span className="bg-fill/15 inline-block h-4 w-16 rounded-full align-middle motion-safe:animate-pulse" />
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="desktop:contents flex h-6 min-w-0 flex-wrap gap-x-1.5 overflow-hidden">
+                  <span className="max-desktop:leading-6 shrink-0">
+                    {CROP_LABEL[crop]}
+                  </span>
+                  <span
+                    data-testid="crop-sub"
+                    className="text-14 text-ink-2/85 desktop:hidden max-desktop:leading-6 font-medium whitespace-nowrap"
+                  >
+                    {info.short}
+                  </span>
+                </span>
+                <span className="text-14 text-ink-2/85 desktop:inline hidden font-medium">
+                  · {info.sub}
+                </span>
+              </>
+            )}
             <Icon
               name="chevronDown"
               size={18}
@@ -584,25 +607,54 @@ function SelectionBar({
         </div>
         <span className="desktop:block hidden flex-1" />
         <div
-          aria-label={`오늘 ${CROP_LABEL[crop]} 물 관리`}
+          aria-label={
+            isSelectionPending
+              ? "오늘 물 관리"
+              : `오늘 ${CROP_LABEL[crop]} 물 관리`
+          }
           className="desktop:flex hidden flex-col items-start gap-0.5"
         >
-          <span className="text-13 text-ink-2/85 leading-none font-bold whitespace-nowrap">
-            오늘 {CROP_LABEL[crop]} 물 관리
-          </span>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            {legendItems.map((lg) => (
-              <span
-                key={lg.status}
-                className="text-12 text-ink-2/85 flex items-center gap-1 whitespace-nowrap"
-              >
+          <span className="text-13 text-ink-2/85 flex items-center gap-1 leading-none font-bold whitespace-nowrap">
+            {isSelectionPending ? (
+              <>
+                <span>오늘</span>
                 <span
                   aria-hidden="true"
-                  className={`size-2 rounded-full ${STATUS_DOT[lg.status]}`}
+                  className="bg-fill/25 inline-block h-3.5 w-12 rounded-full align-middle motion-safe:animate-pulse"
                 />
-                {lg.label}
-              </span>
-            ))}
+                <span>물 관리</span>
+              </>
+            ) : (
+              `오늘 ${CROP_LABEL[crop]} 물 관리`
+            )}
+          </span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            {isSelectionPending
+              ? [48, 36, 36, 44].map((width, idx) => (
+                  <span
+                    key={idx}
+                    aria-hidden="true"
+                    className="flex items-center gap-1 py-0.5"
+                  >
+                    <span className="bg-fill/25 size-2 rounded-full motion-safe:animate-pulse" />
+                    <span
+                      className="bg-fill/15 inline-block h-3 rounded-full motion-safe:animate-pulse"
+                      style={{ width }}
+                    />
+                  </span>
+                ))
+              : legendItems.map((lg) => (
+                  <span
+                    key={lg.status}
+                    className="text-12 text-ink-2/85 flex items-center gap-1 whitespace-nowrap"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`size-2 rounded-full ${STATUS_DOT[lg.status]}`}
+                    />
+                    {lg.label}
+                  </span>
+                ))}
           </div>
         </div>
       </div>
