@@ -26,6 +26,7 @@ const SEED_2027 = read("20261107000000_seed_scenarios_2027.sql");
 const SEED_FORECAST_GRID = read(
   "20261108020000_seed_stations_forecast_grid.sql",
 );
+const SEED_FORECAST_C1 = read("20261109010000_stations_has_forecast_c1.sql");
 const CSV_STATIONS_GRID = existsSync(
   join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
 )
@@ -386,6 +387,75 @@ describe("사전 자료: 지점", () => {
       Array.from(sqlData.values()).map((v) => `${v.nx},${v.ny}`),
     );
     expect(gridPairs.size).toBe(97);
+  });
+
+  it("단기예보 1차 확대(c1, 20곳): 마이그레이션 SQL이 대표 10곳을 보호하고 대상 20곳만 켠다 (#102)", () => {
+    expect(SEED_FORECAST_C1).toBeTruthy();
+
+    const expectedStnIds = [
+      "90",
+      "93",
+      "95",
+      "98",
+      "99",
+      "100",
+      "102",
+      "104",
+      "105",
+      "106",
+      "108",
+      "112",
+      "114",
+      "115",
+      "121",
+      "127",
+      "130",
+      "133",
+      "135",
+      "137",
+    ];
+
+    // 1. 대상 20곳이 SQL 본문에 모두 포함되어 있는지 확인
+    const matches = Array.from(
+      SEED_FORECAST_C1.matchAll(/'(\d+)'/g),
+      (m) => m[1],
+    );
+    // 되돌리기 주석과 실행 본문 둘 다 대상 20곳이 있으므로 각 2회씩 등장
+    for (const id of expectedStnIds) {
+      expect(matches.filter((m) => m === id).length).toBeGreaterThanOrEqual(1);
+    }
+
+    // 2. 실행 본문에서 대상 지점이 정확히 20곳인지 확인
+    const executableSql = SEED_FORECAST_C1.replace(/--.*$/gm, "").trim();
+    const execMatches = Array.from(
+      executableSql.matchAll(/'(\d+)'/g),
+      (m) => m[1],
+    );
+    expect(new Set(execMatches)).toEqual(new Set(expectedStnIds));
+    expect(execMatches).toHaveLength(20);
+
+    // 3. update 구문 및 has_forecast = true 설정 확인
+    expect(executableSql).toMatch(
+      /update\s+public\.stations\s+set\s+has_forecast\s*=\s*true/i,
+    );
+
+    // 4. 대표 10곳 보호 조건 확인 (where ... and is_representative = false)
+    expect(executableSql).toMatch(/is_representative\s*=\s*false/i);
+
+    // 5. 대상 20곳이 모두 ASOS 사전에서 운영 지점(is_active = true)이고 비대표(is_representative = false)인지 확인
+    for (const id of expectedStnIds) {
+      const stn = asosStations.find((s) => s.stn_id === id);
+      expect(stn, `지점 ${id}`).toBeDefined();
+      expect(stn?.is_active, `지점 ${id} is_active`).toBe(true);
+      expect(stn?.is_representative, `지점 ${id} is_representative`).toBe(
+        false,
+      );
+    }
+
+    // 6. 되돌리기 주석 존재 확인
+    expect(SEED_FORECAST_C1).toMatch(
+      /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+has_forecast\s*=\s*false/i,
+    );
   });
 });
 

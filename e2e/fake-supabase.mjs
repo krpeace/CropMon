@@ -41,6 +41,35 @@ const stations = [
   sort_order: Number(m[15]),
 }));
 
+// 단기예보 1차 확대 (c1, 20곳) 반영 (20261109010000_stations_has_forecast_c1.sql)
+const FORECAST_C1_STNS = new Set([
+  "90",
+  "93",
+  "95",
+  "98",
+  "99",
+  "100",
+  "102",
+  "104",
+  "105",
+  "106",
+  "108",
+  "112",
+  "114",
+  "115",
+  "121",
+  "127",
+  "130",
+  "133",
+  "135",
+  "137",
+]);
+for (const s of stations) {
+  if (FORECAST_C1_STNS.has(s.stn_id) && !s.is_representative) {
+    s.has_forecast = true;
+  }
+}
+
 const kcSets = [
   ["apple-k3", "apple", 3, "초생 재배, 서리 지역", true, 1],
   ["apple-k1", "apple", 1, "청경 재배, 서리 지역", false, 2],
