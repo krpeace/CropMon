@@ -27,6 +27,9 @@ const SEED_FORECAST_GRID = read(
   "20261108020000_seed_stations_forecast_grid.sql",
 );
 const SEED_FORECAST_C1 = read("20261109010000_stations_has_forecast_c1.sql");
+const SEED_MEASURES_SUNLIGHT = read(
+  "20261109020000_stations_measures_sunlight.sql",
+);
 const CSV_STATIONS_GRID = existsSync(
   join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
 )
@@ -102,6 +105,57 @@ function rowsOf(table: string, sql = SEED): Row[] {
 
 const stations = rowsOf("stations", SEED_V1);
 const asosStations = rowsOf("stations", SEED_V1_6);
+
+const NO_SUNLIGHT_STNS = new Set([
+  "130",
+  "140",
+  "174",
+  "188",
+  "201",
+  "202",
+  "203",
+  "211",
+  "212",
+  "217",
+  "221",
+  "226",
+  "232",
+  "236",
+  "238",
+  "243",
+  "244",
+  "247",
+  "248",
+  "260",
+  "261",
+  "268",
+  "271",
+  "272",
+  "273",
+  "277",
+  "278",
+  "281",
+  "285",
+  "289",
+  "294",
+  "295",
+]);
+
+/**
+ * 20261109020000_stations_measures_sunlight.sql 마이그레이션이 반영된 지점 상태.
+ * - 태백(216): false -> true
+ * - 일사 미관측 지점 32곳: null -> false
+ */
+const effectiveAsosStations = asosStations.map((r) => {
+  if (r.stn_id === "216") {
+    return { ...r, measures_sunlight: true };
+  }
+  if (NO_SUNLIGHT_STNS.has(String(r.stn_id))) {
+    return { ...r, measures_sunlight: false };
+  }
+  return r;
+});
+
 const crops = rowsOf("crops");
 const seasons = rowsOf("crop_seasons");
 const soils = rowsOf("soil_types");
@@ -192,8 +246,8 @@ describe("사전 자료: 지점", () => {
 
   it("v1.6: 마이그레이션 SQL ↔ stations.ts 105곳의 번호·이름·시도·대표·운영·일사 여부가 순서대로 일치한다", () => {
     expect(STATIONS).toHaveLength(105);
-    expect(asosStations).toHaveLength(105);
-    const sorted = [...asosStations].sort(
+    expect(effectiveAsosStations).toHaveLength(105);
+    const sorted = [...effectiveAsosStations].sort(
       (a, b) => Number(a.sort_order) - Number(b.sort_order),
     );
     expect(
@@ -455,6 +509,81 @@ describe("사전 자료: 지점", () => {
     // 6. 되돌리기 주석 존재 확인
     expect(SEED_FORECAST_C1).toMatch(
       /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+has_forecast\s*=\s*false/i,
+    );
+  });
+
+  it("일사 관측 실태 반영(태백 true, 미관측 32곳 false): 마이그레이션 SQL이 안전하게 반영하고 되돌리기 문을 포함한다 (#117)", () => {
+    expect(SEED_MEASURES_SUNLIGHT).toBeTruthy();
+
+    const expectedNoSunlight = [
+      "130",
+      "140",
+      "174",
+      "188",
+      "201",
+      "202",
+      "203",
+      "211",
+      "212",
+      "217",
+      "221",
+      "226",
+      "232",
+      "236",
+      "238",
+      "243",
+      "244",
+      "247",
+      "248",
+      "260",
+      "261",
+      "268",
+      "271",
+      "272",
+      "273",
+      "277",
+      "278",
+      "281",
+      "285",
+      "289",
+      "294",
+      "295",
+    ];
+
+    const executableSql = SEED_MEASURES_SUNLIGHT.replace(/--.*$/gm, "").trim();
+
+    // 1. 태백(216) true 설정 확인
+    expect(executableSql).toMatch(
+      /update\s+public\.stations\s+set\s+measures_sunlight\s*=\s*true\s+where\s+stn_id\s*=\s*'216'/i,
+    );
+
+    // 2. 미관측 32곳 false 설정 확인
+    expect(executableSql).toMatch(
+      /update\s+public\.stations\s+set\s+measures_sunlight\s*=\s*false/i,
+    );
+    expect(executableSql).toMatch(/is_representative\s*=\s*false/i);
+
+    // 3. 32곳 지점 id가 모두 포함되어 있는지 확인
+    for (const id of expectedNoSunlight) {
+      expect(executableSql).toContain(`'${id}'`);
+    }
+
+    // 4. 대상 32곳이 모두 ASOS 사전에서 운영 지점(is_active = true)이고 비대표(is_representative = false)인지 확인
+    for (const id of expectedNoSunlight) {
+      const stn = asosStations.find((s) => s.stn_id === id);
+      expect(stn, `지점 ${id}`).toBeDefined();
+      expect(stn?.is_active, `지점 ${id} is_active`).toBe(true);
+      expect(stn?.is_representative, `지점 ${id} is_representative`).toBe(
+        false,
+      );
+    }
+
+    // 5. 되돌리기 주석 존재 확인
+    expect(SEED_MEASURES_SUNLIGHT).toMatch(
+      /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+measures_sunlight\s*=\s*false[\s\S]*?--\s*where\s+stn_id\s*=\s*'216'/i,
+    );
+    expect(SEED_MEASURES_SUNLIGHT).toMatch(
+      /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+measures_sunlight\s*=\s*null/i,
     );
   });
 });

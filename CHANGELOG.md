@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 데이터 (일사 관측 실태 반영 — 이슈 #117)
+
+- 기상청 ASOS 관측소 중 태백(216)의 일사 관측 여부를 정상(`measures_sunlight = true`)으로 전환하고, 일사 센서 없이 일조시간만 관측하는 지점 32곳을 미관측(`measures_sunlight = false`)으로 전환하는 마이그레이션(`20261109020000_stations_measures_sunlight.sql`) 추가 (`croplib-dp` 결정 0021 및 실태표 연동)
+- `src/infra/stations.ts` 및 E2E mock 데이터에 태백 true, 미관측 32곳 false 동기화
+- 대표 10곳 보호(`is_representative = false` 조건) 및 멱등성 보장, 되돌리기 SQL 주석 포함
+
 ### 성능 (상세 화면 읽기 함수 단위 캐시 적용 및 실패 미캐시 — 이슈 #81)
 
 - 상세 화면(/water, /temperature, /sunlight)별 읽기 함수 단위 `use cache` (30분 수명, SWR 지원, 인스턴스별 캐시) 도입으로 중복 DB 조회 대폭 절감 (`src/app/_components/shell/detail-cache.ts`, 결정 0040)

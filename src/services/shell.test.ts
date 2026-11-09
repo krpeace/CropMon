@@ -68,7 +68,7 @@ describe("getStation", () => {
       sido: "강원",
       isRepresentative: false,
       measuresSunlight: false,
-      sunlightMeasured: null,
+      sunlightMeasured: false,
     });
   });
 

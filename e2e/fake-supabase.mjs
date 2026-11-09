@@ -70,6 +70,49 @@ for (const s of stations) {
   }
 }
 
+// 일사 관측 실태 반영 (태백 true 및 미관측 32곳 false) (20261109020000_stations_measures_sunlight.sql)
+const NO_SUNLIGHT_STNS = new Set([
+  "130",
+  "140",
+  "174",
+  "188",
+  "201",
+  "202",
+  "203",
+  "211",
+  "212",
+  "217",
+  "221",
+  "226",
+  "232",
+  "236",
+  "238",
+  "243",
+  "244",
+  "247",
+  "248",
+  "260",
+  "261",
+  "268",
+  "271",
+  "272",
+  "273",
+  "277",
+  "278",
+  "281",
+  "285",
+  "289",
+  "294",
+  "295",
+]);
+for (const s of stations) {
+  if (s.stn_id === "216") {
+    s.measures_sunlight = true;
+  } else if (NO_SUNLIGHT_STNS.has(s.stn_id) && !s.is_representative) {
+    s.measures_sunlight = false;
+  }
+}
+
 const kcSets = [
   ["apple-k3", "apple", 3, "초생 재배, 서리 지역", true, 1],
   ["apple-k1", "apple", 1, "청경 재배, 서리 지역", false, 2],

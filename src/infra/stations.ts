@@ -14,7 +14,7 @@ export type StationEntry = {
   isRepresentative: boolean;
   /** 현행 운영 중인 지점인가 (폐지·휴지 보존 지점은 false). */
   isActive: boolean;
-  /** 일사(햇빛)를 재는 관측소인가 (태백은 false, 아직 확인 안 된 지점은 null). */
+  /** 일사(햇빛)를 재는 관측소인가 (미관측 32곳은 false, 일사 관측 지점은 true, 폐지·휴지 8곳은 null). */
   measuresSunlight: boolean | null;
 };
 
@@ -33,7 +33,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "강원",
     isRepresentative: true,
     isActive: true,
-    measuresSunlight: false,
+    measuresSunlight: true,
   },
   {
     id: 119,
@@ -121,7 +121,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "인천",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 294,
@@ -129,7 +129,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 284,
@@ -209,7 +209,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 238,
@@ -217,7 +217,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "충남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 253,
@@ -233,7 +233,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 295,
@@ -241,7 +241,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 100,
@@ -313,7 +313,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 288,
@@ -353,7 +353,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "충북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 271,
@@ -361,7 +361,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 159,
@@ -377,7 +377,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 236,
@@ -385,7 +385,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "충남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 104,
@@ -425,7 +425,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 214,
@@ -473,7 +473,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "제주",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 265,
@@ -513,7 +513,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 257,
@@ -529,7 +529,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경기",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 168,
@@ -553,7 +553,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 121,
@@ -569,7 +569,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 281,
@@ -577,7 +577,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 170,
@@ -609,7 +609,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 114,
@@ -633,7 +633,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 203,
@@ -641,7 +641,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경기",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 211,
@@ -649,7 +649,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "강원",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 112,
@@ -665,7 +665,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 248,
@@ -673,7 +673,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 260,
@@ -681,7 +681,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 217,
@@ -689,7 +689,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "강원",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 245,
@@ -713,7 +713,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "충북",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 256,
@@ -737,7 +737,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 155,
@@ -753,7 +753,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "충남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 95,
@@ -825,7 +825,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "경남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 261,
@@ -833,7 +833,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "전남",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 177,
@@ -849,7 +849,7 @@ export const STATIONS: readonly StationEntry[] = [
     sido: "강원",
     isRepresentative: false,
     isActive: true,
-    measuresSunlight: null,
+    measuresSunlight: false,
   },
   {
     id: 169,

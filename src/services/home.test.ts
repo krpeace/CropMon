@@ -186,7 +186,7 @@ describe("종합 화면 물 카드 (DB)", () => {
     });
     expect(v.sunlight).toEqual({
       verdict: "자료 없음",
-      numbers: "홍천 관측소의 햇빛 자료가 없어요 (확인 안 됨)",
+      numbers: "홍천 관측소의 햇빛 자료가 없어요 (관측 안 함)",
       missing: true,
     });
   });
@@ -269,7 +269,7 @@ describe("온도·햇빛 카드 (DB)", () => {
     // 햇빛을 재지 않는 지점은 지금처럼 "자료 없음"
     expect(v.sunlight).toEqual({
       verdict: "자료 없음",
-      numbers: "홍천 관측소의 햇빛 자료가 없어요 (확인 안 됨)",
+      numbers: "홍천 관측소의 햇빛 자료가 없어요 (관측 안 함)",
       missing: true,
     });
   });
