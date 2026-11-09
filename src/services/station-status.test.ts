@@ -260,6 +260,13 @@ describe("getStationBoard", () => {
     });
     expect(Object.values(b.water.apple).every((v) => v === null)).toBe(true);
     expect(b.ok).toBe(false);
+    expect(statusesOf(b).failed).toBe(true);
+  });
+
+  it("정상적인 DB 조회 시 statusesOf 결과의 failed 는 false 이다", async () => {
+    const b = await getStationBoard({ createSource: () => fake(), now: NOW });
+    expect(b.ok).toBe(true);
+    expect(statusesOf(b).failed).toBe(false);
   });
 });
 

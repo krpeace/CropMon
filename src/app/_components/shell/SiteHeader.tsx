@@ -113,17 +113,23 @@ function SiteHeaderView({
 }) {
   const pathname = usePathname();
   const { open } = useSheet();
+  const isFailed = Boolean(statuses?.failed);
 
   return (
     <>
       <header className="glass border-ink-2/15 bg-card/88 sticky top-0 z-20 border-b-(length:--hairline)">
-        {notice && (
+        {(notice || isFailed) && (
           <div
             role="status"
             aria-live="polite"
-            className="border-ink-2/12 bg-tile text-13 desktop:text-14 text-ink-2/95 border-b-(length:--hairline) px-(--page-gutter) py-2 text-center font-medium"
+            className="border-ink-2/12 bg-tile text-13 desktop:text-14 text-ink-2/95 flex flex-col gap-1 border-b-(length:--hairline) px-(--page-gutter) py-2 text-center font-medium"
           >
-            {notice}
+            {notice && <div>{notice}</div>}
+            {isFailed && (
+              <div>
+                판정 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.
+              </div>
+            )}
           </div>
         )}
         <div className="desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
@@ -195,6 +201,7 @@ function SelectionBar({
   statuses: StationStatuses | null;
 }) {
   const isPending = statuses === null;
+  const isFailed = Boolean(statuses?.failed);
   const crop = selection?.crop ?? CROPS[0];
   const soil = selection?.soil ?? DEFAULT_SOIL;
   const chips = listStationChips(crop, statuses, soil);
@@ -398,8 +405,8 @@ function SelectionBar({
                     }`}
                   />
                   {chip.name}
-                  {/* 색만으로 말하지 않는다: 화면 읽기 도구에는 판정 이름을 읽어 준다 (불러오는 중일 때는 묶음에서 한 번만 안내) */}
-                  {!isPending && (
+                  {/* 색만으로 말하지 않는다: 화면 읽기 도구에는 판정 이름을 읽어 준다 (불러오는 중이거나 실패 시에는 묶음/상단에서 안내) */}
+                  {!isPending && !isFailed && (
                     <span className="sr-only">
                       {chip.status ? anyStatusLabel(chip.status) : "자료 없음"}
                     </span>
@@ -441,11 +448,13 @@ function SelectionBar({
                         {station.id}
                       </span>
                       <span className="sr-only">
-                        {isPending
-                          ? "판정 불러오는 중"
-                          : selectedStatus
-                            ? anyStatusLabel(selectedStatus)
-                            : "자료 없음"}
+                        {isFailed
+                          ? "불러오지 못함"
+                          : isPending
+                            ? "판정 불러오는 중"
+                            : selectedStatus
+                              ? anyStatusLabel(selectedStatus)
+                              : "자료 없음"}
                       </span>
                     </>
                   ) : (
@@ -543,11 +552,13 @@ function SelectionBar({
                   </span>
                 </span>
                 <span className="sr-only">
-                  {isPending
-                    ? "판정 불러오는 중"
-                    : selectedStatus
-                      ? anyStatusLabel(selectedStatus)
-                      : "자료 없음"}
+                  {isFailed
+                    ? "불러오지 못함"
+                    : isPending
+                      ? "판정 불러오는 중"
+                      : selectedStatus
+                        ? anyStatusLabel(selectedStatus)
+                        : "자료 없음"}
                 </span>
                 <Icon
                   name="chevronDown"
@@ -666,6 +677,7 @@ function RegionPickerBody({
   onClose: () => void;
 }) {
   const isPending = statuses === null;
+  const isFailed = Boolean(statuses?.failed);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -747,6 +759,12 @@ function RegionPickerBody({
         </div>
       </div>
 
+      {isFailed && (
+        <div className="border-ink-2/12 bg-tile text-12 text-ink-2/95 border-b-(length:--hairline) px-3.5 py-2 font-medium">
+          판정 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.
+        </div>
+      )}
+
       <div
         role="listbox"
         aria-label="관측 지점 목록"
@@ -810,12 +828,15 @@ function RegionPickerBody({
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-13 text-ink-2/75">
-                        {item.sido} ·{" "}
-                        {isPending
-                          ? "판정 불러오는 중"
-                          : item.status
-                            ? anyStatusLabel(item.status)
-                            : "자료 없음"}
+                        {isFailed
+                          ? item.sido
+                          : `${item.sido} · ${
+                              isPending
+                                ? "판정 불러오는 중"
+                                : item.status
+                                  ? anyStatusLabel(item.status)
+                                  : "자료 없음"
+                            }`}
                       </span>
                       {selected && (
                         <Icon
