@@ -62,8 +62,8 @@ export type SoilWaterStatusRow = {
 
 export type StatusSource = {
   defaultScenarios(year: number): Promise<DefaultScenarioRow[]>;
-  /** 서버 수집 중 실패가 아닌 최근 회차들 (stnIds 지정 시 해당 지점들만), 새것부터. */
-  recentRuns(limit: number, stnIds?: string[]): Promise<RunRefRow[]>;
+  /** since(KST 날짜) 이후 필요한 지점들의 수집 회차 (실패 제외, 새것부터). 1,000줄 넘으면 range 페이징. */
+  recentRuns(since: string, stnIds: string[]): Promise<RunRefRow[]>;
   summaries(
     runIds: number[],
     scenarioIds: string[],
@@ -126,24 +126,32 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    recentRuns: (limit, stnIds) => {
-      if (stnIds && stnIds.length === 0) return Promise.resolve([]);
-      let q = client
-        .from("forecast_runs")
-        .select("run_id,stn_id,run_at,run_name,finished_at")
-        .eq("collector", "actions")
-        .neq("result", "실패");
-      if (stnIds && stnIds.length > 0) {
-        q = q.in("stn_id", stnIds);
+    recentRuns: async (since, stnIds) => {
+      if (stnIds.length === 0) return [];
+      const sinceKst = `${since}T00:00:00+09:00`;
+      const all: RunRefRow[] = [];
+      let from = 0;
+      while (true) {
+        const batch = await read<RunRefRow[]>(
+          "forecast_runs",
+          client
+            .from("forecast_runs")
+            .select("run_id,stn_id,run_at,run_name,finished_at")
+            .eq("collector", "actions")
+            .neq("result", "실패")
+            .in("stn_id", stnIds)
+            .gte("run_at", sinceKst)
+            .order("run_at", { ascending: false })
+            .order("run_id", { ascending: false })
+            .range(from, from + PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(signal()),
+        );
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
       }
-      return read<RunRefRow[]>(
-        "forecast_runs",
-        q
-          .order("run_at", { ascending: false })
-          .limit(limit)
-          .retry(false)
-          .abortSignal(signal()),
-      );
+      return all;
     },
     summaries: (runIds, scenarioIds) =>
       read<SummaryStatusRow[]>(

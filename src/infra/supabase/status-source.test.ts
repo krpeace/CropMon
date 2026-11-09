@@ -42,7 +42,7 @@ describe("status-source", () => {
     const { client, calls } = fakeClient({ data: [], error: null });
     const db = createStatusSource(client);
     await db.defaultScenarios(2026);
-    await db.recentRuns(40);
+    await db.recentRuns("2026-10-18", ["101"]);
     await db.summaries([9], ["a", "b"]);
     await db.recentBalance(["a"], "2026-10-18");
     await db.latestSoilWater(["101"]);
@@ -55,8 +55,11 @@ describe("status-source", () => {
       'select("run_id,stn_id,run_at,run_name,finished_at")',
       'eq("collector","actions")',
       'neq("result","실패")',
+      'in("stn_id",["101"])',
+      'gte("run_at","2026-10-18T00:00:00+09:00")',
       'order("run_at",{"ascending":false})',
-      "limit(40)",
+      'order("run_id",{"ascending":false})',
+      "range(0,999)",
       "from(water_outlook_summary)",
       'select("run_id,scenario_id,status_start,start_date,dr_start_mm,need_center_in")',
       'in("run_id",[9])',
@@ -81,7 +84,7 @@ describe("status-source", () => {
     await expect(
       createStatusSource(
         fakeClient({ data: null, error: { message: "denied" } }).client,
-      ).recentRuns(4),
+      ).recentRuns("2026-10-18", ["101"]),
     ).rejects.toThrow("forecast_runs 읽기 실패: denied");
   });
 
@@ -96,7 +99,7 @@ describe("status-source", () => {
   it("recentRuns와 recentWeather에 지점 목록(stnIds)을 넘기면 in 조건을 건다", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
     const db = createStatusSource(client);
-    await db.recentRuns(40, ["101", "102"]);
+    await db.recentRuns("2026-10-18", ["101", "102"]);
     await db.recentWeather("2026-10-18", ["101"]);
     expect(calls).toEqual([
       "from(forecast_runs)",
@@ -104,8 +107,10 @@ describe("status-source", () => {
       'eq("collector","actions")',
       'neq("result","실패")',
       'in("stn_id",["101","102"])',
+      'gte("run_at","2026-10-18T00:00:00+09:00")',
       'order("run_at",{"ascending":false})',
-      "limit(40)",
+      'order("run_id",{"ascending":false})',
+      "range(0,999)",
       "from(weather_daily)",
       'select("stn_id,date,fetched_at")',
       'gte("date","2026-10-18")',
@@ -119,7 +124,7 @@ describe("status-source", () => {
   it("recentRuns와 recentWeather는 빈 지점 목록([])을 넘기면 DB를 부르지 않고 빈 배열을 돌려준다", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
     const db = createStatusSource(client);
-    expect(await db.recentRuns(40, [])).toEqual([]);
+    expect(await db.recentRuns("2026-10-18", [])).toEqual([]);
     expect(await db.recentWeather("2026-10-18", [])).toEqual([]);
     expect(calls).toEqual([]);
   });
@@ -337,5 +342,116 @@ describe("status-source", () => {
     // 3. 총 1,358줄 빠짐 및 중복 없음
     expect(result).toHaveLength(1358);
     expect(result).toEqual(mockRows);
+  });
+
+  it("recentRuns: 3일치 582줄(97곳×2회×3일) 및 1,000줄 초과(1,200줄)에서도 range 페이징으로 빠짐없이 읽는다 (#110)", async () => {
+    // 97개 지점 × 하루 2회(02시, 17시) × 3일 = 582줄
+    const mock582Rows = Array.from({ length: 582 }, (_, i) => ({
+      run_id: 1000 - i,
+      stn_id: String(100 + (i % 97)),
+      run_at: new Date(
+        Date.parse("2026-11-09T08:00:00Z") - i * 3600000,
+      ).toISOString(),
+      run_name: i % 2 === 0 ? "저녁" : "아침",
+      finished_at: new Date(
+        Date.parse("2026-11-09T08:40:00Z") - i * 3600000,
+      ).toISOString(),
+    }));
+
+    // 1) 582줄 검증: 단일 페이지([0, 999])로 582줄 읽고 종료
+    {
+      const ranges: [number, number][] = [];
+      let cFrom = 0;
+      let cTo = 0;
+      const from = (t: string) => {
+        expect(t).toBe("forecast_runs");
+        const builder: Record<string, unknown> = {
+          select: () => builder,
+          eq: () => builder,
+          neq: () => builder,
+          in: () => builder,
+          gte: () => builder,
+          order: () => builder,
+          range: (f: number, t: number) => {
+            cFrom = f;
+            cTo = t;
+            ranges.push([f, t]);
+            return builder;
+          },
+          retry: () => builder,
+          abortSignal: () => builder,
+          then: (resolve: (v: unknown) => unknown) => {
+            const slice = mock582Rows.slice(cFrom, cTo + 1);
+            return Promise.resolve({ data: slice, error: null }).then(resolve);
+          },
+        };
+        return builder;
+      };
+      const client = { from } as unknown as SupabaseClient;
+      const db = createStatusSource(client);
+      const res = await db.recentRuns("2026-11-06", ["101"]);
+      expect(ranges).toEqual([[0, 999]]);
+      expect(res).toHaveLength(582);
+      expect(res).toEqual(mock582Rows);
+    }
+
+    // 2) 1,000줄 초과(1,200줄) 검증: 2개 페이지([0, 999], [1000, 1999]) 분할 페이징
+    {
+      const mock1200Rows = Array.from({ length: 1200 }, (_, i) => ({
+        run_id: 2000 - i,
+        stn_id: String(100 + (i % 97)),
+        run_at: new Date(
+          Date.parse("2026-11-09T08:00:00Z") - i * 1800000,
+        ).toISOString(),
+        run_name: i % 2 === 0 ? "저녁" : "아침",
+        finished_at: new Date(
+          Date.parse("2026-11-09T08:40:00Z") - i * 1800000,
+        ).toISOString(),
+      }));
+      const ranges: [number, number][] = [];
+      const calls: string[] = [];
+      let cFrom = 0;
+      let cTo = 0;
+      const from = (t: string) => {
+        expect(t).toBe("forecast_runs");
+        const builder: Record<string, unknown> = {
+          select: () => builder,
+          eq: () => builder,
+          neq: () => builder,
+          in: () => builder,
+          gte: () => builder,
+          order: (col: string, opts: unknown) => {
+            calls.push(`order(${JSON.stringify(col)},${JSON.stringify(opts)})`);
+            return builder;
+          },
+          range: (f: number, t: number) => {
+            cFrom = f;
+            cTo = t;
+            ranges.push([f, t]);
+            return builder;
+          },
+          retry: () => builder,
+          abortSignal: () => builder,
+          then: (resolve: (v: unknown) => unknown) => {
+            const slice = mock1200Rows.slice(cFrom, cTo + 1);
+            return Promise.resolve({ data: slice, error: null }).then(resolve);
+          },
+        };
+        return builder;
+      };
+      const client = { from } as unknown as SupabaseClient;
+      const db = createStatusSource(client);
+      const res = await db.recentRuns("2026-11-06", ["101"]);
+      // 고정 정렬 확인 (run_at desc, run_id desc)
+      expect(calls).toContain('order("run_at",{"ascending":false})');
+      expect(calls).toContain('order("run_id",{"ascending":false})');
+      // 2페이지 페이징 확인
+      expect(ranges).toEqual([
+        [0, 999],
+        [1000, 1999],
+      ]);
+      expect(res).toHaveLength(1200);
+      expect(res).toEqual(mock1200Rows);
+    }
   });
 });

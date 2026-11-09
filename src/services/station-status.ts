@@ -128,7 +128,6 @@ export async function getStationBoard({
   const repStations = REP_STATIONS;
   const targetStations =
     stationScope === "active" ? ACTIVE_STATIONS : repStations;
-  const repStnIds = repStations.map((s) => String(s.id));
   const targetStnIds = targetStations.map((s) => String(s.id));
 
   try {
@@ -136,8 +135,9 @@ export async function getStationBoard({
     const at = now();
     const today = koreanDate(at.toISOString());
     const since = addDays(today, -RECENT_DAYS);
+    const runsSince = addDays(today, -3);
     const scen = await db.defaultScenarios(Number(today.slice(0, 4)));
-    const runs = await db.recentRuns(repStnIds.length * 4, repStnIds);
+    const runs = await db.recentRuns(runsSince, targetStnIds);
     const latest = new Map<string, RunRefRow>(); // 지점 → 최신 회차 (runs 는 새것부터)
     for (const r of runs) {
       const fresh =

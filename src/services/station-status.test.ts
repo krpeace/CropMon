@@ -60,7 +60,10 @@ function fake(
 ): StatusSource {
   return {
     defaultScenarios: async (y) => (calls.push(`defaultScenarios ${y}`), SCEN),
-    recentRuns: async (n) => (calls.push(`recentRuns ${n}`), RUNS),
+    recentRuns: async (since, ids) => (
+      calls.push(`recentRuns ${since} ${ids.length}`),
+      RUNS
+    ),
     summaries: async (r, s) => (
       calls.push(`summaries ${r.join(",")} ${s.length}`),
       [
@@ -176,7 +179,7 @@ describe("getStationBoard", () => {
     await getStationBoard({ createSource: () => fake({}, calls), now: NOW });
     expect(calls).toEqual([
       "defaultScenarios 2026",
-      "recentRuns 40",
+      "recentRuns 2026-10-22 10",
       "summaries 9 3",
       "recentBalance 3 2026-10-18",
       "outlookDays 9 3",
@@ -375,6 +378,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
 
     it("getStationBoard가 latestSoilWater, recentWeather, recentRuns 세 곳 모두에 지점 목록을 넘긴다", async () => {
       let queriedRunsStnIds: string[] | undefined;
+      let queriedRunsSince: string | undefined;
       let queriedWeatherStnIds: string[] | undefined;
       let queriedSoilStnIds: string[] | undefined;
 
@@ -382,9 +386,9 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
         stationScope: "active",
         createSource: () =>
           fake({
-            recentRuns: async (limit, stnIds) => {
+            recentRuns: async (since, stnIds) => {
+              queriedRunsSince = since;
               queriedRunsStnIds = stnIds;
-              expect(limit).toBe(repStations.length * 4); // 10 * 4 = 40
               return RUNS;
             },
             recentWeather: async (_since, stnIds) => {
@@ -399,10 +403,12 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
         now: NOW,
       });
 
-      // recentRuns는 대표 10곳
+      // recentRuns는 한국 시각 기준 최근 3일(2026-10-22) 및 운영 97곳
+      expect(queriedRunsSince).toBe("2026-10-22");
       expect(queriedRunsStnIds).toBeDefined();
+      expect(queriedRunsStnIds).toHaveLength(97);
       expect(queriedRunsStnIds?.sort()).toEqual(
-        repStations.map((s) => String(s.id)).sort(),
+        activeStations.map((s) => String(s.id)).sort(),
       );
 
       // recentWeather와 latestSoilWater는 운영 97곳
@@ -419,15 +425,16 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       );
     });
 
-    it("대표 아닌 지점 회차가 많아도 대표 10곳 최신 회차가 밀려나지 않고 정상 수집된다", async () => {
+    it("stationScope: rep 시에는 대표 10곳으로 지점 목록을 넘긴다", async () => {
       let filteredStnIds: string[] | undefined;
-      let queriedLimit = 0;
+      let queriedSince: string | undefined;
 
       await getStationBoard({
+        stationScope: "rep",
         createSource: () =>
           fake({
-            recentRuns: async (limit, stnIds) => {
-              queriedLimit = limit;
+            recentRuns: async (since, stnIds) => {
+              queriedSince = since;
               filteredStnIds = stnIds;
               return RUNS;
             },
@@ -435,7 +442,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
         now: NOW,
       });
 
-      expect(queriedLimit).toBe(40);
+      expect(queriedSince).toBe("2026-10-22");
       expect(filteredStnIds).toEqual(repStations.map((s) => String(s.id)));
     });
 
@@ -488,6 +495,115 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       const statuses = statusesOf(board);
       expect(Object.keys(statuses.soil.loam)).toHaveLength(97);
       expect(statuses.soil.loam[nonRepStation.id]).toBe("fair");
+    });
+  });
+
+  describe("예보 지점 확대(S4) 대비 forecast_runs 밀림 방지 및 최신 회차 보장 (#110)", () => {
+    const activeStations = STATIONS.filter((s) => s.isActive);
+    const repStations = STATIONS.filter((s) => s.isRepresentative);
+
+    it("97곳 회차가 섞여 있고 비대표 지점 회차가 훨씬 많아도 대표 10곳 최신 회차를 빠짐없이 읽는다", async () => {
+      // 비대표 지점(홍천 212 외 다수)의 최신 회차가 대량으로 들어있고,
+      // 대표 지점 회차가 뒤쪽에 섞여 있어도 지점별 최신 회차가 정상 반영되어야 함
+      const nonRepRuns = activeStations
+        .filter((s) => !s.isRepresentative)
+        .slice(0, 50)
+        .map((s, idx) => ({
+          run_id: 200 + idx,
+          stn_id: String(s.id),
+          run_at: "2026-10-25T08:05:00+00:00", // 10/25 17시 (비대표 지점들이 대량으로 앞섬)
+          run_name: "저녁" as const,
+          finished_at: "2026-10-25T08:45:00+00:00",
+        }));
+
+      // 대표 지점 회차 (약간 이전 시각)
+      const repRuns = repStations.map((s, idx) => ({
+        run_id: 100 + idx,
+        stn_id: String(s.id),
+        run_at: "2026-10-25T08:00:00+00:00", // 10/25 17시
+        run_name: "저녁" as const,
+        finished_at: `2026-10-25T08:42:${String(idx).padStart(2, "0")}+00:00`,
+      }));
+
+      // 전체 섞인 회차 (비대표 지점 50개 + 대표 지점 10개)
+      const mixedRuns = [...nonRepRuns, ...repRuns];
+
+      const board = await getStationBoard({
+        stationScope: "active",
+        createSource: () =>
+          fake({
+            recentRuns: async () => mixedRuns,
+          }),
+        now: NOW,
+      });
+
+      // 1. 대표 10곳의 최신 회차가 빠짐없이 반영됨 (춘천 101 예보 정상)
+      expect(board.water.apple[101]).not.toBeNull();
+      expect(board.updated[101]).toEqual({
+        at: "2026-10-25T08:42:00+00:00",
+        runHour: "17",
+      });
+
+      // 2. 비대표 지점 중 예보가 있는 지점(212 등)도 updated에 회차 시각과 runHour가 정상 반영됨
+      const sampleNonRep = activeStations.find((s) => !s.isRepresentative)!;
+      expect(board.updated[sampleNonRep.id]?.runHour).toBe("17");
+      expect(board.updated[sampleNonRep.id]?.at).toBe(
+        "2026-10-25T08:45:00+00:00",
+      );
+    });
+
+    it("최신 회차가 실패·미완료면 직전 회차로 대체되는 기존 동작이 유지된다", async () => {
+      // 춘천(101)의 10/25 17시 회차가 실패하여 DB에 없고(또는 미수집),
+      // 10/25 02시(아침) 회차만 정상 수집된 상황 시뮬레이션
+      const runsWithFallback = [
+        {
+          run_id: 7,
+          stn_id: "101",
+          run_at: "2026-10-24T17:00:00+00:00", // 10/25 02시 회차
+          run_name: "아침" as const,
+          finished_at: "2026-10-24T17:41:00+00:00",
+        },
+      ];
+
+      const board = await getStationBoard({
+        createSource: () =>
+          fake({
+            recentRuns: async () => runsWithFallback,
+          }),
+        now: NOW,
+      });
+
+      // 최신 회차(17시)가 없으므로 직전 회차(02시, "아침")로 정상 대체되어 runHour="02" 표출
+      expect(board.updated[101]).toEqual({
+        at: "2026-10-24T17:41:00+00:00",
+        runHour: "02",
+      });
+      expect(board.water.apple[101]?.forecast).not.toBeNull();
+    });
+
+    it("36시간 초과된 오래된 회차는 예보로 쓰지 않고 관측 기준으로 돌린다", async () => {
+      // 36시간(1.5일)보다 오래된 회차 (예: 40시간 전 회차)
+      const staleRuns = [
+        {
+          run_id: 1,
+          stn_id: "101",
+          run_at: "2026-10-23T20:00:00+00:00", // NOW(10/25 18:00 KST = 10/25 09:00 UTC) 기준 37시간 전
+          run_name: "아침" as const,
+          finished_at: "2026-10-23T20:40:00+00:00",
+        },
+      ];
+
+      const board = await getStationBoard({
+        createSource: () =>
+          fake({
+            recentRuns: async () => staleRuns,
+          }),
+        now: NOW,
+      });
+
+      // 36시간 초과로 인해 forecast는 null이고 관측 물수지 기준으로 전환됨
+      expect(board.water.apple[101]?.forecast).toBeNull();
+      expect(board.water.apple[101]?.observedDate).toBe("2026-10-24");
     });
   });
 });
