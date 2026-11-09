@@ -191,6 +191,8 @@ export type WaterView = {
   tawMm: number | null;
   /** 자료를 보여 줄 수 없을 때 그 이유. 없으면 null. */
   problem: string | null;
+  /** DB 조회 실패 여부 (실패 미캐시 판단용, 실패 시 true). */
+  failed?: boolean;
 };
 
 const NO_DATA = "자료 없음";
@@ -267,7 +269,11 @@ function gauge(
   };
 }
 
-function empty(meta: PageMeta, problem: string | null): WaterView {
+function empty(
+  meta: PageMeta,
+  problem: string | null,
+  failed = false,
+): WaterView {
   return {
     meta,
     cultivation: [],
@@ -282,6 +288,7 @@ function empty(meta: PageMeta, problem: string | null): WaterView {
     rawMm: null,
     tawMm: null,
     problem,
+    failed,
   };
 }
 
@@ -306,6 +313,7 @@ export async function getWaterView(
     return empty(
       noMeta(station),
       "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      true,
     );
   }
 }

@@ -67,6 +67,8 @@ export type SunlightView = {
   compare: SunCompareRow[];
   compareProblem: string | null;
   problem: string | null;
+  /** DB 조회 실패 여부 (실패 미캐시 판단용, 실패 시 true). */
+  failed?: boolean;
 };
 
 const NO_DATA = "자료 없음";
@@ -89,6 +91,7 @@ const EMPTY: Main = {
   months: [],
   monthNote: null,
   problem: null,
+  failed: false,
 };
 
 export async function getSunlightView(
@@ -130,6 +133,7 @@ async function readMain(
     return {
       ...EMPTY,
       problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      failed: true,
     };
   }
 }

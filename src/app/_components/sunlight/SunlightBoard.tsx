@@ -2,9 +2,10 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { parseSelection } from "@/domain/selection";
+import { koreanDate } from "@/domain/water-outlook";
 import { getPageMeta, getStation, STATION_ENTRIES } from "@/services/shell";
-import { getSunlightView } from "@/services/sunlight";
 
+import { loadSunlight } from "../shell/detail-cache";
 import { MetaBox } from "../shell/MetaBox";
 import { PageHead } from "../shell/PageHead";
 import { HeatChartCard } from "../temperature/HeatChartCard";
@@ -38,7 +39,8 @@ async function ResolvedSunlightBoard({ searchParams }: Props) {
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page="sunlight" meta={null} />;
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
-  const view = await getSunlightView(selection, station);
+  const today = koreanDate(new Date().toISOString());
+  const view = await loadSunlight(selection, station, today);
   // 자료 상자도 본문과 같은 기준: sun_daily 에 이 지점 줄이 있는가 (사전 measuresSunlight 는 쓰지 않는다, 결정 0035).
   // 갱신 시각 = sun_daily 마지막 계산 시각(매일 09:20 heat-sun). 평년 기간도 DB 값으로 붙인다.
   const base = getPageMeta(

@@ -2,9 +2,10 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { parseSelection } from "@/domain/selection";
+import { koreanDate } from "@/domain/water-outlook";
 import { getPageMeta, getStation, STATION_ENTRIES } from "@/services/shell";
-import { getTemperatureView } from "@/services/temperature";
 
+import { loadTemperature } from "../shell/detail-cache";
 import { MetaBox } from "../shell/MetaBox";
 import { PageHead } from "../shell/PageHead";
 import { Grid } from "../ui/Grid";
@@ -34,7 +35,8 @@ async function ResolvedTemperatureBoard({ searchParams }: Props) {
   const station = getStation(selection.stationId);
   if (!station) return <PageHead page="temperature" meta={null} />;
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
-  const view = await getTemperatureView(selection, station);
+  const today = koreanDate(new Date().toISOString());
+  const view = await loadTemperature(selection, station, today);
   // 자료 상자의 갱신 시각 = heat_daily 마지막 계산 시각(매일 09:20 heat-sun). 평년 기간도 DB 값으로 붙인다.
   const base = getPageMeta(
     "temperature",
