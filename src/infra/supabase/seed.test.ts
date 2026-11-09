@@ -141,13 +141,76 @@ const NO_SUNLIGHT_STNS = new Set([
   "295",
 ]);
 
+const SUNLIGHT_55_STNS = new Set([
+  "90",
+  "93",
+  "95",
+  "98",
+  "99",
+  "100",
+  "102",
+  "104",
+  "105",
+  "106",
+  "108",
+  "112",
+  "114",
+  "115",
+  "121",
+  "127",
+  "133",
+  "135",
+  "137",
+  "138",
+  "143",
+  "152",
+  "155",
+  "159",
+  "162",
+  "165",
+  "168",
+  "169",
+  "170",
+  "172",
+  "177",
+  "181",
+  "184",
+  "185",
+  "235",
+  "239",
+  "245",
+  "251",
+  "252",
+  "253",
+  "254",
+  "255",
+  "257",
+  "258",
+  "259",
+  "262",
+  "263",
+  "264",
+  "266",
+  "276",
+  "279",
+  "283",
+  "284",
+  "288",
+  "296",
+]);
+
 /**
  * 20261109020000_stations_measures_sunlight.sql 마이그레이션이 반영된 지점 상태.
  * - 태백(216): false -> true
+ * - 비대표 일사 관측 지점 55곳: null -> true
  * - 일사 미관측 지점 32곳: null -> false
+ * - 폐지·휴지 8곳: null 유지
  */
 const effectiveAsosStations = asosStations.map((r) => {
   if (r.stn_id === "216") {
+    return { ...r, measures_sunlight: true };
+  }
+  if (SUNLIGHT_55_STNS.has(String(r.stn_id))) {
     return { ...r, measures_sunlight: true };
   }
   if (NO_SUNLIGHT_STNS.has(String(r.stn_id))) {
@@ -512,43 +575,11 @@ describe("사전 자료: 지점", () => {
     );
   });
 
-  it("일사 관측 실태 반영(태백 true, 미관측 32곳 false): 마이그레이션 SQL이 안전하게 반영하고 되돌리기 문을 포함한다 (#117)", () => {
+  it("일사 관측 실태 반영(운영 97곳: 태백 포함 65곳 true, 32곳 false): 마이그레이션 SQL이 안전하게 반영하고 되돌리기 문을 포함한다 (#117)", () => {
     expect(SEED_MEASURES_SUNLIGHT).toBeTruthy();
 
-    const expectedNoSunlight = [
-      "130",
-      "140",
-      "174",
-      "188",
-      "201",
-      "202",
-      "203",
-      "211",
-      "212",
-      "217",
-      "221",
-      "226",
-      "232",
-      "236",
-      "238",
-      "243",
-      "244",
-      "247",
-      "248",
-      "260",
-      "261",
-      "268",
-      "271",
-      "272",
-      "273",
-      "277",
-      "278",
-      "281",
-      "285",
-      "289",
-      "294",
-      "295",
-    ];
+    const expectedSunlight55 = Array.from(SUNLIGHT_55_STNS);
+    const expectedNoSunlight = Array.from(NO_SUNLIGHT_STNS);
 
     const executableSql = SEED_MEASURES_SUNLIGHT.replace(/--.*$/gm, "").trim();
 
@@ -557,18 +588,38 @@ describe("사전 자료: 지점", () => {
       /update\s+public\.stations\s+set\s+measures_sunlight\s*=\s*true\s+where\s+stn_id\s*=\s*'216'/i,
     );
 
-    // 2. 미관측 32곳 false 설정 확인
+    // 2. 비대표 55곳 true 설정 확인
+    expect(executableSql).toMatch(
+      /update\s+public\.stations\s+set\s+measures_sunlight\s*=\s*true/i,
+    );
+
+    // 3. 미관측 32곳 false 설정 확인
     expect(executableSql).toMatch(
       /update\s+public\.stations\s+set\s+measures_sunlight\s*=\s*false/i,
     );
     expect(executableSql).toMatch(/is_representative\s*=\s*false/i);
 
-    // 3. 32곳 지점 id가 모두 포함되어 있는지 확인
+    // 4. 55곳 지점 id가 모두 포함되어 있는지 확인
+    for (const id of expectedSunlight55) {
+      expect(executableSql).toContain(`'${id}'`);
+    }
+
+    // 5. 32곳 지점 id가 모두 포함되어 있는지 확인
     for (const id of expectedNoSunlight) {
       expect(executableSql).toContain(`'${id}'`);
     }
 
-    // 4. 대상 32곳이 모두 ASOS 사전에서 운영 지점(is_active = true)이고 비대표(is_representative = false)인지 확인
+    // 6. 대상 55곳이 모두 ASOS 사전에서 운영 지점(is_active = true)이고 비대표(is_representative = false)인지 확인
+    for (const id of expectedSunlight55) {
+      const stn = asosStations.find((s) => s.stn_id === id);
+      expect(stn, `지점 ${id}`).toBeDefined();
+      expect(stn?.is_active, `지점 ${id} is_active`).toBe(true);
+      expect(stn?.is_representative, `지점 ${id} is_representative`).toBe(
+        false,
+      );
+    }
+
+    // 7. 대상 32곳이 모두 ASOS 사전에서 운영 지점(is_active = true)이고 비대표(is_representative = false)인지 확인
     for (const id of expectedNoSunlight) {
       const stn = asosStations.find((s) => s.stn_id === id);
       expect(stn, `지점 ${id}`).toBeDefined();
@@ -578,7 +629,7 @@ describe("사전 자료: 지점", () => {
       );
     }
 
-    // 5. 되돌리기 주석 존재 확인
+    // 8. 되돌리기 주석 존재 확인 (태백 false, 55곳 null, 32곳 null)
     expect(SEED_MEASURES_SUNLIGHT).toMatch(
       /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+measures_sunlight\s*=\s*false[\s\S]*?--\s*where\s+stn_id\s*=\s*'216'/i,
     );

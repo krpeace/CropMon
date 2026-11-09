@@ -70,7 +70,7 @@ for (const s of stations) {
   }
 }
 
-// 일사 관측 실태 반영 (태백 true 및 미관측 32곳 false) (20261109020000_stations_measures_sunlight.sql)
+// 일사 관측 실태 반영: 태백(true), 비대표 55곳(true), 미관측 32곳(false), 폐지·휴지 8곳(null) (20261109020000_stations_measures_sunlight.sql)
 const NO_SUNLIGHT_STNS = new Set([
   "130",
   "140",
@@ -106,10 +106,12 @@ const NO_SUNLIGHT_STNS = new Set([
   "295",
 ]);
 for (const s of stations) {
-  if (s.stn_id === "216") {
-    s.measures_sunlight = true;
-  } else if (NO_SUNLIGHT_STNS.has(s.stn_id) && !s.is_representative) {
+  if (!s.is_active) {
+    s.measures_sunlight = null;
+  } else if (NO_SUNLIGHT_STNS.has(s.stn_id)) {
     s.measures_sunlight = false;
+  } else {
+    s.measures_sunlight = true;
   }
 }
 
