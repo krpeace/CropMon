@@ -61,6 +61,7 @@ export const COLUMNS = {
 } as const;
 
 const TEXT = ["stn_id", "date"];
+const PAGE_SIZE = 1000;
 
 export function createHeatSource(
   client: SupabaseClient = getSupabaseClient(),
@@ -88,32 +89,46 @@ export function createHeatSource(
           .abortSignal(signal()),
       ),
     onDate: (stnIds, cropId, date) =>
-      many<HeatLatestRow>(
-        "heat_daily",
-        client
-          .from("heat_daily")
-          .select(COLUMNS.heat_latest)
-          .in("stn_id", stnIds)
-          .eq("crop_id", cropId)
-          .eq("date", date)
-          .retry(false)
-          .abortSignal(signal()),
-      ),
-    recent: (stnIds, cropId, from, until) =>
-      many<HeatLatestRow>(
-        "heat_daily",
-        client
-          .from("heat_daily")
-          .select(COLUMNS.heat_latest)
-          .in("stn_id", stnIds)
-          .eq("crop_id", cropId)
-          .gte("date", from)
-          .lte("date", until)
-          .not("gdd_cum", "is", null)
-          .order("date")
-          .retry(false)
-          .abortSignal(signal()),
-      ),
+      stnIds.length === 0
+        ? Promise.resolve([])
+        : many<HeatLatestRow>(
+            "heat_daily",
+            client
+              .from("heat_daily")
+              .select(COLUMNS.heat_latest)
+              .in("stn_id", stnIds)
+              .eq("crop_id", cropId)
+              .eq("date", date)
+              .retry(false)
+              .abortSignal(signal()),
+          ),
+    recent: async (stnIds, cropId, from, until) => {
+      if (stnIds.length === 0) return [];
+      const all: HeatLatestRow[] = [];
+      let pageFrom = 0;
+      while (true) {
+        const batch = await many<HeatLatestRow>(
+          "heat_daily",
+          client
+            .from("heat_daily")
+            .select(COLUMNS.heat_latest)
+            .in("stn_id", stnIds)
+            .eq("crop_id", cropId)
+            .gte("date", from)
+            .lte("date", until)
+            .not("gdd_cum", "is", null)
+            .order("date", { ascending: true })
+            .order("stn_id", { ascending: true })
+            .range(pageFrom, pageFrom + PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(signal()),
+        );
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        pageFrom += PAGE_SIZE;
+      }
+      return all;
+    },
     lastUpdated: async (stnId) => {
       const rows = await many<{ updated_at: string }>(
         "heat_daily",

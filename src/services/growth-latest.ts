@@ -32,19 +32,23 @@ export type HomeGrowth = {
   sun: Record<number, SunLatest>;
 };
 
+export type StationScope = "rep" | "active";
+
 /** 어제 값이 없는 지점은 이만큼 거슬러 올라가 마지막 관측일을 찾는다. */
 const LOOKBACK_DAYS = 14;
 const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
+const ACTIVE_STATIONS = STATIONS.filter((s) => s.isActive);
 
 /** 어제 + 빠진 지점 보충. 지점마다 올해 값(has)이 있는 마지막 줄을 남긴다. */
 async function latestRows<T extends { stn_id: string }>(
   today: string,
+  stations: readonly (typeof STATIONS)[number][],
   has: (r: T) => boolean,
   onDate: (ids: string[], date: string) => Promise<T[]>,
   recent: (ids: string[], from: string, until: string) => Promise<T[]>,
 ): Promise<Map<string, T>> {
   const yesterday = addDays(today, -1);
-  const ids = REP_STATIONS.map((s) => String(s.id));
+  const ids = stations.map((s) => String(s.id));
   const found = new Map<string, T>();
   for (const r of await onDate(ids, yesterday))
     if (has(r)) found.set(r.stn_id, r);
@@ -63,9 +67,12 @@ export async function readHeatLatest(
   db: HeatSource,
   cropId: string,
   today: string,
+  stationScope: StationScope = "rep",
 ): Promise<Record<number, HeatLatest>> {
+  const stations = stationScope === "active" ? ACTIVE_STATIONS : REP_STATIONS;
   const rows = await latestRows<HeatLatestRow>(
     today,
+    stations,
     (r) => r.gdd_cum != null,
     (ids, date) => db.onDate(ids, cropId, date),
     (ids, from, until) => db.recent(ids, cropId, from, until),
@@ -80,9 +87,12 @@ export async function readHeatLatest(
 export async function readSunLatest(
   db: SunSource,
   today: string,
+  stationScope: StationScope = "rep",
 ): Promise<Record<number, SunLatest>> {
+  const stations = stationScope === "active" ? ACTIVE_STATIONS : REP_STATIONS;
   const rows = await latestRows<SunLatestRow>(
     today,
+    stations,
     (r) => r.rs_cum_mj != null,
     (ids, date) => db.onDate(ids, date),
     (ids, from, until) => db.recent(ids, from, until),
@@ -98,6 +108,7 @@ type Deps = {
   createHeat?: () => HeatSource;
   createSun?: () => SunSource;
   now?: () => Date;
+  stationScope?: StationScope;
 };
 
 /** 종합 화면 온도·햇빛 카드와 전국 표. 한쪽이 실패해도 다른 쪽은 남는다. 던지지 않는다. */
@@ -107,14 +118,15 @@ export async function getHomeGrowth(
     createHeat = () => createHeatSource(),
     createSun = () => createSunSource(),
     now = () => new Date(),
+    stationScope = "rep",
   }: Deps = {},
 ): Promise<HomeGrowth> {
   const today = koreanDate(now().toISOString());
   const [heat, sun] = await Promise.all([
     attempt("적산온도", () =>
-      readHeatLatest(createHeat(), CROP_DB_ID[crop], today),
+      readHeatLatest(createHeat(), CROP_DB_ID[crop], today, stationScope),
     ),
-    attempt("적산일사", () => readSunLatest(createSun(), today)),
+    attempt("적산일사", () => readSunLatest(createSun(), today, stationScope)),
   ]);
   return {
     heatOk: heat != null,

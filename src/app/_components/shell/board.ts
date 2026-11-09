@@ -28,7 +28,7 @@ export async function loadBoard() {
 async function cachedGrowth(crop: Crop) {
   "use cache";
   cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 });
-  return getHomeGrowth(crop);
+  return getHomeGrowth(crop, { stationScope: "active" });
 }
 
 export async function loadGrowth(crop: Crop) {

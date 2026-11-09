@@ -29,6 +29,7 @@ function fakeClient(answer: {
     "lte",
     "order",
     "limit",
+    "range",
     "abortSignal",
     "retry",
     "maybeSingle",
@@ -103,8 +104,95 @@ describe("heat-source", () => {
       'gte("date","2026-10-11")',
       'lte("date","2026-10-24")',
       'not("gdd_cum","is",null)',
-      'order("date")',
+      'order("date",{"ascending":true})',
+      'order("stn_id",{"ascending":true})',
+      "range(0,999)",
     ]);
+  });
+
+  it("1,000줄 넘는 경우 고정 정렬(date, stn_id)로 range 나눠 읽고 겹침·빠짐이 없다 (1,164줄)", async () => {
+    // 97개 지점 × 12일 = 1,164줄
+    const mockRows = Array.from({ length: 1164 }, (_, i) => ({
+      stn_id: String(100 + Math.floor(i / 12)),
+      date: `2026-10-${String((i % 12) + 1).padStart(2, "0")}`,
+      lead_days: 1,
+      gdd_cum: 1000 + i,
+      gdd_normal_cum: 950 + i,
+    }));
+
+    const ranges: [number, number][] = [];
+    const calls: string[] = [];
+    const from = (table: string) => {
+      calls.push(`from(${table})`);
+      let cFrom = 0;
+      let cTo = 0;
+      const builder: Record<string, unknown> = {
+        select: (cols: string) => (
+          calls.push(`select(${JSON.stringify(cols)})`),
+          builder
+        ),
+        in: (col: string, vals: unknown[]) => (
+          calls.push(`in(${JSON.stringify(col)},${JSON.stringify(vals)})`),
+          builder
+        ),
+        eq: (col: string, val: unknown) => (
+          calls.push(`eq(${JSON.stringify(col)},${JSON.stringify(val)})`),
+          builder
+        ),
+        gte: (col: string, val: unknown) => (
+          calls.push(`gte(${JSON.stringify(col)},${JSON.stringify(val)})`),
+          builder
+        ),
+        lte: (col: string, val: unknown) => (
+          calls.push(`lte(${JSON.stringify(col)},${JSON.stringify(val)})`),
+          builder
+        ),
+        not: (col: string, op: string, val: unknown) => (
+          calls.push(
+            `not(${JSON.stringify(col)},${JSON.stringify(op)},${JSON.stringify(val)})`,
+          ),
+          builder
+        ),
+        order: (col: string, opts: unknown) => (
+          calls.push(`order(${JSON.stringify(col)},${JSON.stringify(opts)})`),
+          builder
+        ),
+        range: (f: number, t: number) => {
+          cFrom = f;
+          cTo = t;
+          ranges.push([f, t]);
+          calls.push(`range(${f},${t})`);
+          return builder;
+        },
+        retry: () => builder,
+        abortSignal: () => builder,
+        then: (resolve: (v: unknown) => unknown) => {
+          const slice = mockRows.slice(cFrom, cTo + 1);
+          return Promise.resolve({ data: slice, error: null }).then(resolve);
+        },
+      };
+      return builder;
+    };
+
+    const client = { from } as unknown as SupabaseClient;
+    const db = createHeatSource(client);
+    const stnIds = Array.from(new Set(mockRows.map((r) => r.stn_id)));
+    const result = await db.recent(stnIds, "apple", "2026-10-01", "2026-10-12");
+
+    // 1. 고정 정렬 확인 (date asc, stn_id asc)
+    expect(calls).toContain('order("date",{"ascending":true})');
+    expect(calls).toContain('order("stn_id",{"ascending":true})');
+
+    // 2. 1,000줄 단위 range 호출 확인 ([0, 999], [1000, 1999])
+    expect(ranges).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+
+    // 3. 총 1,164줄 빠짐 및 중복 없음
+    expect(result).toHaveLength(1164);
+    const keys = new Set(result.map((r) => `${r.date}-${r.stn_id}`));
+    expect(keys.size).toBe(1164);
   });
 
   it("numeric 이 문자로 와도 수로 바꾸고, 지점 번호·날짜는 그대로 둔다", async () => {
