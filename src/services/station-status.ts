@@ -90,7 +90,7 @@ function code(v: string | undefined): WaterStatus | null {
     : null;
 }
 
-function emptyBoard(
+export function emptyBoard(
   ok: boolean,
   soilStations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
   updatedStations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
