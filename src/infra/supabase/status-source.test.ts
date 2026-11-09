@@ -65,7 +65,9 @@ describe("status-source", () => {
       'select("scenario_id,date,status,dr_mm")',
       'in("scenario_id",["a"])',
       'gte("date","2026-10-18")',
+      'order("scenario_id",{"ascending":true})',
       'order("date",{"ascending":false})',
+      "range(0,999)",
       "from(soil_water_latest)",
       'select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")',
       'in("stn_id",["101"])',
@@ -255,6 +257,85 @@ describe("status-source", () => {
 
     // 3. 총 1,164줄 빠짐 및 중복 없음
     expect(result).toHaveLength(1164);
+    expect(result).toEqual(mockRows);
+  });
+
+  it("recentBalance: 빈 scenarioIds가 들어오면 DB를 부르지 않고 바로 빈 배열을 돌려준다", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    const db = createStatusSource(client);
+    const result = await db.recentBalance([], "2026-10-18");
+    expect(result).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  it("recentBalance: 194개 조건 × 7일(1,358줄)에서도 고정 정렬(scenario_id asc, date desc)로 range 나눠 읽고 빠짐이 없다", async () => {
+    // 194개 조건 × 7일 = 1,358줄 모의 데이터
+    const mockRows = Array.from({ length: 1358 }, (_, i) => ({
+      scenario_id: `scen-${String(Math.floor(i / 7) + 1).padStart(3, "0")}`,
+      date: `2026-10-${String((i % 7) + 1).padStart(2, "0")}`,
+      status: "fair",
+      dr_mm: 12.5,
+    }));
+
+    const ranges: [number, number][] = [];
+    const calls: string[] = [];
+    const from = (table: string) => {
+      calls.push(`from(${table})`);
+      let cFrom = 0;
+      let cTo = 0;
+      const builder: Record<string, unknown> = {
+        select: (cols: string) => (
+          calls.push(`select(${JSON.stringify(cols)})`),
+          builder
+        ),
+        gte: (col: string, val: unknown) => (
+          calls.push(`gte(${JSON.stringify(col)},${JSON.stringify(val)})`),
+          builder
+        ),
+        in: (col: string, vals: unknown[]) => (
+          calls.push(`in(${JSON.stringify(col)},${JSON.stringify(vals)})`),
+          builder
+        ),
+        order: (col: string, opts: unknown) => (
+          calls.push(`order(${JSON.stringify(col)},${JSON.stringify(opts)})`),
+          builder
+        ),
+        range: (f: number, t: number) => {
+          cFrom = f;
+          cTo = t;
+          ranges.push([f, t]);
+          calls.push(`range(${f},${t})`);
+          return builder;
+        },
+        retry: () => builder,
+        abortSignal: () => builder,
+        then: (resolve: (v: unknown) => unknown) => {
+          const slice = mockRows.slice(cFrom, cTo + 1);
+          return Promise.resolve({ data: slice, error: null }).then(resolve);
+        },
+      };
+      return builder;
+    };
+
+    const client = { from } as unknown as SupabaseClient;
+    const db = createStatusSource(client);
+    const scenarioIds = Array.from(new Set(mockRows.map((r) => r.scenario_id)));
+    expect(scenarioIds).toHaveLength(194);
+
+    const result = await db.recentBalance(scenarioIds, "2026-10-18");
+
+    // 1. 고정 정렬 확인 (scenario_id asc, date desc)
+    expect(calls).toContain('order("scenario_id",{"ascending":true})');
+    expect(calls).toContain('order("date",{"ascending":false})');
+
+    // 2. 1,000줄 단위 range 호출 확인 ([0, 999], [1000, 1999])
+    expect(ranges).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+
+    // 3. 총 1,358줄 빠짐 및 중복 없음
+    expect(result).toHaveLength(1358);
     expect(result).toEqual(mockRows);
   });
 });

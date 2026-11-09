@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 성능 (water_balance_daily 읽기에 range 페이징 적용 — 이슈 #104)
+
+- 향후 대표 밖 87곳 계산 조건 확대(#103, croplib-dp #28 C6/S5) 시 194개 조건 × 최근 7일치(1,358줄) 조회 시 PostgREST 1,000줄 기본 제한으로 인한 데이터 누락을 방지하기 위해 `status-source.ts`의 `recentBalance`에 `while (true)` 및 `range(from, from + PAGE_SIZE - 1)` 분할 페이징 적용
+- 결정적 정렬(`order("scenario_id", { ascending: true })` 및 `order("date", { ascending: false })`)로 페이지 경계 누락·중복 방지
+- 빈 `scenarioIds` 전달 시 DB 호출 없이 즉시 빈 배열 반환하는 방어 로직 추가
+
 ### 변경 (운영 97곳 물 표시 정리 및 회차·기상 지점 필터링 — 이슈 #98)
 
 - 판정 표 범위 확장: 종합 화면 및 지역 칩의 토양수분(`board.soil`)과 갱신 시각(`board.updated`)을 기상청 ASOS 운영 97곳 전체로 확장 (`board.ts`, `station-status.ts`)

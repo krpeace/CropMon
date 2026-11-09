@@ -68,7 +68,7 @@ export type StatusSource = {
     runIds: number[],
     scenarioIds: string[],
   ): Promise<SummaryStatusRow[]>;
-  /** since 이후의 관측 물수지 판정 (회차가 없는 지점의 대신 값). */
+  /** since 이후의 관측 물수지 판정 (회차가 없는 지점의 대신 값). 1,000줄 넘으면 range 페이징. */
   recentBalance(
     scenarioIds: string[],
     since: string,
@@ -158,18 +158,30 @@ export function createStatusSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    recentBalance: (scenarioIds, since) =>
-      read<BalanceStatusRow[]>(
-        "water_balance_daily",
-        client
-          .from("water_balance_daily")
-          .select("scenario_id,date,status,dr_mm")
-          .in("scenario_id", scenarioIds)
-          .gte("date", since)
-          .order("date", { ascending: false })
-          .retry(false)
-          .abortSignal(signal()),
-      ),
+    recentBalance: async (scenarioIds, since) => {
+      if (scenarioIds.length === 0) return [];
+      const all: BalanceStatusRow[] = [];
+      let from = 0;
+      while (true) {
+        const batch = await read<BalanceStatusRow[]>(
+          "water_balance_daily",
+          client
+            .from("water_balance_daily")
+            .select("scenario_id,date,status,dr_mm")
+            .in("scenario_id", scenarioIds)
+            .gte("date", since)
+            .order("scenario_id", { ascending: true })
+            .order("date", { ascending: false })
+            .range(from, from + PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(signal()),
+        );
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return all;
+    },
     outlookDays: (runIds, scenarioIds) =>
       read<OutlookDayRow[]>(
         "water_outlook",
