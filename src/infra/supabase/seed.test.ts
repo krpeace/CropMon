@@ -27,6 +27,7 @@ const SEED_FORECAST_GRID = read(
   "20261108020000_seed_stations_forecast_grid.sql",
 );
 const SEED_FORECAST_C1 = read("20261109010000_stations_has_forecast_c1.sql");
+const SEED_FORECAST_C2 = read("20261109030000_stations_has_forecast_c2.sql");
 const SEED_MEASURES_SUNLIGHT = read(
   "20261109020000_stations_measures_sunlight.sql",
 );
@@ -571,6 +572,150 @@ describe("사전 자료: 지점", () => {
 
     // 6. 되돌리기 주석 존재 확인
     expect(SEED_FORECAST_C1).toMatch(
+      /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+has_forecast\s*=\s*false/i,
+    );
+  });
+
+  it("단기예보 2차 확대(c2, 67곳): 마이그레이션 SQL이 대표 10곳을 보호하고 대상 67곳만 켠다 (#102)", () => {
+    expect(SEED_FORECAST_C2).toBeTruthy();
+
+    const expectedStnIds = [
+      "138",
+      "140",
+      "143",
+      "152",
+      "155",
+      "159",
+      "162",
+      "165",
+      "168",
+      "169",
+      "170",
+      "172",
+      "174",
+      "177",
+      "181",
+      "184",
+      "185",
+      "188",
+      "201",
+      "202",
+      "203",
+      "211",
+      "212",
+      "217",
+      "221",
+      "226",
+      "232",
+      "235",
+      "236",
+      "238",
+      "239",
+      "243",
+      "244",
+      "245",
+      "247",
+      "248",
+      "251",
+      "252",
+      "253",
+      "254",
+      "255",
+      "257",
+      "258",
+      "259",
+      "260",
+      "261",
+      "262",
+      "263",
+      "264",
+      "266",
+      "268",
+      "271",
+      "272",
+      "273",
+      "276",
+      "277",
+      "278",
+      "279",
+      "281",
+      "283",
+      "284",
+      "285",
+      "288",
+      "289",
+      "294",
+      "295",
+      "296",
+    ];
+
+    // 1. 대상 67곳이 SQL 본문에 모두 포함되어 있는지 확인
+    const matches = Array.from(
+      SEED_FORECAST_C2.matchAll(/'(\d+)'/g),
+      (m) => m[1],
+    );
+    for (const id of expectedStnIds) {
+      expect(matches.filter((m) => m === id).length).toBeGreaterThanOrEqual(1);
+    }
+
+    // 2. 실행 본문에서 대상 지점이 정확히 67곳인지 확인
+    const executableSql = SEED_FORECAST_C2.replace(/--.*$/gm, "").trim();
+    const execMatches = Array.from(
+      executableSql.matchAll(/'(\d+)'/g),
+      (m) => m[1],
+    );
+    expect(new Set(execMatches)).toEqual(new Set(expectedStnIds));
+    expect(execMatches).toHaveLength(67);
+
+    // 3. update 구문 및 has_forecast = true 설정 확인
+    expect(executableSql).toMatch(
+      /update\s+public\.stations\s+set\s+has_forecast\s*=\s*true/i,
+    );
+
+    // 4. 대표 10곳 보호 조건 확인 (where ... and is_representative = false)
+    expect(executableSql).toMatch(/is_representative\s*=\s*false/i);
+
+    // 5. 대상 67곳이 모두 ASOS 사전에서 운영 지점(is_active = true)이고 비대표(is_representative = false)인지 확인
+    for (const id of expectedStnIds) {
+      const stn = asosStations.find((s) => s.stn_id === id);
+      expect(stn, `지점 ${id}`).toBeDefined();
+      expect(stn?.is_active, `지점 ${id} is_active`).toBe(true);
+      expect(stn?.is_representative, `지점 ${id} is_representative`).toBe(
+        false,
+      );
+    }
+
+    // 6. c1(20곳) 및 대표 10곳과 중복이 없는지 확인
+    const c1Ids = new Set([
+      "90",
+      "93",
+      "95",
+      "98",
+      "99",
+      "100",
+      "102",
+      "104",
+      "105",
+      "106",
+      "108",
+      "112",
+      "114",
+      "115",
+      "121",
+      "127",
+      "130",
+      "133",
+      "135",
+      "137",
+    ]);
+    const repIds = new Set(stations.map((s) => s.stn_id));
+    for (const id of expectedStnIds) {
+      expect(c1Ids.has(id), `c1과 중복된 지점 ${id}`).toBe(false);
+      expect(repIds.has(id), `대표 지점과 중복된 지점 ${id}`).toBe(false);
+    }
+
+    // 7. 되돌리기 주석 존재 확인
+    expect(SEED_FORECAST_C2).toMatch(
       /--\s*update\s+public\.stations[\s\S]*?--\s*set\s+has_forecast\s*=\s*false/i,
     );
   });
