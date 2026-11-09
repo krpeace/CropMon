@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 문서 (하루 강수량 상한 1,000mm로 현실화 — 이슈 #109)
+
+- `docs/DATA_CONTRACT.md`의 `weather_daily.rain_mm` 상한을 `0~500`에서 `0~1,000`으로 현실화 (croplib-dp 결정 0027 연동, 2026-08-17 거제 654.3mm 사례 반영)
+
 ### 안정성 (예보 지점 확대 S4 대비 forecast_runs 밀림 방지 및 range 페이징 — 이슈 #110)
 
 - `croplib-dp` S4(단기예보 30곳 → 97곳 확대) 시 예보 회차 급증으로 인해 판정 표의 대표 지점 회차가 밀려나 누락되는 문제를 방지하기 위해 `status-source.ts`의 `recentRuns`를 "줄 수 limit"에서 "필요한 지점(`stn_id in`) + 최근 3일(`run_at`, 한국 시각 기준) + range 페이징"으로 개선
