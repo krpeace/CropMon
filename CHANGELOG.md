@@ -8,6 +8,12 @@
 
 - `docs/DATA_CONTRACT.md`의 `weather_daily.rain_mm` 상한을 `0~500`에서 `0~1,000`으로 현실화 (croplib-dp 결정 0027 연동, 2026-08-17 거제 654.3mm 사례 반영)
 
+### 안정성 (예보 지점 확대 S4 대비 forecast_runs 밀림 방지 및 range 페이징 — 이슈 #110)
+
+- `croplib-dp` S4(단기예보 30곳 → 97곳 확대) 시 예보 회차 급증으로 인해 판정 표의 대표 지점 회차가 밀려나 누락되는 문제를 방지하기 위해 `status-source.ts`의 `recentRuns`를 "줄 수 limit"에서 "필요한 지점(`stn_id in`) + 최근 3일(`run_at`, 한국 시각 기준) + range 페이징"으로 개선
+- `station-status.ts`에서 판정 표 대상 지점(`targetStnIds`: active 97곳 / rep 10곳) 전체를 전달하여 `board.updated` 갱신 시각에 예보 지점의 최신 회차가 누락 없이 반영되도록 보장
+- 최신 회차가 실패·미완료 상태일 때 직전 정상 회차로의 자연스러운 대체(fallback) 동작 및 36시간 유효성 유지
+
 ### 안정성 (첫 화면 판정 표 DB 읽기 실패 시 캐시 방지 — 이슈 #106)
 
 - `board.ts`의 판정 표(`cachedBoard`), 적산온도(`cachedHeat`), 적산일사(`cachedSun`) 캐시 함수에서 DB 읽기 실패(`board.ok === false` 또는 에러 throw) 시 Error를 throw하여 Next.js 캐시 저장을 취소(bypass)하도록 개선 (#81 선행)
