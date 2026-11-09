@@ -76,6 +76,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
     it("DB 읽기 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다", async () => {
       const failedView = {
         problem: "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
       } as unknown as waterService.WaterView;
 
       vi.spyOn(waterService, "getWaterView").mockResolvedValueOnce(failedView);
@@ -85,9 +86,56 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       ).rejects.toThrow("[water] DB 읽기 실패");
     });
 
+    it("18:00 KST에 요청하면 오늘 17시 회차를 쓴다 (물 화면)", async () => {
+      const kst1800 = new Date("2026-11-09T18:00:00+09:00");
+      let capturedDeps: { now?: () => Date } | undefined;
+
+      vi.spyOn(waterService, "getWaterView").mockImplementationOnce(
+        async (_sel, _stn, _q, deps) => {
+          capturedDeps = deps;
+          return {
+            meta: {
+              source: "test",
+              issue: "11월 9일 17시 단기예보",
+              updated: "11월 9일 17:41",
+              short: "17시 예보 · 17:41 갱신",
+            },
+            outlook: {
+              basis: "17시 예보 기준",
+              runs: [
+                { hour: "02", available: true, selected: false },
+                { hour: "17", available: true, selected: true },
+              ],
+              need: null,
+              advice: null,
+              days: [],
+            },
+            problem: null,
+            failed: false,
+          } as unknown as waterService.WaterView;
+        },
+      );
+
+      const result = await fetchWater(
+        mockSelection,
+        mockStation,
+        mockWaterQuery,
+        "2026-11-09",
+        { now: () => kst1800 },
+      );
+
+      // fetchWater가 now를 오늘 00:00으로 덮어쓰지 않고 실제 시각(18:00 KST)을 그대로 전달했는지 검증
+      expect(capturedDeps?.now?.()).toEqual(kst1800);
+      expect(result.outlook?.basis).toBe("17시 예보 기준");
+      expect(result.outlook?.runs.find((r) => r.hour === "17")?.selected).toBe(
+        true,
+      );
+    });
+
     it("정상적인 자료 없음(계산 조건 없음)은 에러가 아니므로 정상 반환되어 캐시된다", async () => {
       const normalNoDataView = {
         problem: "이 지역·작물의 2026 계산 조건이 아직 없어요.",
+        failed: false,
       } as unknown as waterService.WaterView;
 
       vi.spyOn(waterService, "getWaterView").mockResolvedValueOnce(
@@ -103,11 +151,13 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       expect(result.problem).toBe(
         "이 지역·작물의 2026 계산 조건이 아직 없어요.",
       );
+      expect(result.failed).toBe(false);
     });
 
     it("loadWater: 캐시 함수가 에러를 던져도 폴백 뷰를 반환하여 크래시되지 않는다", async () => {
       vi.spyOn(waterService, "getWaterView").mockResolvedValueOnce({
         problem: "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
       } as unknown as waterService.WaterView);
 
       const result = await loadWater(
@@ -119,6 +169,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       expect(result.problem).toBe(
         "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
       );
+      expect(result.failed).toBe(true);
       expect(result.meta.issue).toBe("자료 없음");
     });
   });
@@ -147,6 +198,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
     it("DB 읽기 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다", async () => {
       const failedView = {
         problem: "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
       } as unknown as temperatureService.TemperatureView;
 
       vi.spyOn(temperatureService, "getTemperatureView").mockResolvedValueOnce(
@@ -180,6 +232,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
     it("loadTemperature: 캐시 함수가 에러를 던져도 폴백 뷰를 반환하여 크래시되지 않는다", async () => {
       vi.spyOn(temperatureService, "getTemperatureView").mockResolvedValueOnce({
         problem: "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
       } as unknown as temperatureService.TemperatureView);
 
       const result = await loadTemperature(
@@ -190,6 +243,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       expect(result.problem).toBe(
         "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
       );
+      expect(result.failed).toBe(true);
       expect(result.verdict).toBe("자료 없음");
       expect(result.today).toBe("2026-11-09");
       // 결정 0017: 단일 지점 읽기가 실패해도 지역 비교 10곳은 보여 줌
@@ -253,6 +307,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
     it("DB 읽기 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다", async () => {
       const failedView = {
         problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
       } as unknown as sunlightService.SunlightView;
 
       vi.spyOn(sunlightService, "getSunlightView").mockResolvedValueOnce(
@@ -267,6 +322,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
     it("loadSunlight: 캐시 함수가 에러를 던져도 폴백 뷰를 반환하여 크래시되지 않는다", async () => {
       vi.spyOn(sunlightService, "getSunlightView").mockResolvedValueOnce({
         problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
       } as unknown as sunlightService.SunlightView);
 
       const result = await loadSunlight(
@@ -277,6 +333,7 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       expect(result.problem).toBe(
         "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
       );
+      expect(result.failed).toBe(true);
       expect(result.kind).toBe("error");
       expect(result.verdict).toBe("자료 없음");
       expect(result.today).toBe("2026-11-09");

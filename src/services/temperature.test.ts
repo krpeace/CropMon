@@ -366,6 +366,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     expect(v.problem).toBe(
       "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
+    expect(v.failed).toBe(true);
     expect(v.verdict).toBe("자료 없음");
     expect(v.numbers).toBeNull();
     expect(v.stages).toEqual([]);

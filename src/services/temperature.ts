@@ -75,6 +75,8 @@ export type TemperatureView = {
   compareProblem: string | null;
   /** 자료를 보여 줄 수 없을 때 그 이유. 없으면 null. */
   problem: string | null;
+  /** DB 조회 실패 여부 (실패 미캐시 판단용, 실패 시 true). */
+  failed?: boolean;
 };
 
 const NO_DATA = "자료 없음";
@@ -95,6 +97,7 @@ const EMPTY: Main = {
   stages: [],
   days: [],
   problem: null,
+  failed: false,
 };
 
 export async function getTemperatureView(
@@ -147,6 +150,7 @@ async function readMain(
     return {
       ...EMPTY,
       problem: "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+      failed: true,
     };
   }
 }

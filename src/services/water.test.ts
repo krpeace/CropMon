@@ -311,6 +311,29 @@ describe("오늘", () => {
     expect(c2).toContain("outlook 7 101-apple-main-k3-loam-2026");
   });
 
+  it("18:00 KST에 요청하면 오늘 17시 회차를 쓴다 (물 화면)", async () => {
+    const eve = {
+      ...RUN,
+      run_id: 8,
+      run_at: "2026-10-25T08:00:00+00:00", // 17:00 KST
+      run_name: "저녁",
+      finished_at: "2026-10-25T08:40:00+00:00",
+    };
+    const runs = { recentRuns: async () => [eve, RUN] };
+    // 18:00 KST = 09:00 UTC
+    const v = await getWaterView(APPLE, CHUNCHEON, TODAY, {
+      createSource: () => fake(runs),
+      now: () => new Date("2026-10-25T09:00:00Z"),
+    });
+    expect(v.outlook?.basis).toBe("17시 예보 기준");
+    expect(
+      v.outlook?.runs.map((r) => [r.hour, r.available, r.selected]),
+    ).toEqual([
+      ["02", true, false],
+      ["17", true, true],
+    ]);
+  });
+
   it("자료 상자: 실제 회차와 갱신 시각, 백업이면 적는다", async () => {
     expect((await view()).meta).toEqual({
       source: "기상청 ASOS 춘천(101) · 단기예보 · FAO-56 물수지",
@@ -627,5 +650,21 @@ describe("작물 공통 (토양 물 상태)", () => {
       },
     );
     expect(v.problem).toBe("이 지역·토양의 2026 물 계산 자료가 아직 없어요.");
+  });
+
+  it("DB 읽기 실패 시 failed: true를 반환한다", async () => {
+    const brokenSource = {
+      kcSets: async () => {
+        throw new Error("DB 연결 끊김");
+      },
+    };
+    const v = await getWaterView(APPLE, CHUNCHEON, TODAY, {
+      createSource: () => fake(brokenSource),
+      now: NOW,
+    });
+    expect(v.failed).toBe(true);
+    expect(v.problem).toBe(
+      "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+    );
   });
 });

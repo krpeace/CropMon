@@ -22,19 +22,18 @@ import { fetchHomeHeat, fetchHomeSun } from "./board";
 
 /**
  * 물 화면 DB 읽기. DB 장애 시 Error를 던져 Next.js 캐시 저장을 취소한다 (결정 0040).
+ * now는 덮어쓰지 않고 실제 시각을 사용하며, today는 캐시 열쇠로만 활용된다.
  */
 export async function fetchWater(
   selection: Selection,
   station: Station,
   query: WaterQuery,
   today: string,
+  deps?: { now?: () => Date },
 ): Promise<WaterView> {
-  const view = await getWaterView(selection, station, query, {
-    now: () => new Date(`${today}T00:00:00+09:00`),
-  });
-  if (
-    view.problem === "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요."
-  ) {
+  void today;
+  const view = await getWaterView(selection, station, query, deps);
+  if (view.failed) {
     throw new Error(
       `[water] DB 읽기 실패 (지점 ${station.id}, 작물 ${selection.crop})`,
     );
@@ -44,19 +43,17 @@ export async function fetchWater(
 
 /**
  * 온도 화면 DB 읽기. DB 장애 시 Error를 던져 Next.js 캐시 저장을 취소한다 (결정 0040).
+ * now는 덮어쓰지 않고 실제 시각을 사용하며, today는 캐시 열쇠로만 활용된다.
  */
 export async function fetchTemperature(
   selection: Selection,
   station: Station,
   today: string,
+  deps?: { now?: () => Date },
 ): Promise<TemperatureView> {
-  const view = await getTemperatureView(selection, station, {
-    now: () => new Date(`${today}T00:00:00+09:00`),
-  });
-  if (
-    view.problem ===
-    "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요."
-  ) {
+  void today;
+  const view = await getTemperatureView(selection, station, deps);
+  if (view.failed) {
     throw new Error(
       `[temperature] DB 읽기 실패 (지점 ${station.id}, 작물 ${selection.crop})`,
     );
@@ -67,19 +64,17 @@ export async function fetchTemperature(
 /**
  * 햇빛 화면 DB 읽기. DB 장애 시 Error를 던져 Next.js 캐시 저장을 취소한다 (결정 0040).
  * 센서가 없는 지점(notMeasured)은 정상 판정이므로 에러를 던지지 않고 정상 반환한다.
+ * now는 덮어쓰지 않고 실제 시각을 사용하며, today는 캐시 열쇠로만 활용된다.
  */
 export async function fetchSunlight(
   selection: Selection,
   station: Station,
   today: string,
+  deps?: { now?: () => Date },
 ): Promise<SunlightView> {
-  const view = await getSunlightView(selection, station, {
-    now: () => new Date(`${today}T00:00:00+09:00`),
-  });
-  if (
-    view.problem ===
-    "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요."
-  ) {
+  void today;
+  const view = await getSunlightView(selection, station, deps);
+  if (view.failed) {
     throw new Error(`[sunlight] DB 읽기 실패 (지점 ${station.id})`);
   }
   return view;
@@ -151,6 +146,7 @@ function emptyWaterFallback(station: Station): WaterView {
     rawMm: null,
     tawMm: null,
     problem: "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+    failed: true,
   };
 }
 
@@ -189,6 +185,7 @@ async function fallbackTemperature(
     compare,
     compareProblem: null,
     problem: "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+    failed: true,
   };
 }
 
@@ -229,6 +226,7 @@ async function fallbackSunlight(
     compare,
     compareProblem: null,
     problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+    failed: true,
   };
 }
 

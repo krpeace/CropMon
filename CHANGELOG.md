@@ -7,10 +7,10 @@
 ### 성능 (상세 화면 읽기 함수 단위 캐시 적용 및 실패 미캐시 — 이슈 #81)
 
 - 상세 화면(/water, /temperature, /sunlight)별 읽기 함수 단위 `use cache` (30분 수명, SWR 지원, 인스턴스별 캐시) 도입으로 중복 DB 조회 대폭 절감 (`src/app/_components/shell/detail-cache.ts`, 결정 0040)
-- "오늘" 날짜(`today`, 한국 시각 기준)를 캐시 함수 인자로 전달하여 자정 경계선 캐시 오염 방지
-- 실패 미캐시 원칙: DB 읽기 실패 시 Error를 던져 Next.js 캐시 저장을 취소(bypass)하고, 호출부에서 안전한 폴백(fallback) 객체를 반환하여 크래시 방지 및 복구 후 즉시 DB 재조회 보장
+- "오늘" 날짜(`today`, 한국 시각 기준)는 캐시 함수 인자로 전달하여 캐시 열쇠로만 활용하고, `now`는 실제 요청 시각을 그대로 유지하여 17시 예보 회차 등 시간 의존 로직 왜곡 방지
+- 실패 미캐시 원칙: 서비스 결과의 명시적 `failed: true` 플래그로 DB 읽기 실패를 감지해 Error를 던져 Next.js 캐시 저장을 취소(bypass)하고, 호출부에서 안전한 폴백(fallback) 객체를 반환하여 크래시 방지 및 복구 후 즉시 DB 재조회 보장
 - 일사 센서 미설치 지점(태백 등 `kind: "notMeasured"`)의 정상 "자료 없음"은 30분 동안 정상 캐시
-- SWR 시뮬레이션 및 실패 미캐시 단위 테스트(`detail-cache.test.ts`) 추가 및 결정 문서 `docs/decisions/0040-detail-cache-swr.md` 작성
+- SWR 시뮬레이션 및 실패 미캐시 단위 테스트(`detail-cache.test.ts`), 18:00 KST 17시 회차 선택 테스트 추가 및 결정 문서 `docs/decisions/0040-detail-cache-swr.md` 작성
 
 ### 데이터 (단기예보 지점 1차 확대 c1 — 이슈 #102)
 
