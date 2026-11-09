@@ -194,6 +194,7 @@ function SelectionBar({
   selection: Selection | null;
   statuses: StationStatuses | null;
 }) {
+  const isPending = statuses === null;
   const crop = selection?.crop ?? CROPS[0];
   const soil = selection?.soil ?? DEFAULT_SOIL;
   const chips = listStationChips(crop, statuses, soil);
@@ -363,7 +364,11 @@ function SelectionBar({
           className="desktop:flex-initial desktop:basis-auto desktop:flex-wrap flex min-w-0 flex-1 basis-0 items-center gap-1.5"
         >
           {/* 넓은 화면(>= 1280px): 대표 10개 칩 + 지역 고르기 버튼 */}
-          <div className="wide:flex hidden flex-wrap items-center gap-1.5">
+          <div
+            aria-busy={isPending ? "true" : undefined}
+            className="wide:flex hidden flex-wrap items-center gap-1.5"
+          >
+            {isPending && <span className="sr-only">판정 불러오는 중</span>}
             {chips.map((chip) => {
               const selected = chip.id === selection?.stationId;
               return (
@@ -385,14 +390,20 @@ function SelectionBar({
                   <span
                     aria-hidden="true"
                     className={`size-2 rounded-full ${
-                      chip.status ? STATUS_DOT[chip.status] : "bg-fill/30"
+                      isPending
+                        ? "bg-fill/30 motion-safe:animate-pulse"
+                        : chip.status
+                          ? STATUS_DOT[chip.status]
+                          : "bg-fill/30"
                     }`}
                   />
                   {chip.name}
-                  {/* 색만으로 말하지 않는다: 화면 읽기 도구에는 판정 이름을 읽어 준다 */}
-                  <span className="sr-only">
-                    {chip.status ? anyStatusLabel(chip.status) : "자료 없음"}
-                  </span>
+                  {/* 색만으로 말하지 않는다: 화면 읽기 도구에는 판정 이름을 읽어 준다 (불러오는 중일 때는 묶음에서 한 번만 안내) */}
+                  {!isPending && (
+                    <span className="sr-only">
+                      {chip.status ? anyStatusLabel(chip.status) : "자료 없음"}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -418,9 +429,11 @@ function SelectionBar({
                       <span
                         aria-hidden="true"
                         className={`size-2 rounded-full ${
-                          selectedStatus
-                            ? STATUS_DOT[selectedStatus]
-                            : "bg-white/55 dark:bg-white/10"
+                          isPending
+                            ? "bg-white/55 motion-safe:animate-pulse dark:bg-white/10"
+                            : selectedStatus
+                              ? STATUS_DOT[selectedStatus]
+                              : "bg-white/55 dark:bg-white/10"
                         }`}
                       />
                       <span>{station.name}</span>
@@ -428,9 +441,11 @@ function SelectionBar({
                         {station.id}
                       </span>
                       <span className="sr-only">
-                        {selectedStatus
-                          ? anyStatusLabel(selectedStatus)
-                          : "자료 없음"}
+                        {isPending
+                          ? "판정 불러오는 중"
+                          : selectedStatus
+                            ? anyStatusLabel(selectedStatus)
+                            : "자료 없음"}
                       </span>
                     </>
                   ) : (
@@ -508,7 +523,11 @@ function SelectionBar({
                 <span
                   aria-hidden="true"
                   className={`size-2 shrink-0 rounded-full ${
-                    selectedStatus ? STATUS_DOT[selectedStatus] : "bg-fill/30"
+                    isPending
+                      ? "bg-fill/30 motion-safe:animate-pulse"
+                      : selectedStatus
+                        ? STATUS_DOT[selectedStatus]
+                        : "bg-fill/30"
                   }`}
                 />
                 {/* 지점 이름은 넘치면 "…", 지점번호는 다 들어가면 보이고 안 들어가면 통째로 숨긴다 (위 작물 버튼과 같은 방식). 데스크톱은 칸을 없애(contents) 지금 모양 그대로 */}
@@ -524,9 +543,11 @@ function SelectionBar({
                   </span>
                 </span>
                 <span className="sr-only">
-                  {selectedStatus
-                    ? anyStatusLabel(selectedStatus)
-                    : "자료 없음"}
+                  {isPending
+                    ? "판정 불러오는 중"
+                    : selectedStatus
+                      ? anyStatusLabel(selectedStatus)
+                      : "자료 없음"}
                 </span>
                 <Icon
                   name="chevronDown"
@@ -644,6 +665,7 @@ function RegionPickerBody({
   statuses: StationStatuses | null;
   onClose: () => void;
 }) {
+  const isPending = statuses === null;
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -771,7 +793,11 @@ function RegionPickerBody({
                       <span
                         aria-hidden="true"
                         className={`size-2 shrink-0 rounded-full ${
-                          item.status ? STATUS_DOT[item.status] : "bg-fill/30"
+                          isPending
+                            ? "bg-fill/30 motion-safe:animate-pulse"
+                            : item.status
+                              ? STATUS_DOT[item.status]
+                              : "bg-fill/30"
                         }`}
                       />
                       <span className="text-16 font-semibold">{item.name}</span>
@@ -785,9 +811,11 @@ function RegionPickerBody({
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-13 text-ink-2/75">
                         {item.sido} ·{" "}
-                        {item.status
-                          ? anyStatusLabel(item.status)
-                          : "자료 없음"}
+                        {isPending
+                          ? "판정 불러오는 중"
+                          : item.status
+                            ? anyStatusLabel(item.status)
+                            : "자료 없음"}
                       </span>
                       {selected && (
                         <Icon

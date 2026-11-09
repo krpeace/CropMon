@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 수정 (PPR 정적 셸 초기 렌더 시 지역 칩 로딩 상태 표시 — 이슈 #115)
+
+- 첫 화면 접속 시 PPR 정적 셸(`SiteHeaderFallback`)의 지점 물 판정 대기 상태(`statuses === null`)에서 대표 칩·선택 지역 버튼·지역 고르기 목록이 "자료 없음" 대신 펄스 애니메이션(`motion-safe:animate-pulse`)과 "판정 불러오는 중"으로 렌더링되도록 개선하고, 칩 묶음에 `aria-busy="true"`를 부여해 웹 접근성 보완 (결측 지점은 로드 완료 후 기존대로 "자료 없음" 유지)
+
 ### 데이터 (단기예보 지점 2차 확대 c2 — 이슈 #102)
 
 - 기상청 ASOS 현행 운영 지점 중 나머지 67곳의 `stations.has_forecast`를 true로 전환하는 마이그레이션(`20261109030000_stations_has_forecast_c2.sql`) 추가 (`croplib-dp` S4 연동)
