@@ -252,6 +252,28 @@ describe("온도·햇빛 카드 (DB)", () => {
     });
   });
 
+  it("비대표 지점(홍천 212)도 적산온도 자료가 있으면 홈 온도 카드에 값이 나온다", () => {
+    const customGrowth: HomeGrowth = {
+      ...GROWTH,
+      heat: {
+        ...GROWTH.heat,
+        212: { cum: 3438, normal: 3300 },
+      },
+    };
+    const v = view(212, "common", BOARD, customGrowth);
+    expect(v.growth).toEqual({
+      verdict: "평년보다 +138℃",
+      numbers: "적산온도 3,438 / 평년 3,300℃",
+      missing: false,
+    });
+    // 햇빛을 재지 않는 지점은 지금처럼 "자료 없음"
+    expect(v.sunlight).toEqual({
+      verdict: "자료 없음",
+      numbers: "홍천 관측소의 햇빛 자료가 없어요 (확인 안 됨)",
+      missing: true,
+    });
+  });
+
   it("DB 를 읽지 못했으면 그 사실을 적는다", () => {
     const v = view(101, "apple", BOARD, {
       heatOk: false,

@@ -80,6 +80,15 @@ describe("readHeatLatest", () => {
     await readHeatLatest(src, "apple", TODAY);
     expect(asked).not.toContain("onDate 2026-12-31");
   });
+
+  it("stationScope: 'active'를 넘기면 운영 97곳을 대상으로 읽고 누락 지점을 보충한다", async () => {
+    const { src, asked } = heatSource();
+    const m = await readHeatLatest(src, "apple", TODAY, "active");
+    expect(m[101]).toEqual({ cum: 4165, normal: 3973 });
+    expect(m[119]).toEqual({ cum: 2200, normal: 2100 });
+    // 97개 지점 중 onDate 2곳(101, 216) 제외 95개 missing
+    expect(asked).toEqual(["onDate 2026-10-24", "recent 95"]);
+  });
 });
 
 describe("readSunLatest", () => {
@@ -88,6 +97,20 @@ describe("readSunLatest", () => {
     expect(m[101]).toEqual({ cum: 3218, normal: 3352 });
     expect(m[216]).toEqual({ cum: 3500, normal: 3333 });
     expect(m[192]).toBeUndefined();
+  });
+
+  it("stationScope: 'active'를 넘기면 운영 97곳을 대상으로 읽는다", async () => {
+    const asked: string[] = [];
+    const src: SunSource = {
+      ...sunSource(),
+      onDate: async (ids) => {
+        asked.push(`onDate ${ids.length}`);
+        return [sunRow("101", 3218, 3352), sunRow("216", 3500, 3333)];
+      },
+    };
+    const m = await readSunLatest(src, TODAY, "active");
+    expect(m[101]).toEqual({ cum: 3218, normal: 3352 });
+    expect(asked).toEqual(["onDate 97"]);
   });
 });
 
@@ -140,5 +163,17 @@ describe("getHomeGrowth", () => {
       now: NOW,
     });
     expect(g).toEqual({ heatOk: false, sunOk: false, heat: {}, sun: {} });
+  });
+
+  it("getHomeGrowth에 stationScope: 'active'를 넘기면 운영 97곳을 조회한다", async () => {
+    const { src, asked } = heatSource();
+    const g = await getHomeGrowth("common", {
+      createHeat: () => src,
+      createSun: () => sunSource(),
+      now: NOW,
+      stationScope: "active",
+    });
+    expect(g.heatOk).toBe(true);
+    expect(asked).toEqual(["onDate 2026-10-24", "recent 95"]);
   });
 });

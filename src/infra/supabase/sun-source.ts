@@ -51,6 +51,7 @@ export const COLUMNS = {
 } as const;
 
 const TEXT = ["stn_id", "date"];
+const PAGE_SIZE = 1000;
 
 export function createSunSource(
   client: SupabaseClient = getSupabaseClient(),
@@ -77,30 +78,44 @@ export function createSunSource(
           .abortSignal(signal()),
       ),
     onDate: (stnIds, date) =>
-      many<SunLatestRow>(
-        "sun_daily",
-        client
-          .from("sun_daily")
-          .select(COLUMNS.sun_latest)
-          .in("stn_id", stnIds)
-          .eq("date", date)
-          .retry(false)
-          .abortSignal(signal()),
-      ),
-    recent: (stnIds, from, until) =>
-      many<SunLatestRow>(
-        "sun_daily",
-        client
-          .from("sun_daily")
-          .select(COLUMNS.sun_latest)
-          .in("stn_id", stnIds)
-          .gte("date", from)
-          .lte("date", until)
-          .not("rs_cum_mj", "is", null)
-          .order("date")
-          .retry(false)
-          .abortSignal(signal()),
-      ),
+      stnIds.length === 0
+        ? Promise.resolve([])
+        : many<SunLatestRow>(
+            "sun_daily",
+            client
+              .from("sun_daily")
+              .select(COLUMNS.sun_latest)
+              .in("stn_id", stnIds)
+              .eq("date", date)
+              .retry(false)
+              .abortSignal(signal()),
+          ),
+    recent: async (stnIds, from, until) => {
+      if (stnIds.length === 0) return [];
+      const all: SunLatestRow[] = [];
+      let pageFrom = 0;
+      while (true) {
+        const batch = await many<SunLatestRow>(
+          "sun_daily",
+          client
+            .from("sun_daily")
+            .select(COLUMNS.sun_latest)
+            .in("stn_id", stnIds)
+            .gte("date", from)
+            .lte("date", until)
+            .not("rs_cum_mj", "is", null)
+            .order("date", { ascending: true })
+            .order("stn_id", { ascending: true })
+            .range(pageFrom, pageFrom + PAGE_SIZE - 1)
+            .retry(false)
+            .abortSignal(signal()),
+        );
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        pageFrom += PAGE_SIZE;
+      }
+      return all;
+    },
     lastUpdated: async (stnId) => {
       const rows = await many<{ updated_at: string }>(
         "sun_daily",
