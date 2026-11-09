@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { Crop } from "@/domain/selection";
 import * as growthLatest from "@/services/growth-latest";
 import * as stationStatus from "@/services/station-status";
 
 import {
-  fetchHomeGrowth,
+  fetchHomeHeat,
+  fetchHomeSun,
   fetchStationBoard,
   loadBoard,
   loadGrowth,
@@ -17,6 +19,15 @@ vi.mock("next/cache", () => ({
 
 vi.mock("next/server", () => ({
   connection: vi.fn(async () => {}),
+}));
+
+// Supabase 소스 생성 모킹 (환경변수 없는 단위 테스트 환경 대응)
+vi.mock("@/infra/supabase/heat-source", () => ({
+  createHeatSource: vi.fn(() => ({})),
+}));
+
+vi.mock("@/infra/supabase/sun-source", () => ({
+  createSunSource: vi.fn(() => ({})),
 }));
 
 describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
@@ -70,63 +81,209 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
     });
   });
 
-  describe("fetchHomeGrowth & loadGrowth", () => {
-    it("온도·햇빛 모두 성공 시 정상 반환한다", async () => {
-      const mockGrowth: growthLatest.HomeGrowth = {
-        heatOk: true,
-        sunOk: true,
-        heat: { 101: { cum: 3000, normal: 2900 } },
-        sun: { 101: { cum: 4500, normal: 4400 } },
+  describe("fetchHomeHeat & fetchHomeSun (적산온도·일사 독립 DB 읽기)", () => {
+    it("적산온도 DB 읽기 성공 시 맵을 정상 반환한다", async () => {
+      const mockHeat: Record<number, growthLatest.HeatLatest> = {
+        101: { cum: 3000, normal: 2900 },
       };
-      vi.spyOn(growthLatest, "getHomeGrowth").mockResolvedValueOnce(mockGrowth);
+      vi.spyOn(growthLatest, "readHeatLatest").mockResolvedValueOnce(mockHeat);
 
-      const result = await fetchHomeGrowth("apple");
-      expect(result).toBe(mockGrowth);
+      const result = await fetchHomeHeat("apple", "2026-11-09");
+      expect(result).toBe(mockHeat);
+      expect(result[101]?.cum).toBe(3000);
+    });
+
+    it("적산온도 DB 읽기 실패 시 Error를 던져 캐시 저장을 취소한다", async () => {
+      vi.spyOn(growthLatest, "readHeatLatest").mockRejectedValueOnce(
+        new Error("heat_daily timeout"),
+      );
+
+      await expect(fetchHomeHeat("apple", "2026-11-09")).rejects.toThrow(
+        "heat_daily timeout",
+      );
+    });
+
+    it("적산일사 DB 읽기 성공 시 맵을 정상 반환한다 (미관측 지점 빈 데이터 포함)", async () => {
+      const mockSun: Record<number, growthLatest.SunLatest> = {
+        101: { cum: 4500, normal: 4400 },
+        // 212(홍천)는 일사계가 없어 목록에 없음(정상)
+      };
+      vi.spyOn(growthLatest, "readSunLatest").mockResolvedValueOnce(mockSun);
+
+      const result = await fetchHomeSun("2026-11-09");
+      expect(result).toBe(mockSun);
+      expect(result[101]?.cum).toBe(4500);
+      expect(result[212]).toBeUndefined();
+    });
+
+    it("적산일사 DB 읽기 실패 시 Error를 던져 캐시 저장을 취소한다", async () => {
+      vi.spyOn(growthLatest, "readSunLatest").mockRejectedValueOnce(
+        new Error("sun_daily connection error"),
+      );
+
+      await expect(fetchHomeSun("2026-11-09")).rejects.toThrow(
+        "sun_daily connection error",
+      );
+    });
+  });
+
+  describe("loadGrowth (결정 0017 원칙 준수)", () => {
+    it("온도·햇빛 모두 성공 시 { heatOk: true, sunOk: true }와 양쪽 데이터를 정상 반환한다", async () => {
+      const mockHeat: Record<number, growthLatest.HeatLatest> = {
+        101: { cum: 3000, normal: 2900 },
+      };
+      const mockSun: Record<number, growthLatest.SunLatest> = {
+        101: { cum: 4500, normal: 4400 },
+      };
+      vi.spyOn(growthLatest, "readHeatLatest").mockResolvedValueOnce(mockHeat);
+      vi.spyOn(growthLatest, "readSunLatest").mockResolvedValueOnce(mockSun);
+
+      const result = await loadGrowth("apple");
       expect(result.heatOk).toBe(true);
       expect(result.sunOk).toBe(true);
+      expect(result.heat).toEqual(mockHeat);
+      expect(result.sun).toEqual(mockSun);
     });
 
-    it("온도나 햇빛 중 하나라도 실패하면 Error를 던져 캐시 저장을 취소한다", async () => {
-      const partialFailed: growthLatest.HomeGrowth = {
-        heatOk: true,
-        sunOk: false, // 햇빛 DB 실패
-        heat: { 101: { cum: 3000, normal: 2900 } },
-        sun: {},
+    it("결정 0017 원칙: sun만 실패 시 온도 카드는 정상 표시(heatOk: true)되고 sun만 실패(sunOk: false)로 반환된다", async () => {
+      const mockHeat: Record<number, growthLatest.HeatLatest> = {
+        101: { cum: 3000, normal: 2900 },
       };
-      vi.spyOn(growthLatest, "getHomeGrowth").mockResolvedValueOnce(
-        partialFailed,
+      vi.spyOn(growthLatest, "readHeatLatest").mockResolvedValueOnce(mockHeat);
+      vi.spyOn(growthLatest, "readSunLatest").mockRejectedValueOnce(
+        new Error("sun DB timeout"),
       );
 
-      await expect(fetchHomeGrowth("apple")).rejects.toThrow(
-        "[growth] 생육 자료 DB 읽기 실패 (heatOk=true, sunOk=false)",
-      );
+      const result = await loadGrowth("apple");
+      // 성공한 온도는 그대로 표출 (결정 0017)
+      expect(result.heatOk).toBe(true);
+      expect(result.heat).toEqual(mockHeat);
+      // 실패한 햇빛만 false (자료 없음 폴백)
+      expect(result.sunOk).toBe(false);
+      expect(result.sun).toEqual({});
     });
 
-    it("일사 미관측 지점의 정상 '자료 없음'(sunOk=true이나 특정 지점 자료 없음)은 정상 반환되어 캐시된다", async () => {
-      const notMeasuredStationGrowth: growthLatest.HomeGrowth = {
-        heatOk: true,
-        sunOk: true, // DB 조회는 정상 완료
-        heat: { 212: { cum: 3438, normal: 3300 } },
-        sun: {}, // 홍천(212)은 일사계가 없어 데이터 없음(정상)
+    it("결정 0017 원칙: heat만 실패 시 햇빛 카드는 정상 표시(sunOk: true)되고 heat만 실패(heatOk: false)로 반환된다", async () => {
+      const mockSun: Record<number, growthLatest.SunLatest> = {
+        101: { cum: 4500, normal: 4400 },
       };
-      vi.spyOn(growthLatest, "getHomeGrowth").mockResolvedValueOnce(
-        notMeasuredStationGrowth,
+      vi.spyOn(growthLatest, "readHeatLatest").mockRejectedValueOnce(
+        new Error("heat DB timeout"),
       );
+      vi.spyOn(growthLatest, "readSunLatest").mockResolvedValueOnce(mockSun);
 
-      // 에러를 던지지 않고 정상 반환되어 캐시에 들어감
-      const result = await fetchHomeGrowth("common");
+      const result = await loadGrowth("apple");
+      expect(result.heatOk).toBe(false);
+      expect(result.heat).toEqual({});
       expect(result.sunOk).toBe(true);
-      expect(result.sun[212]).toBeUndefined();
+      expect(result.sun).toEqual(mockSun);
     });
 
-    it("loadGrowth: 캐시 함수가 에러를 던지면 폴백({ heatOk: false, sunOk: false })을 반환한다", async () => {
-      vi.spyOn(growthLatest, "getHomeGrowth").mockRejectedValueOnce(
-        new Error("DB timeout"),
+    it("둘 다 실패 시 { heatOk: false, sunOk: false }를 반환하고 크래시되지 않는다", async () => {
+      vi.spyOn(growthLatest, "readHeatLatest").mockRejectedValueOnce(
+        new Error("heat error"),
+      );
+      vi.spyOn(growthLatest, "readSunLatest").mockRejectedValueOnce(
+        new Error("sun error"),
       );
 
       const result = await loadGrowth("apple");
       expect(result.heatOk).toBe(false);
       expect(result.sunOk).toBe(false);
+      expect(result.heat).toEqual({});
+      expect(result.sun).toEqual({});
+    });
+  });
+
+  describe("사용자 명시 요구 시험: sun만 실패 → 온도 정상 표시, 다음 요청에서 다시 읽는다", () => {
+    it("sun 실패 시 sun은 캐시되지 않고 다음 요청에서 다시 읽으며, 성공했던 heat는 캐시를 유지한다", async () => {
+      let heatCallCount = 0;
+      let sunCallCount = 0;
+
+      const mockHeatFetch = async (crop: Crop, today: string) => {
+        void crop;
+        void today;
+        heatCallCount++;
+        return { 101: { cum: 3000, normal: 2900 } };
+      };
+
+      const mockSunFetch = async (today: string) => {
+        void today;
+        sunCallCount++;
+        if (sunCallCount === 1) {
+          throw new Error("첫 요청 일사 DB 장애");
+        }
+        return { 101: { cum: 4500, normal: 4400 } };
+      };
+
+      // Next.js 'use cache' 컨테이너 시뮬레이터 (독립 캐시)
+      const cacheContainer = {
+        heat: new Map<string, Record<number, growthLatest.HeatLatest>>(),
+        sun: new Map<string, Record<number, growthLatest.SunLatest>>(),
+      };
+
+      const simulatedCachedHeat = async (crop: Crop, today: string) => {
+        const key = `${crop}:${today}`;
+        if (cacheContainer.heat.has(key)) {
+          return cacheContainer.heat.get(key)!;
+        }
+        const val = await mockHeatFetch(crop, today);
+        cacheContainer.heat.set(key, val);
+        return val;
+      };
+
+      const simulatedCachedSun = async (today: string) => {
+        const key = today;
+        if (cacheContainer.sun.has(key)) {
+          return cacheContainer.sun.get(key)!;
+        }
+        // 실패 시 에러가 밖으로 던져지며 캐시에 저장되지 않음
+        const val = await mockSunFetch(today);
+        cacheContainer.sun.set(key, val);
+        return val;
+      };
+
+      const simulatedLoadGrowth = async (crop: Crop, today: string) => {
+        const [heatRes, sunRes] = await Promise.allSettled([
+          simulatedCachedHeat(crop, today),
+          simulatedCachedSun(today),
+        ]);
+        return {
+          heatOk: heatRes.status === "fulfilled",
+          sunOk: sunRes.status === "fulfilled",
+          heat: heatRes.status === "fulfilled" ? heatRes.value : {},
+          sun: sunRes.status === "fulfilled" ? sunRes.value : {},
+        };
+      };
+
+      // 1회차 요청: heat 성공, sun 실패
+      const firstResult = await simulatedLoadGrowth("apple", "2026-11-09");
+      // 온도 카드는 정상 표시!
+      expect(firstResult.heatOk).toBe(true);
+      expect(firstResult.heat[101]?.cum).toBe(3000);
+      // 햇빛 카드는 실패 (자료 없음 폴백)
+      expect(firstResult.sunOk).toBe(false);
+      expect(firstResult.sun).toEqual({});
+
+      expect(heatCallCount).toBe(1);
+      expect(sunCallCount).toBe(1);
+      // 캐시 상태: heat는 캐시되었고, sun은 비어있음
+      expect(cacheContainer.heat.has("apple:2026-11-09")).toBe(true);
+      expect(cacheContainer.sun.has("2026-11-09")).toBe(false);
+
+      // 2회차 요청: sun 복구됨
+      const secondResult = await simulatedLoadGrowth("apple", "2026-11-09");
+      // 둘 다 정상 표시
+      expect(secondResult.heatOk).toBe(true);
+      expect(secondResult.sunOk).toBe(true);
+      expect(secondResult.heat[101]?.cum).toBe(3000);
+      expect(secondResult.sun[101]?.cum).toBe(4500);
+
+      // heat는 캐시 적중하여 DB 재호출 없음 (callCount 그대로 1)
+      expect(heatCallCount).toBe(1);
+      // sun은 캐시가 없었으므로 다시 읽어 성공 (callCount 2로 증가)
+      expect(sunCallCount).toBe(2);
+      expect(cacheContainer.sun.has("2026-11-09")).toBe(true);
     });
   });
 

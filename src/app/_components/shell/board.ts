@@ -1,10 +1,18 @@
 import { cacheLife } from "next/cache";
 import { connection } from "next/server";
 
-import { koreanDate } from "@/domain/water-outlook";
 import type { Crop } from "@/domain/selection";
+import { CROP_DB_ID, koreanDate } from "@/domain/water-outlook";
 import { STATIONS } from "@/infra/stations";
-import { getHomeGrowth, type HomeGrowth } from "@/services/growth-latest";
+import { createHeatSource } from "@/infra/supabase/heat-source";
+import { createSunSource } from "@/infra/supabase/sun-source";
+import {
+  readHeatLatest,
+  readSunLatest,
+  type HeatLatest,
+  type HomeGrowth,
+  type SunLatest,
+} from "@/services/growth-latest";
 import {
   emptyBoard,
   getStationBoard,
@@ -25,16 +33,22 @@ export async function fetchStationBoard(): Promise<StationBoard> {
 }
 
 /**
- * 종합 화면 생육(온도·햇빛) DB 읽기. 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다.
+ * 종합 화면 적산온도 DB 읽기. 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다 (결정 0017·0038·0040).
  */
-export async function fetchHomeGrowth(crop: Crop): Promise<HomeGrowth> {
-  const growth = await getHomeGrowth(crop, { stationScope: "active" });
-  if (!growth.heatOk || !growth.sunOk) {
-    throw new Error(
-      `[growth] 생육 자료 DB 읽기 실패 (heatOk=${growth.heatOk}, sunOk=${growth.sunOk})`,
-    );
-  }
-  return growth;
+export async function fetchHomeHeat(
+  crop: Crop,
+  today: string,
+): Promise<Record<number, HeatLatest>> {
+  return readHeatLatest(createHeatSource(), CROP_DB_ID[crop], today, "active");
+}
+
+/**
+ * 종합 화면 적산일사 DB 읽기. 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다 (결정 0017·0038·0040).
+ */
+export async function fetchHomeSun(
+  today: string,
+): Promise<Record<number, SunLatest>> {
+  return readSunLatest(createSunSource(), today, "active");
 }
 
 /**
@@ -62,24 +76,53 @@ export async function loadBoard() {
 }
 
 /**
- * 종합 화면 온도·햇빛 카드와 전국 표의 적산온도·적산일사 (결정 0017·0038). 헤더는 쓰지 않으므로 판정 표와 따로 둔다.
- * 오늘 날짜(today)를 인자로 받아 캐시 열쇠에 포함한다.
- * 하루 한 번 바뀌는 값이라 판정 표처럼 30분 동안 같은 값을 쓴다 (작물마다 한 벌).
+ * 종합 화면 적산온도 캐시 (작물마다 한 벌, 30분).
+ * 실패 시 Error가 던져져 캐시 저장이 취소된다.
  */
-async function cachedGrowth(crop: Crop, today: string) {
+async function cachedHeat(crop: Crop, today: string) {
   "use cache";
-  void today;
   cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 });
-  return fetchHomeGrowth(crop);
+  return fetchHomeHeat(crop, today);
 }
 
-export async function loadGrowth(crop: Crop) {
+/**
+ * 종합 화면 적산일사 캐시 (작물 무관, 30분).
+ * 실패 시 Error가 던져져 캐시 저장이 취소된다.
+ */
+async function cachedSun(today: string) {
+  "use cache";
+  cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 });
+  return fetchHomeSun(today);
+}
+
+/**
+ * 종합 화면 생육 자료(온도·햇빛).
+ * 결정 0017 원칙: 적산온도와 적산일사를 따로 캐시·조회하여 한쪽이 실패해도 다른 쪽은 정상 표출한다.
+ * 실패한 쪽만 에러가 throw되어 캐시되지 않고 다음 요청에서 다시 읽는다.
+ */
+export async function loadGrowth(crop: Crop): Promise<HomeGrowth> {
   await connection();
   const today = koreanDate(new Date().toISOString());
-  try {
-    return await cachedGrowth(crop, today);
-  } catch (error) {
-    console.error("[growth] 생육 자료 캐시 로드 실패 (폴백 반환):", error);
-    return { heatOk: false, sunOk: false, heat: {}, sun: {} };
+
+  const [heatResult, sunResult] = await Promise.allSettled([
+    cachedHeat(crop, today),
+    cachedSun(today),
+  ]);
+
+  const heatOk = heatResult.status === "fulfilled";
+  const sunOk = sunResult.status === "fulfilled";
+
+  if (!heatOk) {
+    console.error("[growth] 적산온도 캐시 읽기 실패:", heatResult.reason);
   }
+  if (!sunOk) {
+    console.error("[growth] 적산일사 캐시 읽기 실패:", sunResult.reason);
+  }
+
+  return {
+    heatOk,
+    sunOk,
+    heat: heatResult.status === "fulfilled" ? heatResult.value : {},
+    sun: sunResult.status === "fulfilled" ? sunResult.value : {},
+  };
 }

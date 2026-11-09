@@ -6,9 +6,11 @@
 
 ### 안정성 (첫 화면 판정 표 DB 읽기 실패 시 캐시 방지 — 이슈 #106)
 
-- `board.ts`의 판정 표(`cached`) 및 생육 카드(`cachedGrowth`) 캐시 함수에서 DB 읽기 실패(`board.ok === false` 또는 `growth.heatOk/sunOk === false`) 시 Error를 throw하여 Next.js 캐시 저장을 취소(bypass)하도록 개선 (#81 선행)
+- `board.ts`의 판정 표(`cachedBoard`), 적산온도(`cachedHeat`), 적산일사(`cachedSun`) 캐시 함수에서 DB 읽기 실패(`board.ok === false` 또는 에러 throw) 시 Error를 throw하여 Next.js 캐시 저장을 취소(bypass)하도록 개선 (#81 선행)
+- 결정 0017 원칙 준수: 적산온도와 적산일사 캐시를 분리하여 한쪽이 실패해도 성공한 쪽은 정상 표시되고, 실패한 쪽만 에러가 throw되어 캐시되지 않고 다음 요청에서 다시 읽도록 처리 (`loadGrowth`, `Promise.allSettled`)
 - `loadBoard` 및 `loadGrowth`에서 캐시 실패 시 폴백 객체를 반환하여 크래시를 방지하고, 일시 오류 발생 시에도 다음 요청에서 즉시 DB 재조회를 시도할 수 있도록 안정성 확보
 - 오늘 날짜(`today`)를 캐시 함수 인자로 전달하여 캐시 열쇠에 날짜 포함
+- 결정 0038에 운영 97곳 확대 반영 후의 1회 캐시 채움 실측치(약 0.29~0.38MB, 일일 약 14~18MB, 평균 약 17MB) 근거 보강
 
 ### 성능 (water_balance_daily 읽기에 range 페이징 적용 — 이슈 #104)
 
