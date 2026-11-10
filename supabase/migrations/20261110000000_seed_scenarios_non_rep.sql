@@ -5,11 +5,15 @@
 --
 -- 주의: 이 파일은 croplib-dp 2단계-나 S5(대표 밖 3일 물 전망) 수집기를 켜는 날 실행하고 병합한다 (그 전 병합 금지).
 --
--- 실행 순서:
---   1. 먼저 20261109030000_stations_has_forecast_c2.sql 까지 이름 순서대로 실행해 둔다.
---   2. Supabase 대시보드 → SQL Editor 에 이 파일 내용을 모두 붙여 넣고 Run 을 누른다.
---   3. 아래 확인 조회 3개를 실행하여 기대 결과를 확인한다.
---   4. 확인이 완료되면 PR을 병합한다.
+-- 병합·SQL 실행 순서 (croplib-dp #87 계획 §7 연동):
+--   1. croplib-dp S5-a 병합
+--   2. 이 시드 SQL 실행 (Supabase 대시보드 → SQL Editor 에 붙여 넣고 Run)
+--   3. 확인 조회 3개 실행 후 기대 결과 확인
+--   4. PR #125 Draft 해제
+--   5. CropMon PR #125 병합
+--   6. croplib-dp NONREP_SCENARIOS 켜기
+--   * 주의: S5-a 병합 전에 시드하면 14일 창 규칙이 풀려 회차마다 3/1~어제를 다시 올립니다.
+--           croplib-dp 채팅의 신호 전에는 SQL 실행·병합 금지.
 --
 -- 여러 번 실행해도 오류가 나지 않는다 (on conflict do update).
 --
@@ -36,6 +40,42 @@
 --      join public.stations s on s.stn_id = sc.stn_id
 --      where s.is_active = false;
 --      -- 기대 결과: 0
+--
+-- 되돌리기 (Rollback) SQL:
+--   외래키에 on delete cascade 가 없으므로 자식 테이블부터 역순으로 삭제한다.
+--   삭제 순서: water_outlook_summary -> water_outlook -> water_balance_daily -> scenarios
+--   대표 10곳(is_representative = true)의 조건과 데이터는 절대 지우지 않는다.
+--
+--   1. 전망 요약 삭제
+--   delete from public.water_outlook_summary
+--   where scenario_id in (
+--     select sc.scenario_id from public.scenarios sc
+--     join public.stations st on st.stn_id = sc.stn_id
+--     where st.is_representative = false and sc.season_year in (2026, 2027)
+--   );
+--
+--   2. 3일 전망 일별 자료 삭제
+--   delete from public.water_outlook
+--   where scenario_id in (
+--     select sc.scenario_id from public.scenarios sc
+--     join public.stations st on st.stn_id = sc.stn_id
+--     where st.is_representative = false and sc.season_year in (2026, 2027)
+--   );
+--
+--   3. 일별 물수지 관측 자료 삭제
+--   delete from public.water_balance_daily
+--   where scenario_id in (
+--     select sc.scenario_id from public.scenarios sc
+--     join public.stations st on st.stn_id = sc.stn_id
+--     where st.is_representative = false and sc.season_year in (2026, 2027)
+--   );
+--
+--   4. 계산 조건 348행 삭제 (대표 밖 87곳, 2026·2027년)
+--   delete from public.scenarios
+--   where stn_id in (
+--     select stn_id from public.stations where is_representative = false
+--   )
+--   and season_year in (2026, 2027);
 --
 -- 자동 검사: src/infra/supabase/seed.test.ts
 
