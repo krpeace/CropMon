@@ -350,6 +350,80 @@ describe("status-source", () => {
     expect(result).toEqual(mockRows);
   });
 
+  it("recentBalance: 한 묶음이 1,000줄 초과(1,200줄)에서도 range([0, 999], [1000, 1999])를 따라 빠짐없이 읽는다 (#103)", async () => {
+    // 100개 조건 × 12일 = 1,200줄 모의 데이터 (한 묶음 100개 이하)
+    const mock1200Rows = Array.from({ length: 1200 }, (_, i) => ({
+      scenario_id: `scen-${String(Math.floor(i / 12) + 1).padStart(3, "0")}`,
+      date: `2026-10-${String((i % 12) + 1).padStart(2, "0")}`,
+      status: "fair",
+      dr_mm: 12.5,
+    }));
+
+    const ranges: [number, number][] = [];
+    const calls: string[] = [];
+    let cFrom = 0;
+    let cTo = 0;
+    const from = (table: string) => {
+      expect(table).toBe("water_balance_daily");
+      calls.push(`from(${table})`);
+      const builder: Record<string, unknown> = {
+        select: (cols: string) => (
+          calls.push(`select(${JSON.stringify(cols)})`),
+          builder
+        ),
+        gte: (col: string, val: unknown) => (
+          calls.push(`gte(${JSON.stringify(col)},${JSON.stringify(val)})`),
+          builder
+        ),
+        in: (col: string, vals: unknown[]) => (
+          calls.push(`in(${JSON.stringify(col)},${JSON.stringify(vals)})`),
+          builder
+        ),
+        order: (col: string, opts: unknown) => (
+          calls.push(`order(${JSON.stringify(col)},${JSON.stringify(opts)})`),
+          builder
+        ),
+        range: (f: number, t: number) => {
+          cFrom = f;
+          cTo = t;
+          ranges.push([f, t]);
+          calls.push(`range(${f},${t})`);
+          return builder;
+        },
+        retry: () => builder,
+        abortSignal: () => builder,
+        then: (resolve: (v: unknown) => unknown) => {
+          const slice = mock1200Rows.slice(cFrom, cTo + 1);
+          return Promise.resolve({ data: slice, error: null }).then(resolve);
+        },
+      };
+      return builder;
+    };
+
+    const client = { from } as unknown as SupabaseClient;
+    const db = createStatusSource(client);
+    const scenarioIds = Array.from(
+      new Set(mock1200Rows.map((r) => r.scenario_id)),
+    );
+    expect(scenarioIds).toHaveLength(100);
+
+    const result = await db.recentBalance(scenarioIds, "2026-10-18");
+
+    // 1. 고정 정렬 확인 (scenario_id asc, date desc)
+    expect(calls).toContain('order("scenario_id",{"ascending":true})');
+    expect(calls).toContain('order("date",{"ascending":false})');
+
+    // 2. 1,000줄 단위 range 호출 확인 ([0, 999], [1000, 1999])
+    expect(ranges).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+
+    // 3. 총 1,200줄 빠짐 및 중복 없음
+    expect(result).toHaveLength(1200);
+    expect(result).toEqual(mock1200Rows);
+  });
+
   it("recentRuns: 3일치 582줄(97곳×2회×3일) 및 1,000줄 초과(1,200줄)에서도 range 페이징으로 빠짐없이 읽는다 (#110)", async () => {
     // 97개 지점 × 하루 2회(02시, 17시) × 3일 = 582줄
     const mock582Rows = Array.from({ length: 582 }, (_, i) => ({
