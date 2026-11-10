@@ -31,6 +31,7 @@ const SEED_FORECAST_C2 = read("20261109030000_stations_has_forecast_c2.sql");
 const SEED_MEASURES_SUNLIGHT = read(
   "20261109020000_stations_measures_sunlight.sql",
 );
+const SEED_NON_REP = read("20261110000000_seed_scenarios_non_rep.sql");
 const CSV_STATIONS_GRID = existsSync(
   join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
 )
@@ -102,6 +103,31 @@ function rowsOf(table: string, sql = SEED): Row[] {
       expect(vals, line).toHaveLength(cols.length);
       return Object.fromEntries(cols.map((c, k) => [c, vals[k]]));
     });
+}
+
+/** 한 파일 안에 같은 테이블의 insert 블록이 여러 개 있을 때 모두 파싱한다 (#103). */
+function allRowsOf(table: string, sql = SEED): Row[] {
+  const matches = sql.matchAll(
+    new RegExp(
+      `insert into public\\.${table} \\(([^)]*)\\)\\s*values\\s*([\\s\\S]*?)\\non conflict`,
+      "g",
+    ),
+  );
+  const out: Row[] = [];
+  for (const m of matches) {
+    const cols = m[1].split(",").map((c) => c.trim());
+    const blockRows = m[2]
+      .split("\n")
+      .map((line) => line.replace(/--.*$/, "").trim())
+      .filter((line) => line.startsWith("("))
+      .map((line) => {
+        const vals = parseTuple(line);
+        expect(vals, line).toHaveLength(cols.length);
+        return Object.fromEntries(cols.map((c, k) => [c, vals[k]]));
+      });
+    out.push(...blockRows);
+  }
+  return out;
 }
 
 const stations = rowsOf("stations", SEED_V1);
@@ -1080,3 +1106,116 @@ function describeAnnualScenarios(
 }
 
 describeAnnualScenarios(2027, scenarios2027, SEED_2027);
+
+describe("사전 자료: 대표 밖 87곳 계산 조건 (#103)", () => {
+  const nonRepScenarios = allRowsOf("scenarios", SEED_NON_REP);
+  const nonRep2026 = nonRepScenarios.filter((r) => r.season_year === 2026);
+  const nonRep2027 = nonRepScenarios.filter((r) => r.season_year === 2027);
+  const activeNonRepStations = STATIONS.filter(
+    (s) => s.isActive && !s.isRepresentative,
+  );
+  const inactiveStations = STATIONS.filter((s) => !s.isActive);
+  const repStations = STATIONS.filter((s) => s.isRepresentative);
+
+  it("연도별 174행, 총 348행이다 (2026년 174행, 2027년 174행)", () => {
+    expect(nonRepScenarios).toHaveLength(348);
+    expect(nonRep2026).toHaveLength(174);
+    expect(nonRep2027).toHaveLength(174);
+  });
+
+  it("대표 밖 운영 87곳마다 사과 k3 1개, 여름배추 k1 1개 = 2조건씩 존재한다 (2026, 2027)", () => {
+    expect(activeNonRepStations).toHaveLength(87);
+
+    for (const year of [2026, 2027]) {
+      const rowsOfYear = year === 2026 ? nonRep2026 : nonRep2027;
+      for (const st of activeNonRepStations) {
+        const stnId = String(st.id);
+        const apple = rowsOfYear.filter(
+          (s) =>
+            s.stn_id === stnId &&
+            s.crop_id === "apple" &&
+            s.kc_set_id === "apple-k3",
+        );
+        expect(apple, `${stnId}-apple-${year}`).toHaveLength(1);
+
+        const cabbage = rowsOfYear.filter(
+          (s) =>
+            s.stn_id === stnId &&
+            s.crop_id === "kimchi_cabbage" &&
+            s.kc_set_id === "kimchi_cabbage-k1",
+        );
+        expect(cabbage, `${stnId}-cabbage-${year}`).toHaveLength(1);
+      }
+    }
+  });
+
+  it("폐지·휴지 8곳 및 대표 10곳은 새 시드 파일에 0행이다", () => {
+    expect(inactiveStations).toHaveLength(8);
+    expect(repStations).toHaveLength(10);
+
+    for (const st of inactiveStations) {
+      const found = nonRepScenarios.filter((s) => s.stn_id === String(st.id));
+      expect(found, `inactive-${st.id}`).toHaveLength(0);
+    }
+
+    for (const st of repStations) {
+      const found = nonRepScenarios.filter((s) => s.stn_id === String(st.id));
+      expect(found, `rep-${st.id}`).toHaveLength(0);
+    }
+  });
+
+  it("모든 행의 is_default 가 true 이다", () => {
+    const defaultRows = nonRepScenarios.filter((r) => r.is_default);
+    expect(defaultRows).toHaveLength(348);
+  });
+
+  it("TAW, RAW, 작기 날짜, 토성(loam), dr0(0)이 기본 공식과 일치한다", () => {
+    for (const s of nonRepScenarios) {
+      expect(s.soil_code).toBe("loam");
+      expect(s.dr0_mm).toBe(0);
+
+      const y = s.season_year;
+      if (s.crop_id === "apple") {
+        expect(s.season_type_id).toBe("apple-main");
+        expect(s.kc_set_id).toBe("apple-k3");
+        expect(s.taw_mm).toBe(130);
+        expect(s.raw_mm).toBe(65);
+        expect(s.season_start).toBe(`${y}-04-01`);
+        expect(s.season_end).toBe(`${y}-10-27`);
+      } else {
+        expect(s.crop_id).toBe("kimchi_cabbage");
+        expect(s.season_type_id).toBe("kimchi_cabbage-summer");
+        expect(s.kc_set_id).toBe("kimchi_cabbage-k1");
+        expect(s.taw_mm).toBe(65);
+        expect(s.raw_mm).toBe(29.25);
+        expect(s.season_start).toBe(`${y}-07-01`);
+        expect(s.season_end).toBe(`${y}-09-28`);
+      }
+    }
+  });
+
+  it("2027년 행은 2026년 행과 연도만 다르고 모든 조건이 동일하다", () => {
+    const pairs = pairScenariosByYear(nonRep2026, nonRep2027, 2026, 2027);
+    expect(pairs).toHaveLength(174);
+    for (const { base, target, expectedId } of pairs) {
+      expect(target, expectedId).toBeDefined();
+      expect(target?.season_year, expectedId).toBe(2027);
+      expect(target?.season_start, expectedId).toBe(
+        shiftYear(String(base.season_start), 2026, 2027),
+      );
+      expect(target?.season_end, expectedId).toBe(
+        shiftYear(String(base.season_end), 2026, 2027),
+      );
+      for (const col of SCENARIO_FIXED_COLS) {
+        expect(target?.[col], `${expectedId}.${col}`).toBe(base[col]);
+      }
+    }
+  });
+
+  it("on conflict (scenario_id) do update set 이 있고 갱신 열이 기존 시드와 같다", () => {
+    const baseClause = conflictUpdateClause(SEED_V1_1, "scenarios");
+    const targetClause = conflictUpdateClause(SEED_NON_REP, "scenarios");
+    expect(baseClause).not.toBeNull();
+    expect(targetClause).toBe(baseClause);
+  });
+});

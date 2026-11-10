@@ -86,6 +86,21 @@ export type StatusSource = {
 
 const TIMEOUT_MS = 8000;
 const PAGE_SIZE = 1000;
+export const SCENARIO_CHUNK_SIZE = 100;
+
+/** scenario_id 목록이 길어질 때 URL 길이 초과를 방지하기 위해 100개씩 나눠 읽고 합친다 (#103). */
+async function chunkedByScenarios<T>(
+  scenarioIds: string[],
+  fn: (chunk: string[]) => Promise<T[]>,
+): Promise<T[]> {
+  if (scenarioIds.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < scenarioIds.length; i += SCENARIO_CHUNK_SIZE) {
+    chunks.push(scenarioIds.slice(i, i + SCENARIO_CHUNK_SIZE));
+  }
+  const results = await Promise.all(chunks.map(fn));
+  return results.flat();
+}
 type Result<T> = { data: T | null; error: { message: string } | null };
 
 const NUMERIC = ["raw_mm", "taw_mm", "dr_start_mm", "dr_mm", "aw_pct"];
@@ -153,54 +168,66 @@ export function createStatusSource(
       }
       return all;
     },
-    summaries: (runIds, scenarioIds) =>
-      read<SummaryStatusRow[]>(
-        "water_outlook_summary",
-        client
-          .from("water_outlook_summary")
-          .select(
-            "run_id,scenario_id,status_start,start_date,dr_start_mm,need_center_in",
-          )
-          .in("run_id", runIds)
-          .in("scenario_id", scenarioIds)
-          .retry(false)
-          .abortSignal(signal()),
-      ),
-    recentBalance: async (scenarioIds, since) => {
-      if (scenarioIds.length === 0) return [];
-      const all: BalanceStatusRow[] = [];
-      let from = 0;
-      while (true) {
-        const batch = await read<BalanceStatusRow[]>(
-          "water_balance_daily",
+    summaries: (runIds, scenarioIds) => {
+      if (runIds.length === 0 || scenarioIds.length === 0) {
+        return Promise.resolve([]);
+      }
+      return chunkedByScenarios(scenarioIds, (chunk) =>
+        read<SummaryStatusRow[]>(
+          "water_outlook_summary",
           client
-            .from("water_balance_daily")
-            .select("scenario_id,date,status,dr_mm")
-            .in("scenario_id", scenarioIds)
-            .gte("date", since)
-            .order("scenario_id", { ascending: true })
-            .order("date", { ascending: false })
-            .range(from, from + PAGE_SIZE - 1)
+            .from("water_outlook_summary")
+            .select(
+              "run_id,scenario_id,status_start,start_date,dr_start_mm,need_center_in",
+            )
+            .in("run_id", runIds)
+            .in("scenario_id", chunk)
             .retry(false)
             .abortSignal(signal()),
-        );
-        all.push(...batch);
-        if (batch.length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
-      }
-      return all;
+        ),
+      );
     },
-    outlookDays: (runIds, scenarioIds) =>
-      read<OutlookDayRow[]>(
-        "water_outlook",
-        client
-          .from("water_outlook")
-          .select("run_id,scenario_id,target_date,lead_day,status")
-          .in("run_id", runIds)
-          .in("scenario_id", scenarioIds)
-          .retry(false)
-          .abortSignal(signal()),
-      ),
+    recentBalance: (scenarioIds, since) =>
+      chunkedByScenarios(scenarioIds, async (chunk) => {
+        const all: BalanceStatusRow[] = [];
+        let from = 0;
+        while (true) {
+          const batch = await read<BalanceStatusRow[]>(
+            "water_balance_daily",
+            client
+              .from("water_balance_daily")
+              .select("scenario_id,date,status,dr_mm")
+              .in("scenario_id", chunk)
+              .gte("date", since)
+              .order("scenario_id", { ascending: true })
+              .order("date", { ascending: false })
+              .range(from, from + PAGE_SIZE - 1)
+              .retry(false)
+              .abortSignal(signal()),
+          );
+          all.push(...batch);
+          if (batch.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+        return all;
+      }),
+    outlookDays: (runIds, scenarioIds) => {
+      if (runIds.length === 0 || scenarioIds.length === 0) {
+        return Promise.resolve([]);
+      }
+      return chunkedByScenarios(scenarioIds, (chunk) =>
+        read<OutlookDayRow[]>(
+          "water_outlook",
+          client
+            .from("water_outlook")
+            .select("run_id,scenario_id,target_date,lead_day,status")
+            .in("run_id", runIds)
+            .in("scenario_id", chunk)
+            .retry(false)
+            .abortSignal(signal()),
+        ),
+      );
+    },
     recentWeather: async (since, stnIds) => {
       if (stnIds && stnIds.length === 0) return [];
       const all: WeatherFetchRow[] = [];

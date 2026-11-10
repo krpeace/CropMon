@@ -129,6 +129,8 @@ const scenarios = [
   scen("k3", "apple", "04-01", "11-15", 130, 65, "119"),
   // 진주(192): 예보 회차가 있지만 계수는 춘천 값을 빌려 쓰는 지점 (물6)
   scen("k3", "apple", "04-01", "11-15", 130, 65, "192"),
+  // 강릉(105): 대표 밖 87곳 예보 지점. 춘천 값을 빌려 써서 검증 전 안내가 뜬다 (#103)
+  scen("k3", "apple", "04-01", "11-15", 130, 65, "105"),
 ];
 
 const statusOf = (dr, raw) =>
@@ -176,10 +178,21 @@ const forecast_runs = [
     src_run_at: null,
     finished_at: new Date(Date.parse(runAt) + 41 * 60_000).toISOString(),
   },
+  {
+    run_id: 3,
+    stn_id: "105",
+    collector: "actions",
+    run_at: runAt,
+    run_name: "아침",
+    result: "정시 성공",
+    on_time: true,
+    src_run_at: null,
+    finished_at: new Date(Date.parse(runAt) + 41 * 60_000).toISOString(),
+  },
 ];
 const water_outlook = [];
 const water_outlook_summary = [];
-const RUN_OF = { 101: 1, 192: 2 }; // 예보 회차가 있는 지점
+const RUN_OF = { 101: 1, 192: 2, 105: 3 }; // 예보 회차가 있는 지점
 for (const s of scenarios) {
   const runId = RUN_OF[s.stn_id];
   if (!runId) continue;
