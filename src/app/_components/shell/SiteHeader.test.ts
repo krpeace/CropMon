@@ -33,6 +33,11 @@ describe("SiteHeader / SiteHeaderFallback", () => {
     expect(html).not.toContain("자료 없음");
     // 대기 화면에서는 실패 안내 줄이 보이지 않아야 한다
     expect(html).not.toContain("판정 자료를 불러오지 못했어요");
+    // 대기 화면에서는 "토양 물"이나 토양 범례 문구가 노출되지 않고 작물 스켈레톤이 표시되어야 한다
+    expect(html).not.toContain("토양 물");
+    expect(html).not.toContain("물 고임");
+    expect(html).not.toContain("매우 건조");
+    expect(html).toContain("작물 불러오는 중");
   });
 
   it("statuses가 있고 특정 지점의 값이 null이면 '자료 없음'으로 표시되고 실패 안내는 없다", () => {
@@ -156,5 +161,91 @@ describe("SiteHeader / SiteHeaderFallback", () => {
     expect(html).toContain(
       "판정 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
+  });
+
+  it("정상 렌더: crop=apple 지정 시 작물 이름 '사과'와 사과 범례가 그대로 렌더링된다", () => {
+    mockSearchParams = new URLSearchParams("crop=apple&st=101");
+    const html = renderToString(
+      React.createElement(
+        SheetProvider,
+        null,
+        React.createElement(SiteHeader, {
+          statuses: {
+            apple: { 101: "need" },
+            cabbage: {},
+            soil: {
+              loam: {},
+              sand: {},
+              clay: {},
+              silt_loam: {},
+              sandy_loam: {},
+              loamy_sand: {},
+              clay_loam: {},
+              silty_clay_loam: {},
+              sandy_clay_loam: {},
+              silty_clay: {},
+              sandy_clay: {},
+              silt: {},
+            },
+          },
+        }),
+      ),
+    );
+    mockSearchParams = new URLSearchParams();
+
+    // 사과 작물명이 보여야 한다
+    expect(html).toContain("사과");
+    expect(html).toContain("오늘 사과 물 관리");
+    // 사과 범례 항목이 보여야 한다
+    expect(html).toContain("관수 필요");
+    expect(html).toContain("주의");
+    expect(html).toContain("보통");
+    expect(html).toContain("과습");
+    // 대기 스켈레톤 안내는 없어야 한다
+    expect(html).not.toContain("작물 불러오는 중");
+  });
+
+  it("정상 렌더: 기본 주소(crop 파라미터 없음) 시 기본 작물 '작물 공통(토양 물)'과 토양 범례가 그대로 렌더링된다", () => {
+    mockSearchParams = new URLSearchParams("st=101");
+    const html = renderToString(
+      React.createElement(
+        SheetProvider,
+        null,
+        React.createElement(SiteHeader, {
+          statuses: {
+            apple: {},
+            cabbage: {},
+            soil: {
+              loam: { 101: "fair" },
+              sand: {},
+              clay: {},
+              silt_loam: {},
+              sandy_loam: {},
+              loamy_sand: {},
+              clay_loam: {},
+              silty_clay_loam: {},
+              sandy_clay_loam: {},
+              silty_clay: {},
+              sandy_clay: {},
+              silt: {},
+            },
+          },
+        }),
+      ),
+    );
+    mockSearchParams = new URLSearchParams();
+
+    // 작물 공통 및 토양 물 문구가 보여야 한다
+    expect(html).toContain("작물 공통");
+    expect(html).toContain("토양 물");
+    expect(html).toContain("오늘 작물 공통 물 관리");
+    // 토양 범례 항목이 보여야 한다
+    expect(html).toContain("물 고임");
+    expect(html).toContain("충분");
+    expect(html).toContain("보통");
+    expect(html).toContain("건조");
+    expect(html).toContain("매우 건조");
+    // 대기 스켈레톤 안내는 없어야 한다
+    expect(html).not.toContain("작물 불러오는 중");
   });
 });
