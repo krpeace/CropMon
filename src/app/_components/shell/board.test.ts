@@ -84,7 +84,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
   describe("fetchHomeHeat & fetchHomeSun (적산온도·일사 독립 DB 읽기)", () => {
     it("적산온도 DB 읽기 성공 시 맵을 정상 반환한다", async () => {
       const mockHeat: Record<number, growthLatest.HeatLatest> = {
-        101: { cum: 3000, normal: 2900 },
+        101: { date: "2026-11-08", cum: 3000, normal: 2900 },
       };
       vi.spyOn(growthLatest, "readHeatLatest").mockResolvedValueOnce(mockHeat);
 
@@ -105,7 +105,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
 
     it("적산일사 DB 읽기 성공 시 맵을 정상 반환한다 (미관측 지점 빈 데이터 포함)", async () => {
       const mockSun: Record<number, growthLatest.SunLatest> = {
-        101: { cum: 4500, normal: 4400 },
+        101: { date: "2026-11-08", cum: 4500, normal: 4400 },
         // 212(홍천)는 일사계가 없어 목록에 없음(정상)
       };
       vi.spyOn(growthLatest, "readSunLatest").mockResolvedValueOnce(mockSun);
@@ -130,10 +130,10 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
   describe("loadGrowth (결정 0017 원칙 준수)", () => {
     it("온도·햇빛 모두 성공 시 { heatOk: true, sunOk: true }와 양쪽 데이터를 정상 반환한다", async () => {
       const mockHeat: Record<number, growthLatest.HeatLatest> = {
-        101: { cum: 3000, normal: 2900 },
+        101: { date: "2026-11-08", cum: 3000, normal: 2900 },
       };
       const mockSun: Record<number, growthLatest.SunLatest> = {
-        101: { cum: 4500, normal: 4400 },
+        101: { date: "2026-11-08", cum: 4500, normal: 4400 },
       };
       vi.spyOn(growthLatest, "readHeatLatest").mockResolvedValueOnce(mockHeat);
       vi.spyOn(growthLatest, "readSunLatest").mockResolvedValueOnce(mockSun);
@@ -147,7 +147,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
 
     it("결정 0017 원칙: sun만 실패 시 온도 카드는 정상 표시(heatOk: true)되고 sun만 실패(sunOk: false)로 반환된다", async () => {
       const mockHeat: Record<number, growthLatest.HeatLatest> = {
-        101: { cum: 3000, normal: 2900 },
+        101: { date: "2026-11-08", cum: 3000, normal: 2900 },
       };
       vi.spyOn(growthLatest, "readHeatLatest").mockResolvedValueOnce(mockHeat);
       vi.spyOn(growthLatest, "readSunLatest").mockRejectedValueOnce(
@@ -165,7 +165,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
 
     it("결정 0017 원칙: heat만 실패 시 햇빛 카드는 정상 표시(sunOk: true)되고 heat만 실패(heatOk: false)로 반환된다", async () => {
       const mockSun: Record<number, growthLatest.SunLatest> = {
-        101: { cum: 4500, normal: 4400 },
+        101: { date: "2026-11-08", cum: 4500, normal: 4400 },
       };
       vi.spyOn(growthLatest, "readHeatLatest").mockRejectedValueOnce(
         new Error("heat DB timeout"),
@@ -204,7 +204,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
         void crop;
         void today;
         heatCallCount++;
-        return { 101: { cum: 3000, normal: 2900 } };
+        return { 101: { date: "2026-11-08", cum: 3000, normal: 2900 } };
       };
 
       const mockSunFetch = async (today: string) => {
@@ -213,7 +213,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
         if (sunCallCount === 1) {
           throw new Error("첫 요청 일사 DB 장애");
         }
-        return { 101: { cum: 4500, normal: 4400 } };
+        return { 101: { date: "2026-11-08", cum: 4500, normal: 4400 } };
       };
 
       // Next.js 'use cache' 컨테이너 시뮬레이터 (독립 캐시)

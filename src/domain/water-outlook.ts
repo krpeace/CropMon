@@ -176,11 +176,41 @@ export function relDay(iso: string, today: string): string | null {
   );
 }
 
-/** "어제까지 관측 기준" / "10월 22일까지 관측 기준" (예보가 없을 때 판정의 기준). */
-export function observedBasis(lastObserved: string, today: string): string {
-  if (lastObserved === addDays(today, -1)) return "어제까지 관측 기준";
+/** 채운 값(filled=true) 표시 문구 (한곳에서 관리 — 최종 문구 조정 시 여기만 바꾼다). */
+export const FILLED_COPY = {
+  badge: "추정 포함",
+  pastDayBasis: "추정 포함 물수지",
+  obsYesterday: "어제 (추정 포함)",
+  obsDaySuffix: "(추정 포함)",
+  notice:
+    "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+  noticeFromFilled:
+    "최근 기상 자료 중 빠진 날이 있어 추정이 포함된 값에서 이어 계산했어요. 자료가 들어오면 바뀔 수 있어요.",
+} as const;
+
+/** "어제까지 관측 기준" / "10월 22일까지 관측 기준" / filled 면 "추정 포함" (예보가 없을 때 판정의 기준). */
+export function observedBasis(
+  lastObserved: string,
+  today: string,
+  filled = false,
+): string {
+  const isYesterday = lastObserved === addDays(today, -1);
+  if (isYesterday) {
+    return filled
+      ? `어제까지 기준 (${FILLED_COPY.badge})`
+      : "어제까지 관측 기준";
+  }
   const [, m, d] = lastObserved.split("-").map(Number);
-  return `${m}월 ${d}일까지 관측 기준`;
+  return filled
+    ? `${m}월 ${d}일까지 기준 (${FILLED_COPY.badge})`
+    : `${m}월 ${d}일까지 관측 기준`;
+}
+
+/** 적산온도·적산일사 등 유효 누적 날짜가 어제보다 이전일 때 붙이는 한 줄 안내. */
+export function staleDateNote(date: string, today: string): string | null {
+  if (date >= addDays(today, -1)) return null;
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}월 ${d}일까지의 값이에요`;
 }
 
 /** 요약의 관수 필요 예상일(몇 번째 날, 0 = 지금) → 오늘부터 며칠 뒤. 없으면 null. */

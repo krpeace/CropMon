@@ -135,6 +135,10 @@ function AboutSheet() {
           <b className="text-ink">앞으로</b> 토양(농진청), 도매시장 가격(aT),
           농업관측(KREI)
         </span>
+        <span className="text-14 text-ink-2/75">
+          기상청 자료가 뒤늦게 수정·회수되면 기준 날짜가 실제와 하루 어긋날 수
+          있어요.
+        </span>
       </div>
       <CloseButton />
     </div>

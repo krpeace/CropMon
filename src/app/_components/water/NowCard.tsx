@@ -8,6 +8,7 @@ import type {
   SoilOption,
 } from "@/services/water";
 
+import { Badge as GrayBadge } from "../ui/Badge";
 import { STATUS_CARD, STATUS_FILL } from "../ui/status";
 import { StatusBadge } from "../ui/StatusBadge";
 import { SoilPicker } from "./SoilPicker";
@@ -32,6 +33,9 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
         {now.badges.map((b) => (
           <StatusBadge key={b.label} badge={b} className="text-16" />
         ))}
+        {now.filledBadge && (
+          <GrayBadge className="text-16">{now.filledBadge}</GrayBadge>
+        )}
       </div>
       <div className="text-verdict leading-card tracking-title font-bold text-pretty">
         {now.verdict.text}
@@ -101,6 +105,12 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
             {now.verdict.sub}
           </span>
         </div>
+      )}
+
+      {now.filledNote && (
+        <p className="text-14 text-ink-2/80 m-0 leading-snug">
+          {now.filledNote}
+        </p>
       )}
 
       {now.obs && now.active && (
@@ -190,6 +200,9 @@ export function CommonNowCard({
             badge={{ status: tone, label: commonNow.badgeLabel }}
             className="text-16"
           />
+          {commonNow.filledBadge && (
+            <GrayBadge className="text-16">{commonNow.filledBadge}</GrayBadge>
+          )}
         </div>
 
         <div className="text-verdict leading-card tracking-title font-bold text-pretty">
@@ -263,6 +276,12 @@ export function CommonNowCard({
 
         {!commonNow.active && commonNow.headline !== commonNow.description && (
           <div className="text-17 text-ink-2/90">{commonNow.description}</div>
+        )}
+
+        {commonNow.filledNote && (
+          <p className="text-14 text-ink-2/80 m-0 leading-snug">
+            {commonNow.filledNote}
+          </p>
         )}
 
         <SoilPicker soils={soils} selection={selection} date={date} />

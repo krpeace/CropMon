@@ -36,6 +36,8 @@ export type StationWater = {
   seasonEnd: string;
   /** 마지막 관측 물수지 날. 없으면 null. */
   observedDate: string | null;
+  /** 결측 채움 값의 영향을 받는 날 여부. */
+  filled: boolean;
   /** 단기예보가 있으면 관수 필요까지 며칠(오늘 0)과 오늘 다음 3일 판정. 없으면 null (관측 기준). */
   forecast: {
     needIn: number | null;
@@ -51,12 +53,17 @@ export type SoilStationWater = {
   rawMm: number;
   tawMm: number;
   observedDate: string;
+  filled: boolean;
 };
 
 export type AnyWaterStatus = WaterStatus | SoilWaterStatus;
 
-/** 갱신 시각: 예보 지점은 회차가 끝난 시각과 발표 시(02·17), 그 밖은 ASOS 받은 시각. */
-export type StationUpdated = { at: string; runHour: "02" | "17" | null } | null;
+/** 갱신 시각: 예보 지점은 회차가 끝난 시각과 발표 시(02·17), 그 밖은 ASOS 받은 시각과 마지막 날짜. */
+export type StationUpdated = {
+  at: string;
+  runHour: "02" | "17" | null;
+  weatherDate: string | null;
+} | null;
 
 export type StationBoard = {
   ok: boolean;
@@ -162,12 +169,18 @@ export async function getStationBoard({
     for (const s of targetStations) {
       const run = latest.get(String(s.id));
       if (run?.finished_at) {
-        board.updated[s.id] = { at: run.finished_at, runHour: runHour(run) };
+        board.updated[s.id] = {
+          at: run.finished_at,
+          runHour: runHour(run),
+          weatherDate: null,
+        };
       } else {
         const w = newestFirst(
           weather.filter((x) => x.stn_id === String(s.id)),
         )[0];
-        board.updated[s.id] = w ? { at: w.fetched_at, runHour: null } : null;
+        board.updated[s.id] = w
+          ? { at: w.fetched_at, runHour: null, weatherDate: w.date }
+          : null;
       }
     }
     for (const r of newestFirst(soilRows)) {
@@ -182,6 +195,7 @@ export async function getStationBoard({
         rawMm: r.raw_mm,
         tawMm: r.taw_mm,
         observedDate: r.date,
+        filled: r.filled,
       };
     }
     for (const crop of SPECIFIC_CROPS) {
@@ -195,11 +209,16 @@ export async function getStationBoard({
                 x.run_id === run.run_id && x.scenario_id === sc.scenario_id,
             )
           : undefined;
-        const last = newestFirst(
+        const scenarioBal = newestFirst(
           bal.filter((b) => b.scenario_id === sc.scenario_id),
-        )[0];
+        );
+        const last = scenarioBal[0];
         const status = code(sum?.status_start) ?? code(last?.status);
         if (!status) continue;
+        const startRow = sum
+          ? scenarioBal.find((b) => b.date === sum.start_date)
+          : undefined;
+        const filled = startRow?.filled ?? last?.filled ?? false;
         let forecast: StationWater["forecast"] = null;
         if (run && sum) {
           const first = firstMainDate(run.run_at, run.run_name);
@@ -228,6 +247,7 @@ export async function getStationBoard({
           seasonStart: sc.season_start,
           seasonEnd: sc.season_end,
           observedDate: last?.date ?? null,
+          filled,
           forecast,
         };
       }

@@ -125,8 +125,10 @@ async function readMain(
       db.year(String(station.id), Number(today.slice(0, 4))),
       readUpdatedAt(db, station.id),
     ]);
-    // 햇빛을 재지 않는 지점은 DB 에 줄이 없다 (stations.ts 의 measuresSunlight 가 아니라 DB 기준)
-    if (rows.length === 0) return { ...EMPTY, kind: "notMeasured" };
+    // 햇빛을 재지 않는 지점은 DB 에 줄이 없거나 올해 유효 값(rs_cum_mj)이 모두 비어 있다 (stations.ts 가 아니라 DB 기준)
+    if (!rows.some((r) => r.rs_cum_mj != null)) {
+      return { ...EMPTY, kind: "notMeasured" };
+    }
     return { ...mainView(rows, today), updatedAt };
   } catch (error) {
     console.error("[sunlight] DB 읽기 실패:", error);

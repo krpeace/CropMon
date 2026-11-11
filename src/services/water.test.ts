@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { FILLED_COPY } from "@/domain/water-outlook";
 import type {
   BalanceRow,
   OutlookRow,
@@ -357,17 +358,75 @@ describe("오늘", () => {
     expect(v.outlook).toBeNull();
     expect(v.now).toMatchObject({
       basis: "어제까지 관측 기준",
+      filledBadge: null,
+      filledNote: null,
       drMm: 50.7,
       // 예보가 없으면 앞날("3일 동안")을 말하지 않는다
       verdict: { text: "아직 여유 있어요" },
     });
     expect(v.meta.issue).toBe("자료 없음");
   });
+
+  it("filled=true: 예보 있는 날(아침·저녁)과 예보 없는 날 모두 추정 포함 문구·배지를 보여 준다", async () => {
+    const filledBalance: BalanceRow[] = [
+      BALANCE[0]!,
+      { ...BALANCE[1]!, filled: true },
+    ];
+
+    // 1) 아침 회차 (start_date = 어제): 어제까지 기준 (추정 포함)
+    const morningFilled = await view(TODAY, {
+      balance: async () => filledBalance,
+    });
+    expect(morningFilled.now).toMatchObject({
+      basis: "어제까지 기준 (추정 포함)",
+      filledBadge: FILLED_COPY.badge,
+      filledNote: FILLED_COPY.noticeFromFilled,
+      obs: { label: "어제 (추정 포함)", eto: "1.4", etc: "1.3", rain: "0.0" },
+    });
+
+    // 2) 저녁 회차 (start_date = 오늘): 오늘 예보까지 반영 (추정 포함)
+    const eveRun: RunRow = {
+      ...RUN,
+      run_id: 8,
+      run_at: "2026-10-25T08:00:00+00:00",
+      run_name: "저녁",
+      finished_at: "2026-10-25T08:40:00+00:00",
+    };
+    const eveFilled = await getWaterView(APPLE, CHUNCHEON, TODAY, {
+      createSource: () =>
+        fake({
+          recentRuns: async () => [eveRun],
+          summary: async () => ({ ...SUMMARY, start_date: "2026-10-25" }),
+          balance: async () => filledBalance,
+        }),
+      now: () => new Date("2026-10-25T09:00:00Z"),
+    });
+    expect(eveFilled.now).toMatchObject({
+      basis: "오늘 예보까지 반영 (추정 포함)",
+      filledBadge: FILLED_COPY.badge,
+      filledNote: FILLED_COPY.noticeFromFilled,
+    });
+
+    // 3) 예보 회차 없음: 어제까지 기준 (추정 포함) + 기본 추정 안내
+    const noRunFilled = await view(TODAY, {
+      recentRuns: async () => [],
+      balance: async () => filledBalance,
+    });
+    expect(noRunFilled.now).toMatchObject({
+      basis: "어제까지 기준 (추정 포함)",
+      filledBadge: FILLED_COPY.badge,
+      filledNote: FILLED_COPY.notice,
+      obs: { label: "어제 (추정 포함)" },
+    });
+  });
 });
 
 describe("휴면기", () => {
-  it("휴면기에는 관수 필요 예상일을 보이지 않는다", async () => {
+  it("휴면기에는 관수 필요 예상일과 추정 포함 배지·안내를 보이지 않는다", async () => {
     const v = await view(TODAY, {
+      balance: async () => [
+        { ...BALANCE[1]!, status: "dormant", filled: true },
+      ],
       summary: async () => ({
         ...SUMMARY,
         status_start: "dormant",
@@ -382,6 +441,8 @@ describe("휴면기", () => {
     expect(v.now).toMatchObject({
       status: "dormant",
       active: false,
+      filledBadge: null,
+      filledNote: null,
       gauge: null,
     });
   });
@@ -417,6 +478,19 @@ describe("지난 날", () => {
       ["이틀 뒤", "예보", "작물이 쓸 물"],
       ["사흘 뒤", "예보", "작물이 쓸 물"],
     ]);
+  });
+
+  it("지난 날의 행이 filled=true 면 '추정 포함 물수지'와 배지·안내를 보여 준다", async () => {
+    const v = await view(
+      { date: "2026-10-23", run: null },
+      { balance: async () => [{ ...BALANCE[0]!, filled: true }, BALANCE[1]!] },
+    );
+    expect(v.now).toMatchObject({
+      basis: FILLED_COPY.pastDayBasis,
+      filledBadge: FILLED_COPY.badge,
+      filledNote: FILLED_COPY.notice,
+      obs: { label: "이날 (추정 포함)", eto: "1.5" },
+    });
   });
 
   it("자료 첫날보다 앞이면 첫날로", async () => {
@@ -506,6 +580,8 @@ describe("작물 공통 (토양 물 상태)", () => {
     ]);
     expect(v.commonNow).toEqual({
       basis: "어제까지 관측 기준",
+      filledBadge: null,
+      filledNote: null,
       status: "fair",
       badgeLabel: "보통",
       headline: "토양 속 남은 물 48%",
@@ -590,6 +666,8 @@ describe("작물 공통 (토양 물 상태)", () => {
     );
     expect(v.commonNow).toMatchObject({
       status: "winter",
+      filledBadge: null,
+      filledNote: null,
       badgeLabel: "겨울철",
       headline: "12~2월은 판정하지 않아요.",
       active: false,
@@ -602,6 +680,57 @@ describe("작물 공통 (토양 물 상태)", () => {
     expect(v.commonNow?.basisText).toContain(
       "Saxton & Rawls (2006) 식으로 추정한 값이에요.",
     );
+
+    // winter 인데 filled=true 여도 추정 배지·안내를 보이지 않는다
+    const winterFilled = await view(
+      TODAY,
+      {
+        soilWater: async () => [
+          {
+            ...SOIL_WATER[1]!,
+            date: "2026-01-15",
+            status: "winter",
+            aw_pct: null,
+            dr_mm: null,
+            days_to_dry: null,
+            filled: true,
+          },
+        ],
+      },
+      [],
+      { stationId: 101, crop: "common", soil: "loam" },
+    );
+    expect(winterFilled.commonNow?.filledBadge).toBeNull();
+    expect(winterFilled.commonNow?.filledNote).toBeNull();
+  });
+
+  it("작물 공통: 오늘·지난 날 filled=true 토양 행은 추정 포함 기준·배지·안내를 보여 준다", async () => {
+    const filledSoil: SoilWaterRow[] = [
+      { ...SOIL_WATER[0]!, filled: true },
+      { ...SOIL_WATER[1]!, filled: true },
+    ];
+    const vToday = await view(
+      TODAY,
+      { soilWater: async () => filledSoil },
+      [],
+      { stationId: 101, crop: "common" },
+    );
+    expect(vToday.commonNow).toMatchObject({
+      basis: "어제까지 기준 (추정 포함)",
+      filledBadge: FILLED_COPY.badge,
+      filledNote: FILLED_COPY.notice,
+    });
+    const vPast = await view(
+      { date: "2026-10-23", run: null },
+      { soilWater: async () => filledSoil },
+      [],
+      { stationId: 101, crop: "common" },
+    );
+    expect(vPast.commonNow).toMatchObject({
+      basis: FILLED_COPY.pastDayBasis,
+      filledBadge: FILLED_COPY.badge,
+      filledNote: FILLED_COPY.notice,
+    });
   });
 
   it("forecast_runs 줄이 없는 지점에서도 작물 공통 물 화면이 정상 표출된다 (P6)", async () => {

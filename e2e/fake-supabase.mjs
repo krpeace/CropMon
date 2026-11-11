@@ -129,6 +129,8 @@ const scenarios = [
   scen("k3", "apple", "04-01", "11-15", 130, 65, "119"),
   // 진주(192): 예보 회차가 있지만 계수는 춘천 값을 빌려 쓰는 지점 (물6)
   scen("k3", "apple", "04-01", "11-15", 130, 65, "192"),
+  // 서귀포(189): 예보 없이 관측 물수지이지만 filled=true (추정 포함 E2E 검증용)
+  scen("k3", "apple", "04-01", "11-15", 130, 65, "189"),
 ];
 
 const statusOf = (dr, raw) =>
@@ -147,7 +149,7 @@ for (const s of scenarios) {
       rain_mm: i % 7 === 0 ? 12 : 0,
       dr_mm: dr,
       status: on ? statusOf(dr, s.raw_mm) : "dormant",
-      filled: false,
+      filled: s.stn_id === "189" && d === add(today, -1),
     });
   }
 }
@@ -223,7 +225,7 @@ for (const s of scenarios) {
 }
 
 // 지점별 ASOS 관측 받은 시각 (온도·햇빛 자료 상자)
-const weather_daily = ["101", "119"].map((stn_id) => ({
+const weather_daily = ["101", "119", "189"].map((stn_id) => ({
   stn_id,
   date: add(today, -1),
   fetched_at: new Date(Date.parse(runAt) + 20 * 60_000).toISOString(), // 02:20
@@ -309,6 +311,17 @@ const SOIL_CONFIGS = [
     status: "dry",
     days_to_dry: null,
   },
+  {
+    stn_id: "189",
+    soil_code: "loam",
+    taw_mm: 65,
+    raw_mm: 26,
+    dr_mm: 33.8,
+    aw_pct: 48,
+    status: "fair",
+    days_to_dry: 6,
+    filled: true,
+  },
 ];
 for (const cfg of SOIL_CONFIGS) {
   const lastDay = add(today, -1);
@@ -339,13 +352,13 @@ for (const cfg of SOIL_CONFIGS) {
           : Math.round(((cfg.taw_mm - dr) / cfg.taw_mm) * 100),
       status: winter ? "winter" : cfg.status,
       days_to_dry: winter ? null : cfg.days_to_dry,
-      filled: false,
+      filled: Boolean(cfg.filled && last),
       calc_version: "fake",
     });
   }
 }
 
-// 작물 공통 토양 물 상태 최신 뷰 (계약 v1.9, #82)
+// 작물 공통 토양 물 상태 최신 뷰 (계약 v1.10: filled 포함)
 // 한국 기준 최근 7일 이내의 지점·토성별 최신 1행
 const since7d = add(today, -7);
 const latestSoilMap = new Map();
@@ -363,6 +376,7 @@ for (const row of soil_water_daily) {
       raw_mm: row.raw_mm,
       aw_pct: row.aw_pct,
       status: row.status,
+      filled: row.filled,
     });
   }
 }
@@ -400,9 +414,10 @@ const yIdx = Math.max(0, yearDays.indexOf(yesterday));
 const r1 = (v) => Math.round(v * 10) / 10;
 const heat_daily = [];
 for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
+  const cutoff = stn_id === "189" ? add(today, -3) : yesterday;
   for (const crop_id of ["apple", "kimchi_cabbage", "common"]) {
     yearDays.forEach((date, i) => {
-      const observed = date <= yesterday;
+      const observed = date <= cutoff;
       const cum = observed ? r1((cumY * shape[i]) / shape[yIdx]) : null;
       heat_daily.push({
         stn_id,
@@ -452,12 +467,13 @@ const sunYearDay = yearDays.map(
 const sumTo = (arr, n) => arr.slice(0, n + 1).reduce((a, b) => a + b, 0);
 const sun_daily = [];
 for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
+  const cutoff = stn_id === "189" ? add(today, -3) : yesterday;
   const fy = cumY / sumTo(sunYearDay, yIdx);
   const fn = normalY / sumTo(sunNormalDay, yIdx);
   let cy = 0;
   let cn = 0;
   yearDays.forEach((date, i) => {
-    const observed = date <= yesterday;
+    const observed = date <= cutoff;
     const dy = observed ? sunYearDay[i] * fy : null;
     const dn = sunNormalDay[i] * fn;
     if (dy != null) cy += dy;
@@ -475,6 +491,23 @@ for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
       calc_version: "fake",
       updated_at: HEAT_SUN_UPDATED_AT,
     });
+  });
+}
+
+// 울진(130): 일사 미측정 7곳 유형(sun_daily 365줄이 모두 null & filled=true) 재현
+for (const date of yearDays) {
+  sun_daily.push({
+    stn_id: "130",
+    date,
+    rs_day_mj: null,
+    rs_cum_mj: null,
+    rs_normal_day_mj: null,
+    rs_normal_cum_mj: null,
+    normal_from: 2016,
+    normal_to: 2025,
+    filled: true,
+    calc_version: "fake",
+    updated_at: HEAT_SUN_UPDATED_AT,
   });
 }
 

@@ -3,12 +3,19 @@ import { gddNumbers, heatDiff, heatVerdict } from "@/domain/heat";
 import {
   DEFAULT_SOIL,
   SOIL_LABEL,
+  type Crop,
   type SoilCode,
   sunlightStatusLabel,
   type Selection,
 } from "@/domain/selection";
 import { SOIL_WATER_DESC, SOIL_WATER_LABEL } from "@/domain/soil-water";
-import { koreanDate, observedBasis } from "@/domain/water-outlook";
+import {
+  addDays,
+  FILLED_COPY,
+  koreanDate,
+  observedBasis,
+  staleDateNote,
+} from "@/domain/water-outlook";
 import { todayBadge, type WaterStatus } from "@/domain/water-status";
 import { waterVerdict } from "@/domain/water-verdict";
 import { sunPercent } from "@/domain/sun";
@@ -42,11 +49,22 @@ export type HomeView = {
     grayBadge: string | null;
     /** 숫자 줄. 작기가 아니면 안내 문구. */
     numbers: string;
+    note: string | null;
     gauge: Gauge | null;
   };
   /** missing 이면 회색 "자료 없음" 배지. */
-  growth: { verdict: string; numbers: string; missing: boolean };
-  sunlight: { verdict: string; numbers: string; missing: boolean };
+  growth: {
+    verdict: string;
+    numbers: string;
+    note: string | null;
+    missing: boolean;
+  };
+  sunlight: {
+    verdict: string;
+    numbers: string;
+    note: string | null;
+    missing: boolean;
+  };
   rows: HomeRow[];
 };
 
@@ -122,13 +140,15 @@ function sunShort(s: SunLatest | undefined): string | null {
 function growthCard(
   h: HeatLatest | undefined,
   ok: boolean,
+  today: string,
 ): HomeView["growth"] {
   const cum = h?.cum ?? null;
   const normal = h?.normal ?? null;
-  if (cum == null || normal == null) {
+  if (!h || cum == null || normal == null) {
     return {
       verdict: NO_DATA,
       numbers: !ok ? DB_FAILED : "이 지역의 적산온도 자료가 아직 없어요",
+      note: null,
       missing: true,
     };
   }
@@ -136,6 +156,7 @@ function growthCard(
   return {
     verdict: heatVerdict(cum, normal),
     numbers: `적산온도 ${n.thisYear} / 평년 ${n.normal}℃`,
+    note: staleDateNote(h.date, today),
     missing: false,
   };
 }
@@ -145,6 +166,7 @@ function sunCard(
   s: SunLatest | undefined,
   ok: boolean,
   station: { name: string; measuresSunlight: boolean | null },
+  today: string,
 ): HomeView["sunlight"] {
   const pct = sunPercent(s?.cum ?? null, s?.normal ?? null);
   if (!s || pct == null || s.cum == null || s.normal == null) {
@@ -157,12 +179,14 @@ function sunCard(
       numbers: ok
         ? `${station.name} 관측소의 햇빛 자료가 없어요${note}`
         : DB_FAILED,
+      note: null,
       missing: true,
     };
   }
   return {
     verdict: `올해 햇빛은 평년의 ${pct}%`,
     numbers: `적산일사 ${nf(s.cum)} / 평년 ${nf(s.normal)} MJ/m²`,
+    note: staleDateNote(s.date, today),
     missing: false,
   };
 }
@@ -177,6 +201,7 @@ function tomorrowStatus(w: StationWater, today: string): WaterStatus {
 function soilWaterCard(
   sw: SoilStationWater | null | undefined,
   soil: SoilCode,
+  today: string,
   ok: boolean,
 ): HomeView["water"] {
   if (!sw) {
@@ -186,6 +211,7 @@ function soilWaterCard(
       badge: null,
       grayBadge: NO_DATA,
       numbers: !ok ? DB_FAILED : "이 지역의 물 판정 자료가 아직 없어요",
+      note: null,
       gauge: null,
     };
   }
@@ -197,6 +223,7 @@ function soilWaterCard(
       badge: { status: "winter", label: SOIL_WATER_LABEL.winter },
       grayBadge: null,
       numbers: `${soilLabel} 기준`,
+      note: null,
       gauge: null,
     };
   }
@@ -204,16 +231,21 @@ function soilWaterCard(
     sw.awPct != null
       ? `토양 속 남은 물 ${Math.round(sw.awPct)}%`
       : SOIL_WATER_DESC[sw.status];
-  const numbers =
+  let numbers =
     sw.drMm != null
       ? `${soilLabel} 기준 · 남은 물 ${mm(sw.tawMm - sw.drMm)} / 담을 수 있는 물 ${mm(sw.tawMm)} mm`
       : `${soilLabel} 기준`;
+  const isFilled = sw.filled;
+  if (isFilled || sw.observedDate < addDays(today, -1)) {
+    numbers += ` · ${observedBasis(sw.observedDate, today, isFilled)}`;
+  }
   return {
     verdict,
     tone: sw.status,
     badge: { status: sw.status, label: SOIL_WATER_LABEL[sw.status] },
-    grayBadge: null,
+    grayBadge: isFilled ? FILLED_COPY.badge : null,
     numbers,
+    note: isFilled ? FILLED_COPY.notice : null,
     gauge: soilGauge(sw),
   };
 }
@@ -236,6 +268,7 @@ function waterCard(
         : isRepresentative
           ? "이 지역의 물 판정 자료가 아직 없어요"
           : NON_REP_GUIDE,
+      note: null,
       gauge: null,
     };
   }
@@ -249,35 +282,67 @@ function waterCard(
     seasonEnd: w.seasonEnd,
     date: today,
   });
+  const isFilled = w.status !== "dormant" && w.filled;
   let numbers = v.sub ?? "";
   if (w.status !== "dormant" && w.drMm != null) {
     numbers = `부족한 물 ${mm(w.drMm)} mm / 관수 시작점 ${mm(w.rawMm)} mm`;
     if (!w.forecast && w.observedDate) {
-      numbers += ` · ${observedBasis(w.observedDate, today)}`;
+      numbers += ` · ${observedBasis(w.observedDate, today, isFilled)}`;
     }
   }
   return {
     verdict: v.text,
     tone: v.tone,
     badge: todayBadge(w.status, tomorrowStatus(w, today)),
-    grayBadge: null,
+    grayBadge: isFilled ? FILLED_COPY.badge : null,
     numbers,
+    note: isFilled
+      ? w.forecast
+        ? FILLED_COPY.noticeFromFilled
+        : FILLED_COPY.notice
+      : null,
     gauge: gauge(w),
   };
+}
+
+function metaObservedTag(
+  date: string | null | undefined,
+  today: string,
+  filled: boolean,
+): string {
+  const yesterday = addDays(today, -1);
+  if (!date || date === yesterday) {
+    return filled ? `어제까지 ${FILLED_COPY.badge}` : "어제까지 관측";
+  }
+  const [, m, d] = date.split("-").map(Number);
+  return filled
+    ? `${m}월 ${d}일까지 ${FILLED_COPY.badge}`
+    : `${m}월 ${d}일까지 관측`;
 }
 
 function metaLine(
   board: StationBoard,
   station: { id: number; name: string },
+  crop: Crop,
+  soil: SoilCode,
+  today: string,
 ): string {
   const asos = `기상청 ASOS ${station.name}(${station.id})`;
   const u = board.updated[station.id];
   const c = koreanClock(u?.at);
   if (!u || !c) return `${NO_DATA} · ${asos}`;
   const at = `${c.month}월 ${c.day}일 ${c.hour}:${c.minute} 갱신`;
-  return u.runHour
-    ? `${at} · ${asos} · ${u.runHour}시 단기예보`
-    : `${at} · ${asos} · 어제까지 관측`;
+  if (u.runHour) return `${at} · ${asos} · ${u.runHour}시 단기예보`;
+  if (crop === "common") {
+    const sw = board.soil[soil][station.id];
+    const date = sw?.observedDate ?? u.weatherDate;
+    const filled = Boolean(sw && sw.status !== "winter" && sw.filled);
+    return `${at} · ${asos} · ${metaObservedTag(date, today, filled)}`;
+  }
+  const w = board.water[crop][station.id];
+  const date = w?.observedDate ?? u.weatherDate;
+  const filled = Boolean(w && w.status !== "dormant" && w.filled);
+  return `${at} · ${asos} · ${metaObservedTag(date, today, filled)}`;
 }
 
 export function getHomeView(
@@ -342,7 +407,7 @@ export function getHomeView(
 
   const water =
     crop === "common"
-      ? soilWaterCard(board.soil[soil][station.id], soil, board.ok)
+      ? soilWaterCard(board.soil[soil][station.id], soil, today, board.ok)
       : waterCard(
           board.water[crop][station.id],
           { ...selection, crop },
@@ -352,10 +417,10 @@ export function getHomeView(
         );
 
   return {
-    meta: metaLine(board, station),
+    meta: metaLine(board, station, crop, soil, today),
     water,
-    growth: growthCard(growth.heat[station.id], growth.heatOk),
-    sunlight: sunCard(growth.sun[station.id], growth.sunOk, station),
+    growth: growthCard(growth.heat[station.id], growth.heatOk, today),
+    sunlight: sunCard(growth.sun[station.id], growth.sunOk, station, today),
     rows,
   };
 }
