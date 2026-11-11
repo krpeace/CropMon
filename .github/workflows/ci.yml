@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: 코드 받기
         uses: actions/checkout@v5
@@ -52,7 +52,27 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy
 
       - name: 화면 테스트용 브라우저 설치
-        run: npx playwright install --with-deps chromium
+        run: |
+          for i in 1 2 3; do
+            if npx playwright install chromium; then
+              break
+            fi
+            if [ "$i" -eq 3 ]; then
+              echo "::error::Playwright Chromium 다운로드에 3회 실패했습니다."
+              exit 1
+            fi
+            echo "Playwright 다운로드 재시도 ($i/3)..."
+            sleep 5
+          done
+
+          # 러너 기본 이미지의 공유 라이브러리로 Chromium 기동 가능 여부를 확인하고, 누락 시에만 apt 폴백 실행
+          CHROME_BINS=$(find "$HOME/.cache/ms-playwright" \( -name "chrome" -o -name "chrome-headless-shell" -o -name "headless_shell" \) -type f)
+          echo "설치된 Chromium 바이너리: ${CHROME_BINS}"
+          if [ -n "$CHROME_BINS" ] && (for bin in $CHROME_BINS; do ldd "$bin" 2>/dev/null || true; done) | grep -q "not found"; then
+            echo "누락된 공유 라이브러리가 있어 apt 폴백으로 의존성을 설치합니다."
+            printf 'Acquire::Retries "3";\nAcquire::http::Timeout "15";\nAcquire::https::Timeout "15";\n' | sudo tee /etc/apt/apt.conf.d/99ci-retry > /dev/null
+            npx playwright install-deps chromium
+          fi
 
       # 위에서 만든 배포용 화면을 띄워 실제 브라우저로 쪽을 열어 본다.
       - name: test:e2e
