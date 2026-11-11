@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SOIL_CODES, type Crop, type SoilCode } from "@/domain/selection";
-import { FILLED_COPY } from "@/domain/water-outlook";
+import { FILLED_COPY, OBSERVED_DATE_COPY } from "@/domain/water-outlook";
 import type { HomeGrowth } from "./growth-latest";
 import { getHomeView } from "./home";
 import type {
@@ -600,5 +600,155 @@ describe("종합 화면 작물 공통 (토양 물 상태)", () => {
       numbers: "이 지역의 물 판정 자료가 아직 없어요",
       gauge: null,
     });
+  });
+});
+
+describe("전국 표·목록 추정 포함(안 3)·적산 기준일 다름(후보 3) (#128 PR 2)", () => {
+  it("작물 모드 물·안 3: 0곳이면 안내·표시 없음, 일부면 상단 안내+해당 행만, 전원(휴면 제외)이면 상단 안내만", () => {
+    const none = view(101, "apple");
+    expect(none.waterFilledScope).toBe("none");
+    expect(none.waterFilledNotice).toBeNull();
+    expect(none.rows.every((r) => !r.waterFilled)).toBe(true);
+
+    const someBoard: StationBoard = {
+      ...BOARD,
+      water: {
+        ...BOARD.water,
+        apple: {
+          ...BOARD.water.apple,
+          101: { ...chuncheon, filled: true },
+          136: { ...andong, filled: false },
+          119: { ...andong, status: "dormant", drMm: null, filled: true },
+        },
+      },
+    };
+    const some = view(101, "apple", someBoard);
+    expect(some.waterFilledScope).toBe("some");
+    expect(some.waterFilledNotice).toBe(FILLED_COPY.nationalSomeNotice);
+    expect(some.rows.find((r) => r.id === 101)?.waterFilled).toBe(true);
+    expect(some.rows.find((r) => r.id === 136)?.waterFilled).toBe(false);
+    expect(some.rows.find((r) => r.id === 119)?.waterFilled).toBe(false);
+
+    const allBoard: StationBoard = {
+      ...BOARD,
+      water: {
+        ...BOARD.water,
+        apple: {
+          ...BOARD.water.apple,
+          101: { ...chuncheon, filled: true },
+          136: { ...andong, filled: true },
+          119: { ...andong, status: "dormant", drMm: null, filled: false },
+        },
+      },
+    };
+    const all = view(101, "apple", allBoard);
+    expect(all.waterFilledScope).toBe("all");
+    expect(all.waterFilledNotice).toBe(FILLED_COPY.nationalAllNotice);
+  });
+
+  it("작물 공통(토양) 안 3: 겨울철은 활동 지점 모수에서 제외한다", () => {
+    const someSoilBoard: StationBoard = {
+      ...BOARD,
+      soil: {
+        ...BOARD.soil,
+        loam: {
+          ...BOARD.soil.loam,
+          101: { ...BOARD.soil.loam[101]!, filled: true },
+          136: { ...BOARD.soil.loam[136]!, filled: false },
+          119: {
+            status: "winter",
+            awPct: null,
+            drMm: null,
+            tawMm: 65,
+            rawMm: 26,
+            observedDate: "2026-10-24",
+            filled: true,
+          },
+        },
+      },
+    };
+    const some = view(101, "common", someSoilBoard);
+    expect(some.waterFilledScope).toBe("some");
+    expect(some.waterFilledNotice).toBe(FILLED_COPY.nationalSomeNotice);
+    expect(some.rows.find((r) => r.id === 101)?.waterFilled).toBe(true);
+    expect(some.rows.find((r) => r.id === 136)?.waterFilled).toBe(false);
+    expect(some.rows.find((r) => r.id === 119)?.waterFilled).toBe(false);
+
+    const allSoilBoard: StationBoard = {
+      ...someSoilBoard,
+      soil: {
+        ...someSoilBoard.soil,
+        loam: {
+          ...someSoilBoard.soil.loam,
+          136: { ...BOARD.soil.loam[136]!, filled: true },
+          119: { ...someSoilBoard.soil.loam[119]!, filled: false },
+        },
+      },
+    };
+    const all = view(101, "common", allSoilBoard);
+    expect(all.waterFilledScope).toBe("all");
+    expect(all.waterFilledNotice).toBe(FILLED_COPY.nationalAllNotice);
+  });
+
+  it("후보 3 적산 기준일: 전원 어제면 생략, 같은 과거일이면 상단 1줄만, 섞이면 예외 지점만 M/D", () => {
+    const yesterday = view(101);
+    expect(yesterday.heatDateNote).toBeNull();
+    expect(yesterday.sunDateNote).toBeNull();
+    expect(
+      yesterday.rows.every(
+        (r) => r.heatDateTag === null && r.sunDateTag === null,
+      ),
+    ).toBe(true);
+
+    const samePastGrowth: HomeGrowth = {
+      heatOk: true,
+      sunOk: true,
+      heat: {
+        101: { date: "2026-10-22", cum: 4165, normal: 3973 },
+        216: { date: "2026-10-22", cum: 2700, normal: 2650 },
+        136: { date: "2026-10-22", cum: 2140, normal: 2190 },
+      },
+      sun: {
+        101: { date: "2026-10-21", cum: 3218, normal: 3352 },
+        216: { date: "2026-10-21", cum: 3500, normal: 3333 },
+      },
+    };
+    const samePast = view(101, "apple", BOARD, samePastGrowth);
+    expect(samePast.heatDateNote).toBe("10월 22일까지의 값이에요");
+    expect(samePast.sunDateNote).toBe("10월 21일까지의 값이에요");
+    expect(
+      samePast.rows.every(
+        (r) => r.heatDateTag === null && r.sunDateTag === null,
+      ),
+    ).toBe(true);
+
+    const mixedGrowth: HomeGrowth = {
+      heatOk: true,
+      sunOk: true,
+      heat: {
+        101: { date: "2026-10-24", cum: 4165, normal: 3973 },
+        216: { date: "2026-10-24", cum: 2700, normal: 2650 },
+        136: { date: "2026-10-22", cum: 2140, normal: 2190 },
+      },
+      sun: {
+        101: { date: "2026-10-22", cum: 3218, normal: 3352 },
+        216: { date: "2026-10-22", cum: 3500, normal: 3333 },
+        136: { date: "2026-10-20", cum: 3100, normal: 3200 },
+      },
+    };
+    const mixed = view(101, "apple", BOARD, mixedGrowth);
+    expect(mixed.heatDateNote).toBe(
+      `${OBSERVED_DATE_COPY.yesterdayValue} ${OBSERVED_DATE_COPY.mixedSuffix}`,
+    );
+    expect(mixed.rows.find((r) => r.id === 101)?.heatDateTag).toBeNull();
+    expect(mixed.rows.find((r) => r.id === 136)?.heatDateTag).toBe("10/22");
+    expect(mixed.rows.find((r) => r.id === 119)?.heatDateTag).toBeNull();
+
+    expect(mixed.sunDateNote).toBe(
+      `10월 22일까지의 값이에요 ${OBSERVED_DATE_COPY.mixedSuffix}`,
+    );
+    expect(mixed.rows.find((r) => r.id === 101)?.sunDateTag).toBeNull();
+    expect(mixed.rows.find((r) => r.id === 136)?.sunDateTag).toBe("10/20");
+    expect(mixed.rows.find((r) => r.id === 119)?.sunDateTag).toBeNull();
   });
 });

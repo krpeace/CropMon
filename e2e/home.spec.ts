@@ -177,3 +177,47 @@ test("종합: filled=true 물·토양 카드 '추정 포함'과 어제 이전 �
   await expect(soilCard).toContainText("추정 포함");
   await expect(soilCard).toContainText("어제까지 기준 (추정 포함)");
 });
+
+test("종합: 전국 표 추정 포함(안 3)·적산 기준일 예외(후보 3) 표시", async ({
+  page,
+}) => {
+  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
+
+  await openHome(page, "?st=101&crop=apple");
+  const table = page.getByRole("region", { name: "전국 물·기상·생육 종합" });
+  await expect(table).toContainText(
+    "최근 기상 자료가 빠져 일부 지점은 추정이 포함된 값이에요 (추정 표시). 자료가 들어오면 바뀔 수 있어요.",
+  );
+  await expect(table).toContainText(
+    "적산온도·적산일사: 어제까지 값이에요 (다른 날은 괄호 표시)",
+  );
+
+  await expect(table.getByRole("link", { name: /^전주/ })).toContainText(
+    "추정",
+  );
+  await expect(table.getByRole("link", { name: /^서귀포/ })).toContainText(
+    "추정",
+  );
+  await expect(table.getByRole("link", { name: /^서귀포/ })).toContainText(tag);
+  await expect(table.getByRole("link", { name: /^춘천/ })).not.toContainText(
+    "추정",
+  );
+  await expect(table.getByRole("link", { name: /^춘천/ })).not.toContainText(
+    tag,
+  );
+  await expect(table.getByRole("link", { name: /^안동/ })).not.toContainText(
+    "추정",
+  );
+
+  await openHome(page, "?st=101&crop=common");
+  await expect(table).toContainText(
+    "최근 기상 자료가 빠져 일부 지점은 추정이 포함된 값이에요 (추정 표시). 자료가 들어오면 바뀔 수 있어요.",
+  );
+  await expect(table.getByRole("link", { name: /^서귀포/ })).toContainText(
+    "추정",
+  );
+  await expect(table.getByRole("link", { name: /^춘천/ })).not.toContainText(
+    "추정",
+  );
+});

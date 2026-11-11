@@ -1,5 +1,5 @@
 import type { Crop } from "@/domain/selection";
-import { dayLabel } from "@/domain/water-outlook";
+import { dayLabel, FILLED_COPY } from "@/domain/water-outlook";
 import { SOIL_WATER_LABEL } from "@/domain/soil-water";
 import { WATER_STATUS_LABEL } from "@/domain/water-status";
 import type { SeasonDay } from "@/services/water";
@@ -70,12 +70,21 @@ function commonRows(day: SeasonDay, raw: number): HoverRow[] {
   ];
 }
 
+function isOffDay(day: SeasonDay) {
+  return day.status === "dormant" || day.status === "winter";
+}
+
+function isFilledDay(day: SeasonDay) {
+  return Boolean(day.filled) && !isOffDay(day);
+}
+
 /** 값 상자에 쓸 글자. 계산 없이 옮겨 적기와 자릿수 맞추기만 한다. 상태는 DB 값 그대로. */
 export function hoverInfo(day: SeasonDay, crop: Crop, raw: number) {
   const base = {
     date: dayLabel(day.date),
     status: day.status,
     statusLabel: statusLabel(day.status),
+    filledBadge: isFilledDay(day) ? FILLED_COPY.badge : null,
   };
   if (crop === "common") return { ...base, rows: commonRows(day, raw) };
   const etc =
@@ -134,6 +143,20 @@ export type DrTick = { t: string; top: string; raw: boolean; very?: boolean };
  * common = 작물 공통: 아래 칸 기준선이 두 줄(건조 시작 = RAW, 매우 건조 시작 = 0.7×TAW)이고
  * 오른쪽에 남은 물 % 눈금이 붙는다. 0.7×TAW 는 계약서의 판정 경계(남은 물 30%)를 눈금 자리로 옮긴 좌표일 뿐, 판정은 하지 않는다.
  */
+function band(rows: readonly SeasonDay[], match: (r: SeasonDay) => boolean) {
+  let path = "";
+  let start: number | null = null;
+  for (let d = 0; d <= rows.length; d++) {
+    const on = d < rows.length && match(rows[d]);
+    if (on && start === null) start = d;
+    if (!on && start !== null) {
+      path += `M${start} 0H${d}V100H${start}Z`;
+      start = null;
+    }
+  }
+  return path;
+}
+
 export function seasonChart(
   rows: readonly SeasonDay[],
   raw: number,
@@ -144,24 +167,14 @@ export function seasonChart(
   const n = Math.max(1, rows.length);
   const yD = (v: number) => yDr(v, taw);
   let rain = "";
-  let off = "";
-  let o0: number | null = null;
   rows.forEach((r, d) => {
     const p = r.rainMm ?? 0;
     if (p > 0.4) {
       rain += `M${(d + 0.1).toFixed(1)} 0h0.8v${((Math.min(p, RAIN_MAX) / RAIN_MAX) * 48).toFixed(2)}h-0.8z`;
     }
   });
-  for (let d = 0; d <= rows.length; d++) {
-    const isOff =
-      d < rows.length &&
-      (rows[d].status === "dormant" || rows[d].status === "winter");
-    if (isOff && o0 === null) o0 = d;
-    if (!isOff && o0 !== null) {
-      off += `M${o0} 0H${d}V100H${o0}Z`;
-      o0 = null;
-    }
-  }
+  const off = band(rows, isOffDay);
+  const filledBand = band(rows, isFilledDay);
   const pct = (v: number) => `${v}%`;
   const rawY = yD(raw);
   const veryDry = taw * 0.7;
@@ -207,6 +220,7 @@ export function seasonChart(
     ),
     rain,
     off,
+    filledBand,
     grid: [2, 4, 6].map((v) => `M0 ${yE(v).toFixed(2)}H${n}`).join(""),
     dr: line(
       rows.map((r) => r.drMm),

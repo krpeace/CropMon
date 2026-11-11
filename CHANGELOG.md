@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 기능 (전국 표·지역 비교·작기 그래프 채운 값/적산 기준일 확장 — 이슈 #128 PR 2)
+
+- 전국 종합 표·모바일 목록(`NationalTable`, `NationalList`, `home.ts`)에 물·토양 `filled = true` **안 3**(0곳 생략, 전체 채움 상단 1줄, 일부 채움 상단 안내 + 해당 지점 `"추정"` 표식)과 적산온도·일사 **후보 3**(전원 어제 생략, 전원 동일 과거일 상단 1줄, 지점 혼재 시 기준일 안내 + 예외 지점 `(M/D)` 표식)을 적용하고 모든 문구를 `water-outlook.ts` 상수(`FILLED_COPY`, `OBSERVED_DATE_COPY`)로 통합
+- 온도·햇빛 상세 지역 비교(`CompareCard`, `SunCompareCard`, `temperature.ts`, `sunlight.ts`, `detail-cache.ts` 폴백 공용 `buildHeatCompare`·`buildSunCompare`)에도 후보 3 기준일 안내와 예외 지점 `(M/D)` 표식을 반영
+- 물 상세 `② 앞으로 3일`(`OutlookCard`, `water.ts`)에 예보 출발일(`start_date`) 및 지난 날 `filled = true` 시 `"추정 포함"` 배지·출발 안내를 추가하고, `③ 작기 돌아보기`(`SeasonCard`, `ChartHover`, `season-chart.ts`)에서 활성 `filled` 구간 음영·범례·안내 및 호버 툴팁 `"추정 포함"` 배지를 구분 표시 (휴면기·겨울철 제외)
+
 ### 기능 (채운 값 '추정 포함' 구분 표시 · 적산 기준일 표시 · 일사 미측정 7곳 보완 — 이슈 #128 PR 1)
 
 - 데이터 계약 **v1.10**: `soil_water_latest` 뷰 마지막 열에 `filled` 추가(`20261111000000_data_contract_v1_10_soil_water_latest_filled.sql`, `DATA_CONTRACT.md`, 결정 `0041`) 및 `status-source.ts`(`recentBalance`, `latestSoilWater`) 조회 확장

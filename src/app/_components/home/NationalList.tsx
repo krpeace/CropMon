@@ -10,12 +10,13 @@ import {
   type SoilCode,
 } from "@/domain/selection";
 import { SOIL_WATER_LABEL, SOIL_WATER_STATUSES } from "@/domain/soil-water";
+import { FILLED_COPY } from "@/domain/water-outlook";
 import {
   WATER_STATUSES,
   WATER_STATUS_LABEL,
   WATER_STATUS_SHORT,
 } from "@/domain/water-status";
-import type { HomeRow } from "@/services/home";
+import type { HomeRow, HomeView } from "@/services/home";
 
 import { Badge as GrayBadge } from "../ui/Badge";
 import { Gauge } from "../ui/Gauge";
@@ -76,10 +77,18 @@ export function NationalList({
   rows,
   crop,
   soil,
+  waterFilledScope,
+  waterFilledNotice,
+  heatDateNote,
+  sunDateNote,
 }: {
   rows: HomeRow[];
   crop: Crop;
   soil?: SoilCode;
+  waterFilledScope: HomeView["waterFilledScope"];
+  waterFilledNotice: string | null;
+  heatDateNote: string | null;
+  sunDateNote: string | null;
 }) {
   const isCommon = crop === "common";
   const tab = useSyncExternalStore(
@@ -90,6 +99,8 @@ export function NationalList({
   const choose = saveTab;
 
   const dayDates = rows.find((r) => r.days)?.days?.map((d) => d.label) ?? [];
+  const tabDateNote =
+    tab === "heat" ? heatDateNote : tab === "sun" ? sunDateNote : null;
 
   return (
     <section
@@ -108,6 +119,12 @@ export function NationalList({
       </div>
 
       <Legend isCommon={isCommon} />
+
+      {waterFilledNotice && (
+        <p className="text-12 text-ink-2/80 m-0 leading-snug">
+          {waterFilledNotice}
+        </p>
+      )}
 
       <div
         role="tablist"
@@ -138,6 +155,11 @@ export function NationalList({
         aria-labelledby={`national-tab-${tab}`}
         className="flex flex-col"
       >
+        {tabDateNote && (
+          <p className="text-12 text-ink-2/80 m-0 pb-1.5 leading-snug">
+            {tabDateNote}
+          </p>
+        )}
         <div
           className={`${COLS} text-12 text-ink-2/80 border-ink-2/20 border-b-(length:--hairline) px-2 py-2 font-semibold`}
         >
@@ -164,11 +186,14 @@ export function NationalList({
               <span className="text-12 text-ink-2/70">{row.id}</span>
             </span>
             {row.badge ? (
-              <StatusBadge
-                badge={row.badge}
-                compact
-                className="justify-self-start"
-              />
+              <span className="flex flex-col items-start gap-0.5 justify-self-start">
+                <StatusBadge badge={row.badge} compact />
+                {waterFilledScope === "some" && row.waterFilled && (
+                  <span className="bg-fill/14 text-12 text-gray-ink rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap">
+                    {FILLED_COPY.rowTag}
+                  </span>
+                )}
+              </span>
             ) : (
               <GrayBadge className="justify-self-start">{NO_DATA}</GrayBadge>
             )}
@@ -285,8 +310,13 @@ function ThirdCell({
         ) : (
           <div className="flex-1" />
         )}
-        <span className="text-13 w-16.5 text-right font-semibold">
-          {row.heat}
+        <span className="flex w-16.5 flex-none flex-col items-end text-right leading-tight">
+          <span className="text-13 font-semibold">{row.heat}</span>
+          {row.heatDateTag && (
+            <span className="text-12 text-ink-2/75 font-normal tabular-nums">
+              ({row.heatDateTag})
+            </span>
+          )}
         </span>
       </div>
     );
@@ -308,8 +338,13 @@ function ThirdCell({
           style={{ left: `${SUN_BAR_NORMAL_LINE}%` }}
         />
       </div>
-      <span className="text-13 w-16.5 text-right font-semibold">
-        {row.sunlight}
+      <span className="flex w-16.5 flex-none flex-col items-end text-right leading-tight">
+        <span className="text-13 font-semibold">{row.sunlight}</span>
+        {row.sunDateTag && (
+          <span className="text-12 text-ink-2/75 font-normal tabular-nums">
+            ({row.sunDateTag})
+          </span>
+        )}
       </span>
     </div>
   );

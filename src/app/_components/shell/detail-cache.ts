@@ -1,17 +1,16 @@
 import { cacheLife } from "next/cache";
 
-import { heatDiff } from "@/domain/heat";
 import type { Selection } from "@/domain/selection";
-import { sunPercent } from "@/domain/sun";
 import type { WaterQuery } from "@/domain/water-outlook";
-import { STATIONS } from "@/infra/stations";
 import type { Station } from "@/services/shell";
 import {
+  buildSunCompare,
   getSunlightView,
   type SunCompareRow,
   type SunlightView,
 } from "@/services/sunlight";
 import {
+  buildHeatCompare,
   getTemperatureView,
   type CompareRow,
   type TemperatureView,
@@ -155,19 +154,14 @@ async function fallbackTemperature(
   today: string,
 ): Promise<TemperatureView> {
   let compare: CompareRow[] = [];
+  let compareNote: string | null = null;
   try {
     const heatMap = await fetchHomeHeat(selection.crop, today);
-    compare = STATIONS.filter((s) => s.isRepresentative).map((s) => {
-      const h = heatMap[s.id];
-      const diff = h ? heatDiff(h.cum, h.normal) : null;
-      return {
-        id: s.id,
-        name: s.name,
-        selected: s.id === selection.stationId,
-        diff: diff?.value ?? null,
-        text: diff?.text ?? "자료 없음",
-      };
-    });
+    ({ compare, compareNote } = buildHeatCompare(
+      heatMap,
+      selection.stationId,
+      today,
+    ));
   } catch {
     compare = [];
   }
@@ -183,6 +177,7 @@ async function fallbackTemperature(
     days: [],
     today,
     compare,
+    compareNote,
     compareProblem: null,
     problem: "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     failed: true,
@@ -194,19 +189,14 @@ async function fallbackSunlight(
   today: string,
 ): Promise<SunlightView> {
   let compare: SunCompareRow[] = [];
+  let compareNote: string | null = null;
   try {
     const sunMap = await fetchHomeSun(today);
-    compare = STATIONS.filter((s) => s.isRepresentative).map((s) => {
-      const r = sunMap[s.id];
-      const pct = sunPercent(r?.cum ?? null, r?.normal ?? null);
-      return {
-        id: s.id,
-        name: s.name,
-        selected: s.id === selection.stationId,
-        pct,
-        text: pct == null ? "자료 없음" : `${pct}%`,
-      };
-    });
+    ({ compare, compareNote } = buildSunCompare(
+      sunMap,
+      selection.stationId,
+      today,
+    ));
   } catch {
     compare = [];
   }
@@ -224,6 +214,7 @@ async function fallbackSunlight(
     months: [],
     monthNote: null,
     compare,
+    compareNote,
     compareProblem: null,
     problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     failed: true,

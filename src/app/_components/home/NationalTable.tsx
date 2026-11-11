@@ -7,8 +7,9 @@ import {
   type SoilCode,
 } from "@/domain/selection";
 import { SOIL_WATER_LABEL, SOIL_WATER_STATUSES } from "@/domain/soil-water";
+import { FILLED_COPY } from "@/domain/water-outlook";
 import { WATER_STATUSES, WATER_STATUS_LABEL } from "@/domain/water-status";
-import type { HomeRow } from "@/services/home";
+import type { HomeRow, HomeView } from "@/services/home";
 
 import { Badge as GrayBadge } from "../ui/Badge";
 import { Gauge } from "../ui/Gauge";
@@ -17,17 +18,40 @@ import { STATUS_DOT } from "../ui/status";
 
 const COLS = "grid grid-cols-(--national-cols) gap-4";
 
+function growthDateNotice(
+  heatDateNote: string | null,
+  sunDateNote: string | null,
+): string | null {
+  if (heatDateNote && sunDateNote) {
+    return heatDateNote === sunDateNote
+      ? `적산온도·적산일사: ${heatDateNote}`
+      : `적산온도: ${heatDateNote} · 적산일사: ${sunDateNote}`;
+  }
+  if (heatDateNote) return `적산온도: ${heatDateNote}`;
+  if (sunDateNote) return `적산일사: ${sunDateNote}`;
+  return null;
+}
+
 /** 전국 물·기상·생육 종합 표. 줄을 누르면 그 지역으로 바뀐다. 데스크톱에서만 보인다. */
 export function NationalTable({
   rows,
   crop,
   soil,
+  waterFilledScope,
+  waterFilledNotice,
+  heatDateNote,
+  sunDateNote,
 }: {
   rows: HomeRow[];
   crop: Crop;
   soil?: SoilCode;
+  waterFilledScope: HomeView["waterFilledScope"];
+  waterFilledNotice: string | null;
+  heatDateNote: string | null;
+  sunDateNote: string | null;
 }) {
   const isCommon = crop === "common";
+  const growthNotice = growthDateNotice(heatDateNote, sunDateNote);
   return (
     <section
       aria-labelledby="national-title"
@@ -41,6 +65,12 @@ export function NationalTable({
           오늘 {CROP_LABEL[crop]} 기준 · 줄을 누르면 그 지역으로 바뀌어요
         </span>
       </div>
+      {(waterFilledNotice || growthNotice) && (
+        <div className="text-13 text-ink-2/80 flex flex-col gap-0.5 pb-2.5 leading-snug">
+          {waterFilledNotice && <p className="m-0">{waterFilledNotice}</p>}
+          {growthNotice && <p className="m-0">{growthNotice}</p>}
+        </div>
+      )}
       <div
         className={`${COLS} border-ink-2/20 text-14 text-ink-2/80 border-b-(length:--hairline) px-3 py-2.5 font-semibold`}
       >
@@ -73,7 +103,14 @@ export function NationalTable({
             <span className="text-13 text-ink-2/70 font-normal">{row.id}</span>
           </span>
           {row.badge ? (
-            <StatusBadge badge={row.badge} className="justify-self-start" />
+            <span className="flex flex-wrap items-center gap-1.5 justify-self-start">
+              <StatusBadge badge={row.badge} />
+              {waterFilledScope === "some" && row.waterFilled && (
+                <span className="bg-fill/14 text-12 text-gray-ink rounded-full px-2 py-0.5 font-bold whitespace-nowrap">
+                  {FILLED_COPY.rowTag}
+                </span>
+              )}
+            </span>
           ) : (
             <GrayBadge className="justify-self-start">자료 없음</GrayBadge>
           )}
@@ -108,11 +145,21 @@ export function NationalTable({
             className={`text-16 font-semibold ${row.heat ? "text-ink" : "text-gray-ink"}`}
           >
             {row.heat ?? "자료 없음"}
+            {row.heatDateTag && (
+              <span className="text-13 text-ink-2/70 ml-1 font-normal tabular-nums">
+                ({row.heatDateTag})
+              </span>
+            )}
           </span>
           <span
             className={`text-16 font-semibold ${row.sunlight ? "text-ink" : "text-gray-ink"}`}
           >
             {row.sunlight ?? "자료 없음"}
+            {row.sunDateTag && (
+              <span className="text-13 text-ink-2/70 ml-1 font-normal tabular-nums">
+                ({row.sunDateTag})
+              </span>
+            )}
           </span>
         </Link>
       ))}

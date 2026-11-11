@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { OBSERVED_DATE_COPY } from "@/domain/water-outlook";
 import type {
   HeatLatestRow,
   HeatRow,
@@ -400,5 +401,49 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     });
     expect(v.problem).not.toBeNull();
     expect(v.compareProblem).not.toBeNull();
+  });
+});
+
+describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
+  it("지점별 날짜가 섞이면 대표 기준일 + 괄호 안내, 예외 지점에만 M/D, 자료 없음은 null", async () => {
+    const mixed = await getTemperatureView(SEL, CHUNCHEON, {
+      createSource: () => source(),
+      now: NOW,
+    });
+    expect(mixed.compareNote).toBe(
+      `${OBSERVED_DATE_COPY.yesterdayValue} ${OBSERVED_DATE_COPY.mixedSuffix}`,
+    );
+    expect(mixed.compare.find((r) => r.id === 101)?.dateTag).toBeNull();
+    expect(mixed.compare.find((r) => r.id === 131)?.dateTag).toBe("10/23");
+    expect(mixed.compare.find((r) => r.id === 216)?.dateTag).toBeNull();
+  });
+
+  it("전원 어제(10-24)면 compareNote 와 dateTag 모두 생략한다", async () => {
+    const allYesterday = await getTemperatureView(SEL, CHUNCHEON, {
+      createSource: () =>
+        source({
+          recent: async () => [],
+        }),
+      now: NOW,
+    });
+    expect(allYesterday.compareNote).toBeNull();
+    expect(allYesterday.compare.every((r) => r.dateTag === null)).toBe(true);
+  });
+
+  it("유효 지점이 모두 같은 과거 날짜면 상단 1줄만 표시하고 괄호 태그는 붙이지 않는다", async () => {
+    const allPast = await getTemperatureView(SEL, CHUNCHEON, {
+      createSource: () =>
+        source({
+          onDate: async () => [
+            latest("101", "2026-10-22", 4100, 3980),
+            latest("119", "2026-10-22", 3900, 3980),
+            latest("216", "2026-10-22", null, 3000),
+          ],
+          recent: async () => [],
+        }),
+      now: NOW,
+    });
+    expect(allPast.compareNote).toBe("10월 22일까지의 값이에요");
+    expect(allPast.compare.every((r) => r.dateTag === null)).toBe(true);
   });
 });

@@ -142,15 +142,22 @@ export function ChartHover({
           className="bg-card text-ink rounded-row shadow-hairline text-13 pointer-events-none absolute flex w-max flex-col gap-1 px-3 py-2 tabular-nums"
           style={{ top: geo.topY, maxWidth: TIP_MAX, ...place }}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
             <span className="font-bold">{info.date}</span>
-            <StatusBadge
-              compact
-              badge={{
-                status: info.status ?? "dormant",
-                label: info.statusLabel,
-              }}
-            />
+            <span className="flex items-center gap-1">
+              {info.filledBadge && (
+                <span className="bg-fill/14 text-12 text-gray-ink rounded-full px-2 py-0.5 font-bold whitespace-nowrap">
+                  {info.filledBadge}
+                </span>
+              )}
+              <StatusBadge
+                compact
+                badge={{
+                  status: info.status ?? "dormant",
+                  label: info.statusLabel,
+                }}
+              />
+            </span>
           </div>
           {info.rows.map((r) => (
             <div

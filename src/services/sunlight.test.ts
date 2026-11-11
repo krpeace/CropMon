@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { OBSERVED_DATE_COPY } from "@/domain/water-outlook";
 import type {
   SunLatestRow,
   SunRow,
@@ -231,5 +232,45 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
     });
     expect(v.kind).toBe("error");
     expect(v.compareProblem).not.toBeNull();
+  });
+});
+
+describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
+  it("지점별 날짜가 섞이면 대표 기준일 + 괄호 안내, 예외 지점에만 M/D", async () => {
+    const mixed = await getSunlightView(SEL, CHUNCHEON, opts());
+    expect(mixed.compareNote).toBe(
+      `${OBSERVED_DATE_COPY.yesterdayValue} ${OBSERVED_DATE_COPY.mixedSuffix}`,
+    );
+    expect(mixed.compare.find((r) => r.id === 101)?.dateTag).toBeNull();
+    expect(mixed.compare.find((r) => r.id === 119)?.dateTag).toBe("10/23");
+    expect(mixed.compare.find((r) => r.id === 129)?.dateTag).toBeNull();
+  });
+
+  it("전원 어제(10-24)면 compareNote 와 dateTag 모두 생략한다", async () => {
+    const allYesterday = await getSunlightView(
+      SEL,
+      CHUNCHEON,
+      opts({
+        recent: async () => [],
+      }),
+    );
+    expect(allYesterday.compareNote).toBeNull();
+    expect(allYesterday.compare.every((r) => r.dateTag === null)).toBe(true);
+  });
+
+  it("유효 지점이 모두 같은 과거 날짜면 상단 1줄만 표시하고 괄호 태그는 붙이지 않는다", async () => {
+    const allPast = await getSunlightView(
+      SEL,
+      CHUNCHEON,
+      opts({
+        onDate: async () => [
+          latest("101", "2026-10-21", 3100, 3300),
+          latest("216", "2026-10-21", 3400, 3300),
+        ],
+        recent: async () => [],
+      }),
+    );
+    expect(allPast.compareNote).toBe("10월 21일까지의 값이에요");
+    expect(allPast.compare.every((r) => r.dateTag === null)).toBe(true);
   });
 });
