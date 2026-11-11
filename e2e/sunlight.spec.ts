@@ -78,6 +78,17 @@ test("햇빛: sun_daily 가 없는 지점은 '햇빛을 재지 않아요'와 가
   await expect(total(page)).toContainText("올해 햇빛은 평년의 96%");
 });
 
+test("햇빛: sun_daily 에 null 365줄만 있는 미측정 지점도 '햇빛을 재지 않아요' (울진)", async ({
+  page,
+}) => {
+  await page.goto("/sunlight?st=130&crop=apple");
+  const none = page.getByRole("region", { name: "햇빛 자료 없음" });
+  await expect(none).toContainText("자료 없음");
+  await expect(none).toContainText("울진 관측소는 햇빛을 재지 않아요");
+  const meta = page.getByRole("region", { name: "자료 정보" });
+  await expect(meta).toContainText("일사 관측 · 자료 없음");
+});
+
 test("햇빛: 사전은 '확인 안 됨'이어도 sun_daily 자료가 있으면 본문·자료 상자 모두 자료를 보여 준다 (홍천)", async ({
   page,
 }) => {

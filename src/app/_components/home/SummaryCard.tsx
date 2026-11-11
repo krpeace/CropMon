@@ -18,6 +18,7 @@ type Props = {
   badge?: AnyStatusBadge;
   /** "자료 없음" 처럼 회색 배지. */
   grayBadge?: string;
+  note?: string;
   gauge?: GaugeValue | null;
 };
 
@@ -31,6 +32,7 @@ export function SummaryCard({
   background,
   badge,
   grayBadge,
+  note,
   gauge,
 }: Props) {
   const isWater = icon === "water";
@@ -41,7 +43,7 @@ export function SummaryCard({
         isWater ? "shadow-edge" : ""
       }`}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
         <span
           className={`text-brand-ink flex size-9 items-center justify-center rounded-full ${
             isWater ? "bg-white/80 dark:bg-white/10" : "bg-emerald/14"
@@ -64,6 +66,7 @@ export function SummaryCard({
         {verdict}
       </div>
       <div className="text-18 text-ink-2/90">{numbers}</div>
+      {note && <p className="text-14 text-ink-2/80 m-0 leading-snug">{note}</p>}
       {gauge && <Gauge gauge={gauge} size="card" />}
     </Link>
   );

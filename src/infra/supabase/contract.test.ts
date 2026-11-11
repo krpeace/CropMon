@@ -71,8 +71,24 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.9 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.9\b/);
+  it("계약서의 현재 버전이 v1.10 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v1\.10\b/);
+  });
+
+  describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
+    it("soil_water_latest 뷰 마지막 열로 filled 를 조회한다", () => {
+      expect(SQL).toMatch(
+        /create or replace view public\.soil_water_latest\s+with\s*\(security_invoker\s*=\s*true\)\s+as\s+select distinct on\s*\(stn_id,\s*soil_code\)\s+stn_id,\s+soil_code,\s+date,\s+dr_mm,\s+taw_mm,\s+raw_mm,\s+aw_pct,\s+status,\s+filled\s+from public\.soil_water_daily/,
+      );
+    });
+
+    it("계약서 soil_water_latest 표에 filled 열과 기상청 사후 정정 한계가 적혀 있다", () => {
+      const section = CONTRACT.split("#### 지점·토성별 최신 1줄 뷰:")[1].split(
+        "### `public.",
+      )[0];
+      expect(section).toContain("`filled`");
+      expect(CONTRACT).toContain("한계 (기상청 사후 정정·철회)");
+    });
   });
 
   describe("soil_water_latest 뷰 (v1.9)", () => {

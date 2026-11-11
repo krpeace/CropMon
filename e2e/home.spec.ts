@@ -149,3 +149,31 @@ test("종합(작물 공통): 첫 질문·물 카드·전국 표가 토양 물 �
   await expect(chuncheon).toContainText("보통");
   await expect(chuncheon).toContainText("31 / 65 mm");
 });
+
+test("종합: filled=true 물·토양 카드 '추정 포함'과 어제 이전 적산 기준일 안내 (서귀포 189)", async ({
+  page,
+}) => {
+  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const expectedDateNote = `${threeDaysAgo.getUTCMonth() + 1}월 ${threeDaysAgo.getUTCDate()}일까지의 값이에요`;
+
+  await openHome(page, "?st=189&crop=apple");
+  await expect(main(page)).toContainText("어제까지 추정 포함");
+
+  const water = main(page).getByRole("link", { name: /^물/ });
+  await expect(water).toContainText("추정 포함");
+  await expect(water).toContainText("어제까지 기준 (추정 포함)");
+  await expect(water).toContainText(
+    "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+  );
+
+  const temp = main(page).getByRole("link", { name: /^온도/ });
+  await expect(temp).toContainText(expectedDateNote);
+  const sun = main(page).getByRole("link", { name: /^햇빛/ });
+  await expect(sun).toContainText(expectedDateNote);
+
+  await openHome(page, "?st=189&crop=common");
+  await expect(main(page)).toContainText("어제까지 추정 포함");
+  const soilCard = main(page).getByRole("link", { name: /^물/ });
+  await expect(soilCard).toContainText("추정 포함");
+  await expect(soilCard).toContainText("어제까지 기준 (추정 포함)");
+});

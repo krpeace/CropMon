@@ -126,6 +126,7 @@ export function HomeBoardClient({
             background={STATUS_CARD[view.water.tone]}
             badge={view.water.badge ?? undefined}
             grayBadge={view.water.grayBadge ?? undefined}
+            note={view.water.note ?? undefined}
             gauge={view.water.gauge}
           />
         </FlipItem>
@@ -138,6 +139,7 @@ export function HomeBoardClient({
             numbers={view.growth.numbers}
             background="bg-card"
             grayBadge={view.growth.missing ? "자료 없음" : undefined}
+            note={view.growth.note ?? undefined}
           />
         </FlipItem>
         <FlipItem flipKey={flipKey} order={3}>
@@ -149,6 +151,7 @@ export function HomeBoardClient({
             numbers={view.sunlight.numbers}
             background="bg-card"
             grayBadge={view.sunlight.missing ? "자료 없음" : undefined}
+            note={view.sunlight.note ?? undefined}
           />
         </FlipItem>
       </Grid>

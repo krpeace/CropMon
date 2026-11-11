@@ -19,6 +19,7 @@ import {
   addDays,
   CROP_DB_ID,
   dayLabel,
+  FILLED_COPY,
   firstMainDate,
   koreanDate,
   markOutlookDays,
@@ -92,6 +93,9 @@ export type DayNav = {
 export type NowCard = {
   /** "어제까지 관측 기준" 처럼 이 상태의 기준. */
   basis: string;
+  /** filled=true 일 때 붙이는 회색 배지("추정 포함")와 한 줄 안내. */
+  filledBadge: string | null;
+  filledNote: string | null;
   status: WaterStatus;
   badges: StatusBadge[];
   verdict: Verdict;
@@ -160,6 +164,8 @@ export type SoilOption = {
 
 export type CommonNowCard = {
   basis: string;
+  filledBadge: string | null;
+  filledNote: string | null;
   status: SoilWaterStatus | null;
   badgeLabel: string;
   headline: string;
@@ -367,10 +373,13 @@ function buildCommonNow(
   const st: SoilWaterStatus | null =
     rawStatus ?? (isWinterDate(date) ? "winter" : null);
   const info = soilWaterStatusInfo(st);
+  const isFilled = st !== "winter" && (row?.filled ?? false);
   const basis = row
     ? isToday
-      ? observedBasis(row.date, today)
-      : "관측 물수지"
+      ? observedBasis(row.date, today, isFilled)
+      : isFilled
+        ? FILLED_COPY.pastDayBasis
+        : "관측 물수지"
     : "관측 물수지";
   const active =
     st != null &&
@@ -392,6 +401,8 @@ function buildCommonNow(
       : null;
   return {
     basis,
+    filledBadge: isFilled ? FILLED_COPY.badge : null,
+    filledNote: isFilled ? FILLED_COPY.notice : null,
     status: st,
     badgeLabel: info.label,
     headline,
@@ -613,8 +624,15 @@ type Ctx = {
 function obsOf(row: BalanceRow | undefined, ref: string, past = false) {
   if (!row) return null;
   const name = past && row.date === ref ? "이날" : relDay(row.date, ref);
+  const label = row.filled
+    ? name === "어제"
+      ? FILLED_COPY.obsYesterday
+      : name
+        ? `${name} ${FILLED_COPY.obsDaySuffix}`
+        : `${dayLabel(row.date)} ${FILLED_COPY.badge}`
+    : `${name ?? dayLabel(row.date)} 관측`;
   return {
-    label: `${name ?? dayLabel(row.date)} 관측`,
+    label,
     eto: orDash(row.eto_mm, one),
     etc: orDash(row.etc_mm, one),
     rain: orDash(row.rain_mm, one),
@@ -629,6 +647,8 @@ function card(
   basis: string,
   obs: NowCard["obs"],
   forecast = true,
+  filledBadge: string | null = null,
+  filledNote: string | null = null,
 ): NowCard {
   const verdict = waterVerdict({
     status: s,
@@ -643,6 +663,8 @@ function card(
   const active = dr != null && s !== "dormant";
   return {
     basis,
+    filledBadge,
+    filledNote,
     status: s,
     badges: [
       badge(s),
@@ -673,25 +695,46 @@ function nowToday(c: Ctx): NowCard | null {
         : k === 0
           ? 0
           : daysBetween(c.today, addDays(first, k - 1));
+    const st = status(sm.status_start);
+    const startRow = c.byDate.get(sm.start_date) ?? last;
+    const startFilled = st !== "dormant" && (startRow?.filled ?? false);
     const basis =
-      sm.start_date === addDays(c.today, -1)
-        ? "어제까지 관측 기준"
-        : sm.start_date === c.today
-          ? "오늘 예보까지 반영"
-          : `${dayLabel(sm.start_date)} 기준`;
-    const obs = obsOf(c.byDate.get(sm.start_date) ?? last, c.today);
-    return card(c, status(sm.status_start), sm.dr_start_mm, needIn, basis, obs);
+      sm.start_date === c.today
+        ? startFilled
+          ? `오늘 예보까지 반영 (${FILLED_COPY.badge})`
+          : "오늘 예보까지 반영"
+        : sm.start_date === addDays(c.today, -1)
+          ? observedBasis(sm.start_date, c.today, startFilled)
+          : startFilled
+            ? `${dayLabel(sm.start_date)} 기준 (${FILLED_COPY.badge})`
+            : `${dayLabel(sm.start_date)} 기준`;
+    const obs = obsOf(startRow, c.today);
+    return card(
+      c,
+      st,
+      sm.dr_start_mm,
+      needIn,
+      basis,
+      obs,
+      true,
+      startFilled ? FILLED_COPY.badge : null,
+      startFilled ? FILLED_COPY.noticeFromFilled : null,
+    );
   }
   if (!last) return null;
-  // 예보가 없으면(회차 없음) 어제까지의 관측으로만 판정하고 앞날은 말하지 않는다 (결정 0011)
+  // 예보가 없으면(회차 없음) 어제까지의 값으로만 판정하고 앞날은 말하지 않는다 (결정 0011)
+  const st = status(last.status);
+  const isFilled = st !== "dormant" && last.filled;
   return card(
     c,
-    status(last.status),
+    st,
     last.dr_mm,
     null,
-    observedBasis(last.date, c.today),
+    observedBasis(last.date, c.today, isFilled),
     obsOf(last, c.today),
     false,
+    isFilled ? FILLED_COPY.badge : null,
+    isFilled ? FILLED_COPY.notice : null,
   );
 }
 
@@ -718,7 +761,18 @@ function nowPast(c: Ctx): NowCard | null {
       }
     }
   }
-  return card(c, s, row.dr_mm, needIn, "관측 물수지", obsOf(row, c.date, true));
+  const isFilled = s !== "dormant" && row.filled;
+  return card(
+    c,
+    s,
+    row.dr_mm,
+    needIn,
+    isFilled ? FILLED_COPY.pastDayBasis : "관측 물수지",
+    obsOf(row, c.date, true),
+    true,
+    isFilled ? FILLED_COPY.badge : null,
+    isFilled ? FILLED_COPY.notice : null,
+  );
 }
 
 const REL_PAST = ["다음날", "이틀 뒤", "사흘 뒤"];

@@ -163,6 +163,27 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
     expect(v.compare).toHaveLength(10);
   });
 
+  it("sun_daily 에 365줄이 있어도 rs_cum_mj 가 모두 null(미측정 7개 지점 유형)이면 '햇빛을 재지 않는 지점'", async () => {
+    const nullOnlyYearRows: SunRow[] = yearRows().map((r) => ({
+      ...r,
+      rs_day_mj: null,
+      rs_cum_mj: null,
+      rs_normal_day_mj: null,
+      rs_normal_cum_mj: null,
+      filled: true,
+    }));
+    const v = await getSunlightView(
+      { stationId: 130, crop: "apple" },
+      { id: 130, name: "울진", measuresSunlight: false },
+      opts({ year: async () => nullOnlyYearRows }),
+    );
+    expect(v.kind).toBe("notMeasured");
+    expect(v.updatedAt).toBeNull();
+    expect(v.observedDate).toBeNull();
+    expect(v.problem).toBeNull();
+    expect(v.compare).toHaveLength(10);
+  });
+
   it("DB 가 오류를 주면 '자료 없음'과 쉬운 이유, 지역 비교는 따로 보인다", async () => {
     const v = await getSunlightView(
       SEL,

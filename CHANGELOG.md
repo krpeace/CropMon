@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 기능 (채운 값 '추정 포함' 구분 표시 · 적산 기준일 표시 · 일사 미측정 7곳 보완 — 이슈 #128 PR 1)
+
+- 데이터 계약 **v1.10**: `soil_water_latest` 뷰 마지막 열에 `filled` 추가(`20261111000000_data_contract_v1_10_soil_water_latest_filled.sql`, `DATA_CONTRACT.md`, 결정 `0041`) 및 `status-source.ts`(`recentBalance`, `latestSoilWater`) 조회 확장
+- 물·토양 화면에서 `filled = true`(결측을 메운 뒤 `Dr = 0` 전까지 추정의 영향을 받는 날)일 때 `"어제까지 관측 기준"` 대신 `"추정 포함"` 배지와 기준 문구(`"어제까지 기준 (추정 포함)"` 등), 안내 문구(`FILLED_COPY` 상수 1곳 관리)를 첫 화면 카드·갱신 줄과 물 상세 카드(`NowCard`, `CommonNowCard`)에 표시 (휴면기 `dormant` 및 겨울철 `winter` 제외)
+- 적산온도·적산일사(`HeatLatest`, `SunLatest`)에 유효 누적 값 마지막 `date`를 담아 첫 화면 카드에서 `yesterday`보다 이전이면 `"OO월 OO일까지의 값이에요"` 안내 표시 (`heat_daily.filled`·`sun_daily.filled` 미사용, DB 변경 없음)
+- 일사 미측정 32개 지점 중 `sun_daily`에 `rs_cum_mj = null` 365줄이 적재된 7곳(`130`, `174`, `188`, `217`, `221`, `272`, `273`)이 빈 차트로 나오던 문제를 `sunlight.ts` `readMain`에서 `!rows.some((r) => r.rs_cum_mj != null)`로 보완해 `"햇빛을 재지 않아요"` 표시
+- 기상청 사후 정정·철회 시 기존 적재 값으로 최신 날짜가 하루 어긋날 수 있는 한계를 `DATA_CONTRACT.md`와 푸터 "CropMon 소개"(`AboutSheet`)에 명시
+
 ### 수정 (CI Playwright 브라우저 설치 안정화 — 이슈 #130)
 
 - CI `quality` 작업 러너를 `ubuntu-24.04`로 고정하고 `npx playwright install chromium`(최대 3회 재시도) + `ldd` 공유 라이브러리 누락 시에만 `apt` 재시도·타임아웃(`Retries=3`, `Timeout=15`) 폴백으로 `install-deps`를 실행하도록 수정

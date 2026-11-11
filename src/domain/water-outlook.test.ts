@@ -174,13 +174,28 @@ describe("물 화면 주소창 (기준 날짜·발표 회차)", () => {
 });
 
 describe("관측 기준 문구와 예상일 날 수", () => {
-  it("observedBasis: 어제면 '어제까지', 아니면 날짜", async () => {
-    const { observedBasis } = await import("./water-outlook");
+  it("observedBasis: 어제면 '어제까지', 아니면 날짜, filled 면 '추정 포함'", async () => {
+    const { FILLED_COPY, observedBasis, staleDateNote } =
+      await import("./water-outlook");
     expect(observedBasis("2026-10-24", "2026-10-25")).toBe(
       "어제까지 관측 기준",
     );
     expect(observedBasis("2026-10-22", "2026-10-25")).toBe(
       "10월 22일까지 관측 기준",
+    );
+    expect(observedBasis("2026-10-24", "2026-10-25", true)).toBe(
+      "어제까지 기준 (추정 포함)",
+    );
+    expect(observedBasis("2026-10-22", "2026-10-25", true)).toBe(
+      "10월 22일까지 기준 (추정 포함)",
+    );
+    expect(FILLED_COPY.badge).toBe("추정 포함");
+    expect(FILLED_COPY.notice).toBe(
+      "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+    );
+    expect(staleDateNote("2026-10-24", "2026-10-25")).toBeNull();
+    expect(staleDateNote("2026-10-22", "2026-10-25")).toBe(
+      "10월 22일까지의 값이에요",
     );
   });
 
