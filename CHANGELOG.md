@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 수정 (CI Playwright 브라우저 설치 안정화 — 이슈 #130)
+
+- CI `quality` 작업 러너를 `ubuntu-24.04`로 고정하고 `npx playwright install chromium`(최대 3회 재시도) + `ldd` 공유 라이브러리 누락 시에만 `apt` 재시도·타임아웃(`Retries=3`, `Timeout=15`) 폴백으로 `install-deps`를 실행하도록 수정
+
 ### 수정 (PPR 대기 셸의 작물 버튼 및 범례 스켈레톤 로딩 처리 — 이슈 #122)
 
 - 주소창 파라미터 미수신 대기 화면(`selection === null`)에서 작물 버튼(작물명·보조 문구)과 오른쪽 물 관리 범례 영역이 "토양 물"로 섣부르게 렌더링되지 않도록 스켈레톤 펄스(`motion-safe:animate-pulse`)와 "작물 불러오는 중" 안내를 적용하여, `?crop=apple` 등으로 첫 진입 시 작물 깜빡임 현상 개선
