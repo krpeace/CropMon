@@ -14,7 +14,9 @@ import {
   FILLED_COPY,
   koreanDate,
   observedBasis,
+  shortDate,
   staleDateNote,
+  summarizeObservedDates,
 } from "@/domain/water-outlook";
 import { todayBadge, type WaterStatus } from "@/domain/water-status";
 import { waterVerdict } from "@/domain/water-verdict";
@@ -65,6 +67,14 @@ export type HomeView = {
     note: string | null;
     missing: boolean;
   };
+  /** 전국 표·목록 물·토양 추정 포함 범위 (안 3). */
+  waterFilledScope: "none" | "some" | "all";
+  /** 전국 표·목록 물·토양 상단 한 줄 안내 (0곳이면 null). */
+  waterFilledNotice: string | null;
+  /** 전국 표·목록 적산온도 기준일 상단 안내 (후보 3, 전원 어제면 null). */
+  heatDateNote: string | null;
+  /** 전국 표·목록 적산일사 기준일 상단 안내 (후보 3, 전원 어제면 null). */
+  sunDateNote: string | null;
   rows: HomeRow[];
 };
 
@@ -74,14 +84,20 @@ export type HomeRow = {
   selected: boolean;
   /** 자료가 없으면 null ("자료 없음"). */
   badge: AnyStatusBadge | null;
+  /** 물·토양 행이 추정의 영향을 받은 값인지 (휴면·겨울·자료 없음은 false). */
+  waterFilled: boolean;
   gauge: Gauge | null;
   drText: string;
   /** 앞으로 3일. 예보가 없는 지점은 null ("예보 준비 중", 작물 공통은 "—"). */
   days: { label: string; status: WaterStatus }[] | null;
   /** 생육 (적산온도): 평년 대비 "+180℃". 자료가 없으면 null ("자료 없음"). */
   heat: string | null;
+  /** 적산온도 기준일이 다른 예외 지점일 때 "M/D", 아니면 null (후보 3). */
+  heatDateTag: string | null;
   /** 생육 (적산일사): 평년 대비 "96%". 자료가 없으면 null ("자료 없음"). */
   sunlight: string | null;
+  /** 적산일사 기준일이 다른 예외 지점일 때 "M/D", 아니면 null (후보 3). */
+  sunDateTag: string | null;
   /** 막대용: 적산온도 평년 대비 차이(℃, 앞섬 +, 뒤처짐 −). 자료가 없으면 null. */
   heatDiff: number | null;
   /** 막대용: 적산일사 평년 대비 %. 자료가 없으면 null. */
@@ -114,12 +130,6 @@ function soilGauge(sw: SoilStationWater): Gauge | null {
     fillPct: Math.max(MIN_FILL_PCT, Math.min(100, sw.awPct)),
     rawPct: 60,
   };
-}
-
-/** "2026-10-26" → "10/26" */
-function shortDate(iso: string) {
-  const [, m, d] = iso.split("-").map(Number);
-  return `${m}/${d}`;
 }
 
 /** 평년 대비 적산온도 차이. 자료가 없으면 null. */
@@ -359,7 +369,28 @@ export function getHomeView(
   const station =
     activeStations.find((s) => s.id === selection.stationId) ?? repStations[0];
 
-  const rows = repStations.map((s): HomeRow => {
+  const heatSummary = summarizeObservedDates(
+    repStations.map((s) =>
+      heatOf(growth.heat[s.id]) ? (growth.heat[s.id]?.date ?? null) : null,
+    ),
+    today,
+  );
+  const sunSummary = summarizeObservedDates(
+    repStations.map((s) =>
+      sunShort(growth.sun[s.id]) != null
+        ? (growth.sun[s.id]?.date ?? null)
+        : null,
+    ),
+    today,
+  );
+
+  const rows = repStations.map((s, i): HomeRow => {
+    const heatDiffObj = heatOf(growth.heat[s.id]);
+    const heatText = heatDiffObj?.text ?? null;
+    const sunText = sunShort(growth.sun[s.id]);
+    const heatDateTag = heatText != null ? (heatSummary.tags[i] ?? null) : null;
+    const sunDateTag = sunText != null ? (sunSummary.tags[i] ?? null) : null;
+
     if (crop === "common") {
       const sw = board.soil[soil][s.id];
       return {
@@ -369,15 +400,18 @@ export function getHomeView(
         badge: sw
           ? { status: sw.status, label: SOIL_WATER_LABEL[sw.status] }
           : null,
+        waterFilled: Boolean(sw && sw.status !== "winter" && sw.filled),
         gauge: sw ? soilGauge(sw) : null,
         drText:
           sw?.drMm == null || sw.status === "winter"
             ? "—"
             : `${mm(sw.tawMm - sw.drMm)} / ${mm(sw.tawMm)} mm`,
         days: null,
-        heat: heatOf(growth.heat[s.id])?.text ?? null,
-        sunlight: sunShort(growth.sun[s.id]),
-        heatDiff: heatOf(growth.heat[s.id])?.value ?? null,
+        heat: heatText,
+        heatDateTag,
+        sunlight: sunText,
+        sunDateTag,
+        heatDiff: heatDiffObj?.value ?? null,
         sunPct: sunPct(growth.sun[s.id]),
       };
     }
@@ -387,6 +421,7 @@ export function getHomeView(
       name: s.name,
       selected: s.id === station.id,
       badge: w ? todayBadge(w.status, tomorrowStatus(w, today), "short") : null,
+      waterFilled: Boolean(w && w.status !== "dormant" && w.filled),
       gauge: w ? gauge(w) : null,
       drText:
         w?.drMm == null || w.status === "dormant"
@@ -398,12 +433,34 @@ export function getHomeView(
             status: d.status,
           }))
         : null,
-      heat: heatOf(growth.heat[s.id])?.text ?? null,
-      sunlight: sunShort(growth.sun[s.id]),
-      heatDiff: heatOf(growth.heat[s.id])?.value ?? null,
+      heat: heatText,
+      heatDateTag,
+      sunlight: sunText,
+      sunDateTag,
+      heatDiff: heatDiffObj?.value ?? null,
       sunPct: sunPct(growth.sun[s.id]),
     };
   });
+
+  const activeWaterRows = rows.filter(
+    (r) =>
+      r.badge != null &&
+      r.badge.status !== "dormant" &&
+      r.badge.status !== "winter",
+  );
+  const filledCount = activeWaterRows.filter((r) => r.waterFilled).length;
+  const waterFilledScope: HomeView["waterFilledScope"] =
+    filledCount === 0
+      ? "none"
+      : filledCount === activeWaterRows.length
+        ? "all"
+        : "some";
+  const waterFilledNotice =
+    waterFilledScope === "all"
+      ? FILLED_COPY.nationalAllNotice
+      : waterFilledScope === "some"
+        ? FILLED_COPY.nationalSomeNotice
+        : null;
 
   const water =
     crop === "common"
@@ -421,6 +478,10 @@ export function getHomeView(
     water,
     growth: growthCard(growth.heat[station.id], growth.heatOk, today),
     sunlight: sunCard(growth.sun[station.id], growth.sunOk, station, today),
+    waterFilledScope,
+    waterFilledNotice,
+    heatDateNote: heatSummary.note,
+    sunDateNote: sunSummary.note,
     rows,
   };
 }

@@ -179,11 +179,19 @@ export function HomeBoardClient({
         rows={view.rows}
         crop={currentSelection.crop}
         soil={currentSelection.soil}
+        waterFilledScope={view.waterFilledScope}
+        waterFilledNotice={view.waterFilledNotice}
+        heatDateNote={view.heatDateNote}
+        sunDateNote={view.sunDateNote}
       />
       <NationalTable
         rows={view.rows}
         crop={currentSelection.crop}
         soil={currentSelection.soil}
+        waterFilledScope={view.waterFilledScope}
+        waterFilledNotice={view.waterFilledNotice}
+        heatDateNote={view.heatDateNote}
+        sunDateNote={view.sunDateNote}
       />
 
       <FarmPromo href={href("/my-farm")} />

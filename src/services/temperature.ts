@@ -9,7 +9,12 @@ import {
   type StageLag,
 } from "@/domain/heat";
 import type { Selection } from "@/domain/selection";
-import { CROP_DB_ID, koreanDate, observedBasis } from "@/domain/water-outlook";
+import {
+  CROP_DB_ID,
+  koreanDate,
+  observedBasis,
+  summarizeObservedDates,
+} from "@/domain/water-outlook";
 import {
   createHeatSource,
   type HeatRow,
@@ -17,7 +22,7 @@ import {
 } from "@/infra/supabase/heat-source";
 import { STATIONS } from "@/infra/stations";
 
-import { readHeatLatest } from "./growth-latest";
+import { readHeatLatest, type HeatLatest } from "./growth-latest";
 import type { Station } from "./shell";
 
 /**
@@ -52,6 +57,8 @@ export type CompareRow = {
   diff: number | null;
   /** "+180℃" 또는 "자료 없음" */
   text: string;
+  /** 기준일과 다른 예외 지점일 때 "M/D", 같거나 자료 없으면 null. */
+  dateTag: string | null;
 };
 
 export type TemperatureView = {
@@ -72,6 +79,8 @@ export type TemperatureView = {
   days: HeatDay[];
   today: string;
   compare: CompareRow[];
+  /** 지역 비교 기준일 안내 (전원 동일 과거일·혼재 시 후보 3). 전원 어제면 null. */
+  compareNote: string | null;
   compareProblem: string | null;
   /** 자료를 보여 줄 수 없을 때 그 이유. 없으면 null. */
   problem: string | null;
@@ -84,7 +93,10 @@ const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
 type Deps = { createSource?: () => HeatSource; now?: () => Date };
 
-type Main = Omit<TemperatureView, "today" | "compare" | "compareProblem">;
+type Main = Omit<
+  TemperatureView,
+  "today" | "compare" | "compareNote" | "compareProblem"
+>;
 
 const EMPTY: Main = {
   basis: null,
@@ -207,33 +219,54 @@ function stageCard(rows: HeatRow[], stage: number): StageCard {
   };
 }
 
+/** 대표 10개 지점 적산온도 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). */
+export function buildHeatCompare(
+  found: Record<number, HeatLatest>,
+  selectedId: number,
+  today: string,
+): { compare: CompareRow[]; compareNote: string | null } {
+  const reps = STATIONS.filter((s) => s.isRepresentative);
+  const { note, tags } = summarizeObservedDates(
+    reps.map((s) => found[s.id]?.date ?? null),
+    today,
+  );
+  return {
+    compare: reps.map((s, i) => {
+      const h = found[s.id];
+      const diff = h ? heatDiff(h.cum, h.normal) : null;
+      return {
+        id: s.id,
+        name: s.name,
+        selected: s.id === selectedId,
+        diff: diff?.value ?? null,
+        text: diff?.text ?? NO_DATA,
+        dateTag: diff ? (tags[i] ?? null) : null,
+      };
+    }),
+    compareNote: note,
+  };
+}
+
 async function readCompare(
   db: HeatSource | null,
   selectedId: number,
   cropId: string,
   today: string,
-): Promise<Pick<TemperatureView, "compare" | "compareProblem">> {
+): Promise<
+  Pick<TemperatureView, "compare" | "compareNote" | "compareProblem">
+> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
     const found = await readHeatLatest(db, cropId, today);
     return {
-      compare: STATIONS.filter((s) => s.isRepresentative).map((s) => {
-        const h = found[s.id];
-        const diff = h ? heatDiff(h.cum, h.normal) : null;
-        return {
-          id: s.id,
-          name: s.name,
-          selected: s.id === selectedId,
-          diff: diff?.value ?? null,
-          text: diff?.text ?? NO_DATA,
-        };
-      }),
+      ...buildHeatCompare(found, selectedId, today),
       compareProblem: null,
     };
   } catch (error) {
     console.error("[temperature] 지역 비교 읽기 실패:", error);
     return {
       compare: [],
+      compareNote: null,
       compareProblem:
         "지역 비교 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     };

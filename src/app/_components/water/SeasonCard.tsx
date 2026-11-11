@@ -1,5 +1,5 @@
 import type { Crop } from "@/domain/selection";
-import { dayLabel } from "@/domain/water-outlook";
+import { dayLabel, FILLED_COPY } from "@/domain/water-outlook";
 import type { MonthRow } from "@/domain/water-verdict";
 import type { SeasonDay } from "@/services/water";
 
@@ -86,6 +86,11 @@ export function SeasonCard({
           </>
         )}
         <Legend swatch="size-3 bg-fill/16">{off}</Legend>
+        {ch.filledBand && (
+          <Legend swatch="size-3 bg-ink-2/12 border border-dashed border-ink-2/35">
+            {FILLED_COPY.badge}
+          </Legend>
+        )}
       </div>
 
       <ChartHover
@@ -111,6 +116,12 @@ export function SeasonCard({
               d={ch.off}
               fill="color-mix(in oklab, var(--color-fill) 12%, transparent)"
             />
+            {ch.filledBand && (
+              <path
+                d={ch.filledBand}
+                fill="color-mix(in oklab, var(--color-ink-2) 10%, transparent)"
+              />
+            )}
             <path
               d={ch.grid}
               fill="none"
@@ -164,6 +175,12 @@ export function SeasonCard({
               d={ch.off}
               fill="color-mix(in oklab, var(--color-fill) 12%, transparent)"
             />
+            {ch.filledBand && (
+              <path
+                d={ch.filledBand}
+                fill="color-mix(in oklab, var(--color-ink-2) 10%, transparent)"
+              />
+            )}
             {common ? (
               <>
                 <path
@@ -267,6 +284,12 @@ export function SeasonCard({
           ))}
         </div>
       </ChartHover>
+
+      {ch.filledBand && (
+        <p className="text-13 text-ink-2/80 m-0 leading-snug">
+          {FILLED_COPY.seasonLegendNotice}
+        </p>
+      )}
 
       {common && (
         <p className="text-13 text-ink-2/75 -mt-1">

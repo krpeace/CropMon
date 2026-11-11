@@ -128,6 +128,9 @@ export function SunCompareCard({
       <span className="text-14 text-ink-2/80">
         지점을 누르면 그 지역으로 바뀌어요
       </span>
+      {view.compareNote && (
+        <span className="text-13 text-ink-2/80">{view.compareNote}</span>
+      )}
       {view.compareProblem && (
         <span className="text-15 text-ink-2/85">{view.compareProblem}</span>
       )}
@@ -157,10 +160,17 @@ export function SunCompareCard({
               style={{ width: `${sunCompareBar(r.pct)}%` }}
             />
           </span>
-          <span
-            className={`text-15 text-right font-bold ${r.pct == null ? "text-gray-ink" : ""}`}
-          >
-            {r.text}
+          <span className="flex flex-col items-end text-right leading-tight">
+            <span
+              className={`text-15 font-bold ${r.pct == null ? "text-gray-ink" : ""}`}
+            >
+              {r.text}
+            </span>
+            {r.dateTag && (
+              <span className="text-12 text-ink-2/75 font-normal tabular-nums">
+                ({r.dateTag})
+              </span>
+            )}
           </span>
         </Link>
       ))}

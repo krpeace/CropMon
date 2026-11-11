@@ -121,3 +121,30 @@ test("햇빛: 휴대폰 폭(390)에서 옆으로 넘치지 않는다", async ({ 
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("햇빛: 지역 비교 기준일 다름(후보 3) — 상단 안내와 예외 지점(서귀포) 괄호 날짜", async ({
+  page,
+}) => {
+  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sunlight?st=101&crop=apple");
+  await expect(compare(page)).toContainText(
+    "어제까지 값이에요 (다른 날은 괄호 표시)",
+  );
+  await expect(
+    compare(page).getByRole("link", { name: /^서귀포/ }),
+  ).toContainText(tag);
+  await expect(
+    compare(page).getByRole("link", { name: /^춘천/ }),
+  ).not.toContainText(tag);
+  await expect(
+    compare(page).getByRole("link", { name: /^진주/ }),
+  ).not.toContainText(tag);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

@@ -612,6 +612,7 @@ describe("작물 공통 (토양 물 상태)", () => {
         drMm: 31.2,
         awPct: 52,
         status: "fair",
+        filled: false,
       },
       {
         date: "2026-10-24",
@@ -621,6 +622,7 @@ describe("작물 공통 (토양 물 상태)", () => {
         drMm: 33.8,
         awPct: 48,
         status: "fair",
+        filled: false,
       },
     ]);
     // ETc 가 없으니 월별 요약의 ETc·관수 필요 일수는 비어 있다 (화면은 그 두 칸을 빼고 보여 준다)
@@ -795,5 +797,87 @@ describe("작물 공통 (토양 물 상태)", () => {
     expect(v.problem).toBe(
       "물 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     );
+  });
+});
+
+describe("앞으로 3일·작기 돌아보기 추정 포함 (#128 PR 2)", () => {
+  it("출발일이 filled=true 이면 앞으로 3일 카드에도 배지·안내를 보여 주고, 휴면기면 숨긴다", async () => {
+    const filledBal = BALANCE.map((b) =>
+      b.date === "2026-10-24" ? { ...b, filled: true } : b,
+    );
+    const v = await view(TODAY, { balance: async () => filledBal });
+    expect(v.outlook?.filledBadge).toBe(FILLED_COPY.badge);
+    expect(v.outlook?.filledNote).toBe(FILLED_COPY.noticeFromFilled);
+
+    const normal = await view(TODAY);
+    expect(normal.outlook?.filledBadge).toBeNull();
+    expect(normal.outlook?.filledNote).toBeNull();
+
+    const dormant = await view(TODAY, {
+      balance: async () =>
+        filledBal.map((b) =>
+          b.date === "2026-10-24" ? { ...b, status: "dormant" } : b,
+        ),
+      summary: async () => ({ ...SUMMARY, status_start: "dormant" }),
+    });
+    expect(dormant.outlook?.filledBadge).toBeNull();
+    expect(dormant.outlook?.filledNote).toBeNull();
+  });
+
+  it("지난 날의 뒤이은 날이 filled=true 관측이면 '추정 포함'과 notice, 출발일이 filled+예보 혼합이면 noticeFromFilled", async () => {
+    const obsFilled = BALANCE.map((b) =>
+      b.date === "2026-10-24" ? { ...b, filled: true } : b,
+    );
+    const vObs = await view(
+      { date: "2026-10-23", run: null },
+      { balance: async () => obsFilled, outlook: async () => [] },
+    );
+    expect(vObs.outlook?.basis).toBe("관측값 기준");
+    expect(vObs.outlook?.days[0]?.kind).toBe(FILLED_COPY.badge);
+    expect(vObs.outlook?.filledBadge).toBe(FILLED_COPY.badge);
+    expect(vObs.outlook?.filledNote).toBe(FILLED_COPY.notice);
+
+    const startFilledOnly = BALANCE.map((b) =>
+      b.date === "2026-10-23" ? { ...b, filled: true } : b,
+    );
+    const vMixed = await view(
+      { date: "2026-10-23", run: null },
+      { balance: async () => startFilledOnly },
+    );
+    expect(vMixed.outlook?.basis).toBe("관측 + 02시 예보");
+    expect(vMixed.outlook?.days.map((d) => d.kind)).toEqual([
+      "관측",
+      "예보",
+      "예보",
+    ]);
+    expect(vMixed.outlook?.filledBadge).toBe(FILLED_COPY.badge);
+    expect(vMixed.outlook?.filledNote).toBe(FILLED_COPY.noticeFromFilled);
+  });
+
+  it("SeasonDay.filled 는 활동기에서만 true 이고 휴면기·겨울철은 DB filled=true 여도 false 이다", async () => {
+    const cropBal: BalanceRow[] = [
+      { ...BALANCE[0], status: "dormant", filled: true },
+      { ...BALANCE[1], status: "caution", filled: true },
+    ];
+    const vCrop = await view(TODAY, { balance: async () => cropBal });
+    expect(vCrop.season.map((d) => [d.date, d.status, d.filled])).toEqual([
+      ["2026-10-23", "dormant", false],
+      ["2026-10-24", "caution", true],
+    ]);
+
+    const commonSoil: SoilWaterRow[] = [
+      { ...SOIL_WATER[0], status: "winter", filled: true },
+      { ...SOIL_WATER[1], status: "fair", filled: true },
+    ];
+    const vCommon = await view(
+      TODAY,
+      { soilWater: async () => commonSoil },
+      [],
+      { stationId: 101, crop: "common" },
+    );
+    expect(vCommon.season.map((d) => [d.date, d.status, d.filled])).toEqual([
+      ["2026-10-23", "winter", false],
+      ["2026-10-24", "fair", true],
+    ]);
   });
 });

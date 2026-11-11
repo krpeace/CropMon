@@ -91,3 +91,39 @@ test("'주의' 배지는 투명 바탕 + 주황 테두리", async ({ page }) => 
   await expect(badge).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(badge).toHaveCSS("box-shadow", /rgb\(255, 141, 40\)/);
 });
+
+test("휴대폰: 전국 목록 추정 포함(안 3)·적산 기준일 예외(후보 3)가 390 폭에 들어온다", async ({
+  page,
+}) => {
+  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
+
+  await open(page, "?st=101&crop=apple");
+  await expect(list(page)).toContainText(
+    "최근 기상 자료가 빠져 일부 지점은 추정이 포함된 값이에요 (추정 표시). 자료가 들어오면 바뀔 수 있어요.",
+  );
+  await expect(rowsOf(page).filter({ hasText: "전주" })).toContainText("추정");
+  await expect(rowsOf(page).filter({ hasText: "서귀포" })).toContainText(
+    "추정",
+  );
+  await expect(rowsOf(page).filter({ hasText: "춘천" })).not.toContainText(
+    "추정",
+  );
+
+  for (const name of ["온도", "햇빛"] as const) {
+    await list(page).getByRole("tab", { name }).click();
+    await expect(list(page).getByRole("tabpanel")).toContainText(
+      "어제까지 값이에요 (다른 날은 괄호 표시)",
+    );
+    await expect(rowsOf(page).filter({ hasText: "서귀포" })).toContainText(tag);
+    await expect(rowsOf(page).filter({ hasText: "춘천" })).not.toContainText(
+      tag,
+    );
+    const overflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    );
+    expect(overflow, name).toBeLessThanOrEqual(0);
+  }
+});

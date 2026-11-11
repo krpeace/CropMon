@@ -131,6 +131,8 @@ const scenarios = [
   scen("k3", "apple", "04-01", "11-15", 130, 65, "192"),
   // 서귀포(189): 예보 없이 관측 물수지이지만 filled=true (추정 포함 E2E 검증용)
   scen("k3", "apple", "04-01", "11-15", 130, 65, "189"),
+  // 전주(146): 예보 회차가 있고 출발일도 filled=true (앞으로 3일 + 전국 일부 추정 E2E 검증용)
+  scen("k3", "apple", "04-01", "11-15", 130, 65, "146"),
 ];
 
 const statusOf = (dr, raw) =>
@@ -149,7 +151,7 @@ for (const s of scenarios) {
       rain_mm: i % 7 === 0 ? 12 : 0,
       dr_mm: dr,
       status: on ? statusOf(dr, s.raw_mm) : "dormant",
-      filled: s.stn_id === "189" && d === add(today, -1),
+      filled: (s.stn_id === "189" || s.stn_id === "146") && d >= add(today, -3),
     });
   }
 }
@@ -178,10 +180,21 @@ const forecast_runs = [
     src_run_at: null,
     finished_at: new Date(Date.parse(runAt) + 41 * 60_000).toISOString(),
   },
+  {
+    run_id: 3,
+    stn_id: "146",
+    collector: "actions",
+    run_at: runAt,
+    run_name: "아침",
+    result: "정시 성공",
+    on_time: true,
+    src_run_at: null,
+    finished_at: new Date(Date.parse(runAt) + 41 * 60_000).toISOString(),
+  },
 ];
 const water_outlook = [];
 const water_outlook_summary = [];
-const RUN_OF = { 101: 1, 192: 2 }; // 예보 회차가 있는 지점
+const RUN_OF = { 101: 1, 146: 3, 192: 2 }; // 예보 회차가 있는 지점
 for (const s of scenarios) {
   const runId = RUN_OF[s.stn_id];
   if (!runId) continue;
@@ -225,7 +238,7 @@ for (const s of scenarios) {
 }
 
 // 지점별 ASOS 관측 받은 시각 (온도·햇빛 자료 상자)
-const weather_daily = ["101", "119", "189"].map((stn_id) => ({
+const weather_daily = ["101", "119", "146", "189"].map((stn_id) => ({
   stn_id,
   date: add(today, -1),
   fetched_at: new Date(Date.parse(runAt) + 20 * 60_000).toISOString(), // 02:20
@@ -352,7 +365,7 @@ for (const cfg of SOIL_CONFIGS) {
           : Math.round(((cfg.taw_mm - dr) / cfg.taw_mm) * 100),
       status: winter ? "winter" : cfg.status,
       days_to_dry: winter ? null : cfg.days_to_dry,
-      filled: Boolean(cfg.filled && last),
+      filled: Boolean(cfg.filled && d >= add(today, -3)),
       calc_version: "fake",
     });
   }
