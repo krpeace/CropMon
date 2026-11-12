@@ -6,7 +6,11 @@ import {
   sunPercent,
   sunSummary,
 } from "@/domain/sun";
-import { koreanDate, observedBasis } from "@/domain/water-outlook";
+import {
+  koreanDate,
+  observedBasis,
+  summarizeObservedDates,
+} from "@/domain/water-outlook";
 import {
   createSunSource,
   type SunRow,
@@ -14,7 +18,7 @@ import {
 } from "@/infra/supabase/sun-source";
 import { STATIONS } from "@/infra/stations";
 
-import { readSunLatest } from "./growth-latest";
+import { readSunLatest, type SunLatest } from "./growth-latest";
 import type { Station } from "./shell";
 import type { HeatDay } from "./temperature";
 
@@ -42,6 +46,8 @@ export type SunCompareRow = {
   pct: number | null;
   /** "96%" 또는 "자료 없음" */
   text: string;
+  /** 기준일과 다른 예외 지점일 때 "M/D", 같거나 자료 없으면 null. */
+  dateTag: string | null;
 };
 
 export type SunlightView = {
@@ -65,6 +71,8 @@ export type SunlightView = {
   /** "10월은 24일까지" */
   monthNote: string | null;
   compare: SunCompareRow[];
+  /** 지역 비교 기준일 안내 (전원 동일 과거일·혼재 시 후보 3). 전원 어제면 null. */
+  compareNote: string | null;
   compareProblem: string | null;
   problem: string | null;
   /** DB 조회 실패 여부 (실패 미캐시 판단용, 실패 시 true). */
@@ -76,7 +84,10 @@ const LOW_PCT = 95;
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
 type Deps = { createSource?: () => SunSource; now?: () => Date };
-type Main = Omit<SunlightView, "today" | "compare" | "compareProblem">;
+type Main = Omit<
+  SunlightView,
+  "today" | "compare" | "compareNote" | "compareProblem"
+>;
 
 const EMPTY: Main = {
   kind: "error",
@@ -125,8 +136,10 @@ async function readMain(
       db.year(String(station.id), Number(today.slice(0, 4))),
       readUpdatedAt(db, station.id),
     ]);
-    // 햇빛을 재지 않는 지점은 DB 에 줄이 없다 (stations.ts 의 measuresSunlight 가 아니라 DB 기준)
-    if (rows.length === 0) return { ...EMPTY, kind: "notMeasured" };
+    // 햇빛을 재지 않는 지점은 DB 에 줄이 없거나 올해 유효 값(rs_cum_mj)이 모두 비어 있다 (stations.ts 가 아니라 DB 기준)
+    if (!rows.some((r) => r.rs_cum_mj != null)) {
+      return { ...EMPTY, kind: "notMeasured" };
+    }
     return { ...mainView(rows, today), updatedAt };
   } catch (error) {
     console.error("[sunlight] DB 읽기 실패:", error);
@@ -185,32 +198,54 @@ function mainView(rows: SunRow[], today: string): Omit<Main, "updatedAt"> {
   };
 }
 
+/** 대표 10개 지점 적산일사 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). */
+export function buildSunCompare(
+  found: Record<number, SunLatest>,
+  selectedId: number,
+  today: string,
+): { compare: SunCompareRow[]; compareNote: string | null } {
+  const reps = STATIONS.filter((s) => s.isRepresentative);
+  const pcts = reps.map((s) => {
+    const r = found[s.id];
+    return sunPercent(r?.cum ?? null, r?.normal ?? null);
+  });
+  const { note, tags } = summarizeObservedDates(
+    reps.map((s, i) => (pcts[i] != null ? (found[s.id]?.date ?? null) : null)),
+    today,
+  );
+  return {
+    compare: reps.map((s, i) => {
+      const pct = pcts[i] ?? null;
+      return {
+        id: s.id,
+        name: s.name,
+        selected: s.id === selectedId,
+        pct,
+        text: pct == null ? NO_DATA : `${pct}%`,
+        dateTag: pct != null ? (tags[i] ?? null) : null,
+      };
+    }),
+    compareNote: note,
+  };
+}
+
 async function readCompare(
   db: SunSource | null,
   selectedId: number,
   today: string,
-): Promise<Pick<SunlightView, "compare" | "compareProblem">> {
+): Promise<Pick<SunlightView, "compare" | "compareNote" | "compareProblem">> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
     const found = await readSunLatest(db, today);
     return {
-      compare: STATIONS.filter((s) => s.isRepresentative).map((s) => {
-        const r = found[s.id];
-        const pct = sunPercent(r?.cum ?? null, r?.normal ?? null);
-        return {
-          id: s.id,
-          name: s.name,
-          selected: s.id === selectedId,
-          pct,
-          text: pct == null ? NO_DATA : `${pct}%`,
-        };
-      }),
+      ...buildSunCompare(found, selectedId, today),
       compareProblem: null,
     };
   } catch (error) {
     console.error("[sunlight] 지역 비교 읽기 실패:", error);
     return {
       compare: [],
+      compareNote: null,
       compareProblem:
         "지역 비교 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
     };

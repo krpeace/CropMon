@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { FILLED_COPY } from "@/domain/water-outlook";
+
 import {
   dayIndexAt,
   hoverInfo,
@@ -239,5 +241,79 @@ describe("hoverInfo (작물 공통)", () => {
     expect(none.rows[0].value).toBe("자료 없음");
     expect(none.rows[2].value).toBe("자료 없음");
     expect(none.rows[3].value).toBe("자료 없음");
+  });
+});
+
+describe("작기 그래프·툴팁 추정 포함 표시 (#128 PR 2)", () => {
+  it("seasonChart.filledBand 는 활동기 filled 날만 음영 구간으로 묶고 휴면기·겨울철은 제외한다", () => {
+    const chart = seasonChart(
+      [
+        { ...day("2026-03-31", "dormant", null), filled: true },
+        { ...day("2026-04-01", "caution", 10), filled: false },
+        { ...day("2026-04-02", "caution", 20), filled: true },
+        { ...day("2026-04-03", "caution", 25), filled: true },
+        {
+          date: "2026-04-04",
+          etoMm: 3,
+          etcMm: null,
+          rainMm: 0,
+          drMm: null,
+          awPct: null,
+          status: "winter",
+          filled: true,
+        },
+      ],
+      65,
+      130,
+      "2026-04-03",
+    );
+    expect(chart.filledBand).toBe("M2 0H4V100H2Z");
+
+    const empty = seasonChart(
+      [day("2026-04-01", "caution", 10)],
+      65,
+      130,
+      "2026-04-01",
+    );
+    expect(empty.filledBand).toBe("");
+  });
+
+  it("hoverInfo.filledBadge 는 활동기 filled 날에만 '추정 포함', 휴면기·겨울철·비추정 날은 null", () => {
+    const activeFilled = hoverInfo(
+      { ...day("2026-04-02", "caution", 38), filled: true },
+      "apple",
+      65,
+    );
+    expect(activeFilled.filledBadge).toBe(FILLED_COPY.badge);
+
+    const activeNormal = hoverInfo(
+      { ...day("2026-04-01", "caution", 38), filled: false },
+      "apple",
+      65,
+    );
+    expect(activeNormal.filledBadge).toBeNull();
+
+    const dormantFilled = hoverInfo(
+      { ...day("2026-03-31", "dormant", null), filled: true },
+      "apple",
+      65,
+    );
+    expect(dormantFilled.filledBadge).toBeNull();
+
+    const winterFilled = hoverInfo(
+      {
+        date: "2026-12-10",
+        etoMm: 1,
+        etcMm: null,
+        rainMm: 0,
+        drMm: null,
+        awPct: null,
+        status: "winter",
+        filled: true,
+      },
+      "common",
+      26,
+    );
+    expect(winterFilled.filledBadge).toBeNull();
   });
 });

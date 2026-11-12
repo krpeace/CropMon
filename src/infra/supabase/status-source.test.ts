@@ -65,14 +65,14 @@ describe("status-source", () => {
       'in("run_id",[9])',
       'in("scenario_id",["a","b"])',
       "from(water_balance_daily)",
-      'select("scenario_id,date,status,dr_mm")',
+      'select("scenario_id,date,status,dr_mm,filled")',
       'in("scenario_id",["a"])',
       'gte("date","2026-10-18")',
       'order("scenario_id",{"ascending":true})',
       'order("date",{"ascending":false})',
       "range(0,999)",
       "from(soil_water_latest)",
-      'select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")',
+      'select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status,filled")',
       'in("stn_id",["101"])',
       'order("stn_id",{"ascending":true})',
       'order("soil_code",{"ascending":true})',
@@ -140,6 +140,7 @@ describe("status-source", () => {
       raw_mm: 20,
       aw_pct: 80,
       status: "fair",
+      filled: i % 2 === 0,
     }));
 
     const ranges: [number, number][] = [];
@@ -280,6 +281,7 @@ describe("status-source", () => {
       date: `2026-10-${String((i % 7) + 1).padStart(2, "0")}`,
       status: "fair",
       dr_mm: 12.5,
+      filled: i % 3 === 0,
     }));
 
     const ranges: [number, number][] = [];

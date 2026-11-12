@@ -66,13 +66,24 @@ function sunSource(over: Partial<SunSource> = {}): SunSource {
 }
 
 describe("readHeatLatest", () => {
-  it("어제 값, 없는 지점은 최근 며칠에서 보충", async () => {
+  it("어제 값, 없는 지점은 최근 며칠에서 보충하고 읽은 date 를 함께 담는다", async () => {
     const { src, asked } = heatSource();
     const m = await readHeatLatest(src, "apple", TODAY);
-    expect(m[101]).toEqual({ cum: 4165, normal: 3973 });
-    expect(m[119]).toEqual({ cum: 2200, normal: 2100 });
+    expect(m[101]).toEqual({ date: "2026-10-24", cum: 4165, normal: 3973 });
+    expect(m[119]).toEqual({ date: "2026-10-23", cum: 2200, normal: 2100 });
     expect(m[136]).toBeUndefined();
     expect(asked).toEqual(["onDate 2026-10-24", "recent 8"]);
+  });
+
+  it("어제 줄이 평년값만 있고 gdd_cum 이 null 이면 최근 며칠에서 유효 값이 있는 마지막 date 를 고른다", async () => {
+    const { src } = heatSource({
+      onDate: async (_ids, _crop, date) => [
+        heatRow("101", date, 20, 4165, 3973),
+        heatRow("119", date, null, null, 2110),
+      ],
+    });
+    const m = await readHeatLatest(src, "apple", TODAY);
+    expect(m[119]).toEqual({ date: "2026-10-23", cum: 2200, normal: 2100 });
   });
 
   it("평년 한 해 합(12/31)은 읽지 않는다", async () => {
@@ -84,19 +95,43 @@ describe("readHeatLatest", () => {
   it("stationScope: 'active'를 넘기면 운영 97곳을 대상으로 읽고 누락 지점을 보충한다", async () => {
     const { src, asked } = heatSource();
     const m = await readHeatLatest(src, "apple", TODAY, "active");
-    expect(m[101]).toEqual({ cum: 4165, normal: 3973 });
-    expect(m[119]).toEqual({ cum: 2200, normal: 2100 });
+    expect(m[101]).toEqual({ date: "2026-10-24", cum: 4165, normal: 3973 });
+    expect(m[119]).toEqual({ date: "2026-10-23", cum: 2200, normal: 2100 });
     // 97개 지점 중 onDate 2곳(101, 216) 제외 95개 missing
     expect(asked).toEqual(["onDate 2026-10-24", "recent 95"]);
   });
 });
 
 describe("readSunLatest", () => {
-  it("마지막 관측일 누적, 줄이 없는 지점은 빠진다", async () => {
+  it("마지막 관측일 누적과 date, 줄이 없는 지점은 빠진다", async () => {
     const m = await readSunLatest(sunSource(), TODAY);
-    expect(m[101]).toEqual({ cum: 3218, normal: 3352 });
-    expect(m[216]).toEqual({ cum: 3500, normal: 3333 });
+    expect(m[101]).toEqual({ date: "2026-10-24", cum: 3218, normal: 3352 });
+    expect(m[216]).toEqual({ date: "2026-10-24", cum: 3500, normal: 3333 });
     expect(m[192]).toBeUndefined();
+  });
+
+  it("어제 줄의 rs_cum_mj 가 null 이면 평년 열이 있어도 건너뛰고 이전 유효 날짜를 읽는다", async () => {
+    const src = sunSource({
+      onDate: async () => [
+        sunRow("101", 3218, 3352),
+        {
+          stn_id: "119",
+          date: "2026-10-24",
+          rs_cum_mj: null,
+          rs_normal_cum_mj: 3425,
+        },
+      ],
+      recent: async () => [
+        {
+          stn_id: "119",
+          date: "2026-10-22",
+          rs_cum_mj: 3310,
+          rs_normal_cum_mj: 3390,
+        },
+      ],
+    });
+    const m = await readSunLatest(src, TODAY);
+    expect(m[119]).toEqual({ date: "2026-10-22", cum: 3310, normal: 3390 });
   });
 
   it("stationScope: 'active'를 넘기면 운영 97곳을 대상으로 읽는다", async () => {
@@ -109,7 +144,7 @@ describe("readSunLatest", () => {
       },
     };
     const m = await readSunLatest(src, TODAY, "active");
-    expect(m[101]).toEqual({ cum: 3218, normal: 3352 });
+    expect(m[101]).toEqual({ date: "2026-10-24", cum: 3218, normal: 3352 });
     expect(asked).toEqual(["onDate 97"]);
   });
 });
@@ -130,8 +165,12 @@ describe("getHomeGrowth", () => {
     });
     expect(g.heatOk).toBe(true);
     expect(g.sunOk).toBe(true);
-    expect(g.heat[101]).toEqual({ cum: 1000, normal: 990 });
-    expect(g.sun[101]).toEqual({ cum: 3218, normal: 3352 });
+    expect(g.heat[101]).toEqual({ date: "2026-10-24", cum: 1000, normal: 990 });
+    expect(g.sun[101]).toEqual({
+      date: "2026-10-24",
+      cum: 3218,
+      normal: 3352,
+    });
     expect(new Set(crops)).toEqual(new Set(["kimchi_cabbage"]));
   });
 

@@ -25,12 +25,23 @@ export function OutlookCard({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-15 text-ink-2/85 font-bold">② 앞으로 3일</span>
         <span className="flex-1" />
+        {outlook?.filledBadge && (
+          <span className="bg-fill/14 text-13 text-gray-ink rounded-full px-2.5 py-1 font-bold whitespace-nowrap">
+            {outlook.filledBadge}
+          </span>
+        )}
         {outlook && (
           <span className="text-14 text-brand-ink bg-lime/35 rounded-row px-2.5 py-1 font-bold whitespace-nowrap">
             {outlook.basis}
           </span>
         )}
       </div>
+
+      {outlook?.filledNote && (
+        <p className="text-13 text-ink-2/80 m-0 leading-snug">
+          {outlook.filledNote}
+        </p>
+      )}
 
       {selection.crop === "common" ? (
         <p className="text-16 text-ink-2/85 m-0">

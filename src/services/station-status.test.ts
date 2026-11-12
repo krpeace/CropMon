@@ -93,19 +93,28 @@ function fake(
           date: "2026-10-24",
           status: "normal",
           dr_mm: 20.2,
+          filled: false,
         },
-        { scenario_id: S216, date: "2026-10-23", status: "need", dr_mm: 70 },
+        {
+          scenario_id: S216,
+          date: "2026-10-23",
+          status: "need",
+          dr_mm: 70,
+          filled: false,
+        },
         {
           scenario_id: S101,
           date: "2026-10-24",
           status: "caution",
           dr_mm: 50.7,
+          filled: false,
         },
         {
           scenario_id: C101,
           date: "2026-10-24",
           status: "dormant",
           dr_mm: null,
+          filled: false,
         },
       ]
     ),
@@ -145,6 +154,7 @@ function fake(
           raw_mm: 26,
           aw_pct: 48,
           status: "fair",
+          filled: false,
         },
         {
           stn_id: "101",
@@ -155,6 +165,7 @@ function fake(
           raw_mm: 26,
           aw_pct: 53.8,
           status: "fair",
+          filled: false,
         },
         {
           stn_id: "101",
@@ -165,6 +176,7 @@ function fake(
           raw_mm: 12,
           aw_pct: 30,
           status: "dry",
+          filled: false,
         },
       ]
     ),
@@ -198,6 +210,7 @@ describe("getStationBoard", () => {
       seasonStart: "2026-04-01",
       seasonEnd: "2026-11-15",
       observedDate: "2026-10-24",
+      filled: false,
       forecast: {
         needIn: 1, // 저녁 회차: 첫날 = 내일(10/26)
         days: [
@@ -210,24 +223,75 @@ describe("getStationBoard", () => {
     expect(b.updated[101]).toEqual({
       at: "2026-10-25T08:42:00+00:00",
       runHour: "17",
+      weatherDate: null,
     });
   });
 
-  it("예보가 없는 지점: 마지막 관측 물수지, 갱신은 ASOS 받은 시각", async () => {
+  it("예보가 없는 지점: 최신 관측 물수지, 갱신은 ASOS 받은 시각", async () => {
     const b = await getStationBoard({ createSource: () => fake(), now: NOW });
     expect(b.water.apple[216]).toMatchObject({
       status: "normal",
       drMm: 20.2,
       observedDate: "2026-10-24",
+      filled: false,
       forecast: null,
     });
     expect(b.updated[216]).toEqual({
       at: "2026-10-24T17:20:00+00:00",
       runHour: null,
+      weatherDate: "2026-10-24",
     });
     expect(b.water.cabbage[101]).toMatchObject({ status: "dormant" });
     expect(b.water.apple[119]).toBeNull();
     expect(b.updated[119]).toBeNull();
+  });
+
+  it("filled=true 전파: 물수지(start_date 일치 및 직전 관측 fallback)와 토양수분 filled 를 전달한다", async () => {
+    const b = await getStationBoard({
+      createSource: () =>
+        fake({
+          recentBalance: async () => [
+            {
+              scenario_id: S101,
+              date: "2026-10-25",
+              status: "caution",
+              dr_mm: 52.4,
+              filled: true,
+            },
+            {
+              scenario_id: S101,
+              date: "2026-10-24",
+              status: "caution",
+              dr_mm: 50.7,
+              filled: false,
+            },
+            {
+              scenario_id: S216,
+              date: "2026-10-24",
+              status: "normal",
+              dr_mm: 20.2,
+              filled: true,
+            },
+          ],
+          latestSoilWater: async () => [
+            {
+              stn_id: "101",
+              soil_code: "loam",
+              date: "2026-10-24",
+              dr_mm: 33.8,
+              taw_mm: 65,
+              raw_mm: 26,
+              aw_pct: 48,
+              status: "fair",
+              filled: true,
+            },
+          ],
+        }),
+      now: NOW,
+    });
+    expect(b.water.apple[101]?.filled).toBe(true);
+    expect(b.water.apple[216]?.filled).toBe(true);
+    expect(b.soil.loam[101]?.filled).toBe(true);
   });
 
   it("헤더 점 색은 상태만 (작물·토양별)", async () => {
@@ -239,6 +303,7 @@ describe("getStationBoard", () => {
       tawMm: 65,
       rawMm: 26,
       observedDate: "2026-10-24",
+      filled: false,
     });
     expect(b.soil.sand[101]?.status).toBe("dry");
     const s = statusesOf(b);
@@ -305,6 +370,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
         raw_mm: 24,
         aw_pct: 66.7,
         status: "fair" as const,
+        filled: false,
       })),
     );
 
@@ -355,6 +421,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
           raw_mm: 20,
           aw_pct: 70,
           status: "fair" as const,
+          filled: false,
         })),
       );
 
@@ -464,6 +531,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
           raw_mm: 24,
           aw_pct: 75,
           status: "fair" as const,
+          filled: false,
         })),
       );
       const mockWeatherRows = activeStations.map((stn) => ({
@@ -496,6 +564,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       expect(board.updated[nonRepStation.id]).toEqual({
         at: "2026-10-24T18:00:00+09:00",
         runHour: null,
+        weatherDate: "2026-10-24",
       });
 
       // 3. statusesOf 결과도 97곳을 모두 포함
@@ -549,6 +618,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       expect(board.updated[101]).toEqual({
         at: "2026-10-25T08:42:00+00:00",
         runHour: "17",
+        weatherDate: null,
       });
 
       // 2. 비대표 지점 중 예보가 있는 지점(212 등)도 updated에 회차 시각과 runHour가 정상 반영됨
@@ -584,6 +654,7 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       expect(board.updated[101]).toEqual({
         at: "2026-10-24T17:41:00+00:00",
         runHour: "02",
+        weatherDate: null,
       });
       expect(board.water.apple[101]?.forecast).not.toBeNull();
     });

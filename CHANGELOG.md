@@ -6,11 +6,29 @@
 
 ### 데이터 (대표 밖 87곳 기본 계산 조건 시드 및 '검증 전' 안내 확대 — 이슈 #103)
 
-- `croplib-dp` #28 2단계-나 S5 대비, 현행 운영 87곳의 기본 계산 조건(`scenarios`) 2종(사과 k3, 여름배추 k1)을 2026년(174행)과 2027년(174행) 총 348개 등록하는 마이그레이션(`20261110000000_seed_scenarios_non_rep.sql`) 추가 (결정 0041). 2026년 물 전망은 소급하지 않으며, 2026년 조건은 `croplib-dp`의 2026 작기 돌아보기(`water_balance_daily`) 소급 계산 대상(`croplib-dp` #87 계획 §7) 및 향후 S5 전망 적재 시 시드된 조건 참조를 위해 등록
+- `croplib-dp` #28 2단계-나 S5 대비, 현행 운영 87곳의 기본 계산 조건(`scenarios`) 2종(사과 k3, 여름배추 k1)을 2026년(174행)과 2027년(174행) 총 348개 등록하는 마이그레이션(`20261110000000_seed_scenarios_non_rep.sql`) 추가 (결정 0042). 2026년 물 전망은 소급하지 않으며, 2026년 조건은 `croplib-dp`의 2026 작기 돌아보기(`water_balance_daily`) 소급 계산 대상(`croplib-dp` #87 계획 §7) 및 향후 S5 전망 적재 시 시드된 조건 참조를 위해 등록
 - 폐지·휴지 8곳을 정확히 배제하고 운영 87곳에 대해 FAO-56 표준 공식으로 TAW(사과 130mm, 배추 65mm), RAW(사과 65mm, 배추 29.25mm), 작기 시작·끝일을 시드하고 멱등성 보장
 - `status-source.ts`: 194개 조건 대량 조회 시 URL 길이 한도 초과를 방지하기 위해 `summaries`, `recentBalance`, `outlookDays`에 100개 단위 분할 조회 도우미(`chunkedByScenarios`) 적용 및 단위 시험 추가
 - `services/water.ts`: 대표 밖 지점에서 사용자가 기본이 아닌 재배 방식(청경 재배 등)을 선택했을 때 "대표 지점 밖은 기본 재배 방식만 계산해요. 다른 재배 방식은 가까운 대표 지점을 골라 보세요" 안내 문구 분기 추가
 - `e2e/water.spec.ts` 및 `e2e/fake-supabase.mjs`: 대표 밖 지점(105 강릉)의 "춘천 값을 빌려 써서 아직 검증 전" 표시 E2E 브라우저 시험 및 mock 데이터 추가
+
+### 기능 (전국 표·지역 비교·작기 그래프 채운 값/적산 기준일 확장 — 이슈 #128 PR 2)
+
+- 전국 종합 표·모바일 목록(`NationalTable`, `NationalList`, `home.ts`)에 물·토양 `filled = true` **안 3**(0곳 생략, 전체 채움 상단 1줄, 일부 채움 상단 안내 + 해당 지점 `"추정"` 표식)과 적산온도·일사 **후보 3**(전원 어제 생략, 전원 동일 과거일 상단 1줄, 지점 혼재 시 기준일 안내 + 예외 지점 `(M/D)` 표식)을 적용하고 모든 문구를 `water-outlook.ts` 상수(`FILLED_COPY`, `OBSERVED_DATE_COPY`)로 통합
+- 온도·햇빛 상세 지역 비교(`CompareCard`, `SunCompareCard`, `temperature.ts`, `sunlight.ts`, `detail-cache.ts` 폴백 공용 `buildHeatCompare`·`buildSunCompare`)에도 후보 3 기준일 안내와 예외 지점 `(M/D)` 표식을 반영
+- 물 상세 `② 앞으로 3일`(`OutlookCard`, `water.ts`)에 예보 출발일(`start_date`) 및 지난 날 `filled = true` 시 `"추정 포함"` 배지·출발 안내를 추가하고, `③ 작기 돌아보기`(`SeasonCard`, `ChartHover`, `season-chart.ts`)에서 활성 `filled` 구간 음영·범례·안내 및 호버 툴팁 `"추정 포함"` 배지를 구분 표시 (휴면기·겨울철 제외)
+
+### 기능 (채운 값 '추정 포함' 구분 표시 · 적산 기준일 표시 · 일사 미측정 7곳 보완 — 이슈 #128 PR 1)
+
+- 데이터 계약 **v1.10**: `soil_water_latest` 뷰 마지막 열에 `filled` 추가(`20261111000000_data_contract_v1_10_soil_water_latest_filled.sql`, `DATA_CONTRACT.md`, 결정 `0041`) 및 `status-source.ts`(`recentBalance`, `latestSoilWater`) 조회 확장
+- 물·토양 화면에서 `filled = true`(결측을 메운 뒤 `Dr = 0` 전까지 추정의 영향을 받는 날)일 때 `"어제까지 관측 기준"` 대신 `"추정 포함"` 배지와 기준 문구(`"어제까지 기준 (추정 포함)"` 등), 안내 문구(`FILLED_COPY` 상수 1곳 관리)를 첫 화면 카드·갱신 줄과 물 상세 카드(`NowCard`, `CommonNowCard`)에 표시 (휴면기 `dormant` 및 겨울철 `winter` 제외)
+- 적산온도·적산일사(`HeatLatest`, `SunLatest`)에 유효 누적 값 마지막 `date`를 담아 첫 화면 카드에서 `yesterday`보다 이전이면 `"OO월 OO일까지의 값이에요"` 안내 표시 (`heat_daily.filled`·`sun_daily.filled` 미사용, DB 변경 없음)
+- 일사 미측정 32개 지점 중 `sun_daily`에 `rs_cum_mj = null` 365줄이 적재된 7곳(`130`, `174`, `188`, `217`, `221`, `272`, `273`)이 빈 차트로 나오던 문제를 `sunlight.ts` `readMain`에서 `!rows.some((r) => r.rs_cum_mj != null)`로 보완해 `"햇빛을 재지 않아요"` 표시
+- 기상청 사후 정정·철회 시 기존 적재 값으로 최신 날짜가 하루 어긋날 수 있는 한계를 `DATA_CONTRACT.md`와 푸터 "CropMon 소개"(`AboutSheet`)에 명시
+
+### 수정 (CI Playwright 브라우저 설치 안정화 — 이슈 #130)
+
+- CI `quality` 작업 러너를 `ubuntu-24.04`로 고정하고 `npx playwright install chromium`(최대 3회 재시도) + `ldd` 공유 라이브러리 누락 시에만 `apt` 재시도·타임아웃(`Retries=3`, `Timeout=15`) 폴백으로 `install-deps`를 실행하도록 수정
 
 ### 수정 (PPR 대기 셸의 작물 버튼 및 범례 스켈레톤 로딩 처리 — 이슈 #122)
 

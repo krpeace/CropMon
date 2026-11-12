@@ -19,6 +19,7 @@ import {
   addDays,
   CROP_DB_ID,
   dayLabel,
+  FILLED_COPY,
   firstMainDate,
   koreanDate,
   markOutlookDays,
@@ -92,6 +93,9 @@ export type DayNav = {
 export type NowCard = {
   /** "어제까지 관측 기준" 처럼 이 상태의 기준. */
   basis: string;
+  /** filled=true 일 때 붙이는 회색 배지("추정 포함")와 한 줄 안내. */
+  filledBadge: string | null;
+  filledNote: string | null;
   status: WaterStatus;
   badges: StatusBadge[];
   verdict: Verdict;
@@ -117,8 +121,8 @@ export type OutlookDay = {
   /** "10월 26일 (월)" */
   date: string;
   iso: string;
-  /** 예보 · 관측 · 참고(마지막 참고일) */
-  kind: "예보" | "관측" | "참고";
+  /** 예보 · 관측 · 추정 포함 · 참고(마지막 참고일) */
+  kind: "예보" | "관측" | typeof FILLED_COPY.badge | "참고";
   reference: boolean;
   status: WaterStatus;
   statusLabel: string;
@@ -132,6 +136,10 @@ export type OutlookDay = {
 export type OutlookCard = {
   /** "02시 예보 기준", "관측값 기준" */
   basis: string;
+  /** 예보 출발일 또는 지난 날 관측이 filled=true 면 "추정 포함", 아니면 null. */
+  filledBadge: string | null;
+  /** 출발일 추정 포함 안내 (FILLED_COPY). 해당 없으면 null. */
+  filledNote: string | null;
   /** 오늘 받은 발표 회차 고르기. 지난 날을 볼 때는 빈 목록. */
   runs: { hour: RunHour; available: boolean; selected: boolean }[];
   /** 관수 필요 예상일·권장 관수량은 오늘 기준으로만 (요약 표). */
@@ -149,6 +157,8 @@ export type SeasonDay = {
   /** 흙 속 남은 물 %. 작물 공통에서만 있다. */
   awPct?: number | null;
   status: DayStatus;
+  /** 결측 보간 영향권(filled=true) 여부. 휴면기·겨울철은 false. */
+  filled?: boolean;
 };
 
 export type SoilOption = {
@@ -160,6 +170,8 @@ export type SoilOption = {
 
 export type CommonNowCard = {
   basis: string;
+  filledBadge: string | null;
+  filledNote: string | null;
   status: SoilWaterStatus | null;
   badgeLabel: string;
   headline: string;
@@ -367,10 +379,13 @@ function buildCommonNow(
   const st: SoilWaterStatus | null =
     rawStatus ?? (isWinterDate(date) ? "winter" : null);
   const info = soilWaterStatusInfo(st);
+  const isFilled = st !== "winter" && (row?.filled ?? false);
   const basis = row
     ? isToday
-      ? observedBasis(row.date, today)
-      : "관측 물수지"
+      ? observedBasis(row.date, today, isFilled)
+      : isFilled
+        ? FILLED_COPY.pastDayBasis
+        : "관측 물수지"
     : "관측 물수지";
   const active =
     st != null &&
@@ -392,6 +407,8 @@ function buildCommonNow(
       : null;
   return {
     basis,
+    filledBadge: isFilled ? FILLED_COPY.badge : null,
+    filledNote: isFilled ? FILLED_COPY.notice : null,
     status: st,
     badgeLabel: info.label,
     headline,
@@ -456,19 +473,23 @@ async function readCommonView(
     : byDate.get(date);
   const commonNow = buildCommonNow(targetRow, date, today, soilCode, soils);
   // ③ 작기 돌아보기: 1/1~오늘 줄을 그대로 옮긴다. Kc = 1.0 이라 ETc 는 따로 없다.
-  const season = soilRows.map((r): SeasonDay => ({
-    date: r.date,
-    etoMm: r.eto_mm,
-    etcMm: null,
-    rainMm: r.rain_mm,
-    drMm: r.dr_mm,
-    awPct: r.aw_pct,
-    status: isSoilWaterStatus(r.status)
+  const season = soilRows.map((r): SeasonDay => {
+    const st = isSoilWaterStatus(r.status)
       ? r.status
       : isWinterDate(r.date)
         ? "winter"
-        : null,
-  }));
+        : null;
+    return {
+      date: r.date,
+      etoMm: r.eto_mm,
+      etcMm: null,
+      rainMm: r.rain_mm,
+      drMm: r.dr_mm,
+      awPct: r.aw_pct,
+      status: st,
+      filled: st !== "winter" && r.filled,
+    };
+  });
 
   return {
     meta,
@@ -553,14 +574,18 @@ async function readView(
     min,
   };
 
-  const season = balance.map((b): SeasonDay => ({
-    date: b.date,
-    etoMm: b.eto_mm,
-    etcMm: b.etc_mm,
-    rainMm: b.rain_mm,
-    drMm: b.dr_mm,
-    status: status(b.status),
-  }));
+  const season = balance.map((b): SeasonDay => {
+    const st = status(b.status);
+    return {
+      date: b.date,
+      etoMm: b.eto_mm,
+      etcMm: b.etc_mm,
+      rainMm: b.rain_mm,
+      drMm: b.dr_mm,
+      status: st,
+      filled: st !== "dormant" && b.filled,
+    };
+  });
   const ctx = {
     selection,
     scenario,
@@ -614,8 +639,15 @@ type Ctx = {
 function obsOf(row: BalanceRow | undefined, ref: string, past = false) {
   if (!row) return null;
   const name = past && row.date === ref ? "이날" : relDay(row.date, ref);
+  const label = row.filled
+    ? name === "어제"
+      ? FILLED_COPY.obsYesterday
+      : name
+        ? `${name} ${FILLED_COPY.obsDaySuffix}`
+        : `${dayLabel(row.date)} ${FILLED_COPY.badge}`
+    : `${name ?? dayLabel(row.date)} 관측`;
   return {
-    label: `${name ?? dayLabel(row.date)} 관측`,
+    label,
     eto: orDash(row.eto_mm, one),
     etc: orDash(row.etc_mm, one),
     rain: orDash(row.rain_mm, one),
@@ -630,6 +662,8 @@ function card(
   basis: string,
   obs: NowCard["obs"],
   forecast = true,
+  filledBadge: string | null = null,
+  filledNote: string | null = null,
 ): NowCard {
   const verdict = waterVerdict({
     status: s,
@@ -644,6 +678,8 @@ function card(
   const active = dr != null && s !== "dormant";
   return {
     basis,
+    filledBadge,
+    filledNote,
     status: s,
     badges: [
       badge(s),
@@ -662,6 +698,10 @@ function card(
   };
 }
 
+function startRowOf(c: Ctx, startDate: string) {
+  return c.byDate.get(startDate) ?? c.balance.at(-1);
+}
+
 function nowToday(c: Ctx): NowCard | null {
   const last = c.balance.at(-1);
   const sm = c.summary;
@@ -674,25 +714,46 @@ function nowToday(c: Ctx): NowCard | null {
         : k === 0
           ? 0
           : daysBetween(c.today, addDays(first, k - 1));
+    const st = status(sm.status_start);
+    const startRow = startRowOf(c, sm.start_date);
+    const startFilled = st !== "dormant" && (startRow?.filled ?? false);
     const basis =
-      sm.start_date === addDays(c.today, -1)
-        ? "어제까지 관측 기준"
-        : sm.start_date === c.today
-          ? "오늘 예보까지 반영"
-          : `${dayLabel(sm.start_date)} 기준`;
-    const obs = obsOf(c.byDate.get(sm.start_date) ?? last, c.today);
-    return card(c, status(sm.status_start), sm.dr_start_mm, needIn, basis, obs);
+      sm.start_date === c.today
+        ? startFilled
+          ? `오늘 예보까지 반영 (${FILLED_COPY.badge})`
+          : "오늘 예보까지 반영"
+        : sm.start_date === addDays(c.today, -1)
+          ? observedBasis(sm.start_date, c.today, startFilled)
+          : startFilled
+            ? `${dayLabel(sm.start_date)} 기준 (${FILLED_COPY.badge})`
+            : `${dayLabel(sm.start_date)} 기준`;
+    const obs = obsOf(startRow, c.today);
+    return card(
+      c,
+      st,
+      sm.dr_start_mm,
+      needIn,
+      basis,
+      obs,
+      true,
+      startFilled ? FILLED_COPY.badge : null,
+      startFilled ? FILLED_COPY.noticeFromFilled : null,
+    );
   }
   if (!last) return null;
-  // 예보가 없으면(회차 없음) 어제까지의 관측으로만 판정하고 앞날은 말하지 않는다 (결정 0011)
+  // 예보가 없으면(회차 없음) 어제까지의 값으로만 판정하고 앞날은 말하지 않는다 (결정 0011)
+  const st = status(last.status);
+  const isFilled = st !== "dormant" && last.filled;
   return card(
     c,
-    status(last.status),
+    st,
     last.dr_mm,
     null,
-    observedBasis(last.date, c.today),
+    observedBasis(last.date, c.today, isFilled),
     obsOf(last, c.today),
     false,
+    isFilled ? FILLED_COPY.badge : null,
+    isFilled ? FILLED_COPY.notice : null,
   );
 }
 
@@ -719,7 +780,18 @@ function nowPast(c: Ctx): NowCard | null {
       }
     }
   }
-  return card(c, s, row.dr_mm, needIn, "관측 물수지", obsOf(row, c.date, true));
+  const isFilled = s !== "dormant" && row.filled;
+  return card(
+    c,
+    s,
+    row.dr_mm,
+    needIn,
+    isFilled ? FILLED_COPY.pastDayBasis : "관측 물수지",
+    obsOf(row, c.date, true),
+    true,
+    isFilled ? FILLED_COPY.badge : null,
+    isFilled ? FILLED_COPY.notice : null,
+  );
 }
 
 const REL_PAST = ["다음날", "이틀 뒤", "사흘 뒤"];
@@ -754,7 +826,7 @@ function obsDay(b: BalanceRow, rel: string): OutlookDay {
     rel,
     date: dayLabel(b.date),
     iso: b.date,
-    kind: "관측",
+    kind: b.filled && s !== "dormant" ? FILLED_COPY.badge : "관측",
     reference: false,
     status: s,
     statusLabel: WATER_STATUS_LABEL[s],
@@ -782,6 +854,8 @@ function outlookToday(c: Ctx): OutlookCard | null {
   const sm = c.summary;
   if (!c.run || !sm || c.outlookRows.length === 0) return null;
   const dormant = sm.status_start === "dormant";
+  const startRow = startRowOf(c, sm.start_date);
+  const startFilled = !dormant && (startRow?.filled ?? false);
   const firstDate = firstMainDate(c.run.run_at, c.run.run_name);
   const horizon = sm.horizon_days;
   const need = needDay({
@@ -796,6 +870,8 @@ function outlookToday(c: Ctx): OutlookCard | null {
   const gross = sm.advice_gross_mm;
   return {
     basis: `${runHour(c.run)}시 예보 기준`,
+    filledBadge: startFilled ? FILLED_COPY.badge : null,
+    filledNote: startFilled ? FILLED_COPY.noticeFromFilled : null,
     runs: runsSeg(c),
     // 휴면기·작기 아님에는 관수 필요 예상일을 보이지 않는다
     need: dormant ? null : need,
@@ -819,9 +895,22 @@ function outlookPast(c: Ctx): OutlookCard | null {
     return [];
   });
   if (days.length === 0) return null;
-  const mixed = days.some((d) => d.kind !== "관측");
+  const startRow = c.byDate.get(c.date);
+  const startFilled = Boolean(
+    startRow && status(startRow.status) !== "dormant" && startRow.filled,
+  );
+  const hasForecast = days.some((d) => d.kind === "예보" || d.kind === "참고");
+  const hasFilled =
+    startFilled || days.some((d) => d.kind === FILLED_COPY.badge);
   return {
-    basis: mixed && c.run ? `관측 + ${runHour(c.run)}시 예보` : "관측값 기준",
+    basis:
+      hasForecast && c.run ? `관측 + ${runHour(c.run)}시 예보` : "관측값 기준",
+    filledBadge: hasFilled ? FILLED_COPY.badge : null,
+    filledNote: hasFilled
+      ? hasForecast
+        ? FILLED_COPY.noticeFromFilled
+        : FILLED_COPY.notice
+      : null,
     runs: [],
     need: null,
     advice: null,

@@ -176,11 +176,104 @@ export function relDay(iso: string, today: string): string | null {
   );
 }
 
-/** "어제까지 관측 기준" / "10월 22일까지 관측 기준" (예보가 없을 때 판정의 기준). */
-export function observedBasis(lastObserved: string, today: string): string {
-  if (lastObserved === addDays(today, -1)) return "어제까지 관측 기준";
+/** "2026-10-26" → "10/26" */
+export function shortDate(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${m}/${d}`;
+}
+
+/** 채운 값(filled=true) 표시 문구 (한곳에서 관리 — 최종 문구 조정 시 여기만 바꾼다). */
+export const FILLED_COPY = {
+  badge: "추정 포함",
+  rowTag: "추정",
+  pastDayBasis: "추정 포함 물수지",
+  obsYesterday: "어제 (추정 포함)",
+  obsDaySuffix: "(추정 포함)",
+  notice:
+    "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+  noticeFromFilled:
+    "최근 기상 자료 중 빠진 날이 있어 추정이 포함된 값에서 이어 계산했어요. 자료가 들어오면 바뀔 수 있어요.",
+  nationalSomeNotice:
+    "최근 기상 자료가 빠져 일부 지점은 추정이 포함된 값이에요 (추정 표시). 자료가 들어오면 바뀔 수 있어요.",
+  nationalAllNotice:
+    "최근 기상 자료 중 빠진 날이 있어 모든 지점이 추정이 포함된 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+  seasonLegendNotice:
+    "음영 구간은 최근 기상 자료 일부가 빠져 추정이 포함된 날이에요. 자료가 들어오면 바뀔 수 있어요.",
+} as const;
+
+/** 적산 기준일 다름(후보 3) 안내 문구 (상수 한곳에서 관리). */
+export const OBSERVED_DATE_COPY = {
+  yesterdayValue: "어제까지 값이에요",
+  mixedSuffix: "(다른 날은 괄호 표시)",
+} as const;
+
+/** "어제까지 관측 기준" / "10월 22일까지 관측 기준" / filled 면 "추정 포함" (예보가 없을 때 판정의 기준). */
+export function observedBasis(
+  lastObserved: string,
+  today: string,
+  filled = false,
+): string {
+  const isYesterday = lastObserved === addDays(today, -1);
+  if (isYesterday) {
+    return filled
+      ? `어제까지 기준 (${FILLED_COPY.badge})`
+      : "어제까지 관측 기준";
+  }
   const [, m, d] = lastObserved.split("-").map(Number);
-  return `${m}월 ${d}일까지 관측 기준`;
+  return filled
+    ? `${m}월 ${d}일까지 기준 (${FILLED_COPY.badge})`
+    : `${m}월 ${d}일까지 관측 기준`;
+}
+
+/** 적산온도·적산일사 등 유효 누적 날짜가 어제보다 이전일 때 붙이는 한 줄 안내. */
+export function staleDateNote(date: string, today: string): string | null {
+  if (date >= addDays(today, -1)) return null;
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}월 ${d}일까지의 값이에요`;
+}
+
+/**
+ * 지점별 유효 기준일 목록을 후보 3 규칙으로 요약한다:
+ * - 모든 유효 지점이 어제면 안내·행 표식 생략
+ * - 모든 유효 지점이 같은 과거일이면 상단 1줄 안내만
+ * - 지점마다 다르면 기준일(최빈·동률 시 최신) 안내 + 예외 지점만 M/D 꼬리표
+ */
+export function summarizeObservedDates(
+  dates: readonly (string | null | undefined)[],
+  today: string,
+): { note: string | null; tags: (string | null)[] } {
+  const present = dates.filter((d): d is string => Boolean(d));
+  if (present.length === 0) {
+    return { note: null, tags: dates.map(() => null) };
+  }
+  const yesterday = addDays(today, -1);
+  const counts = new Map<string, number>();
+  for (const d of present) {
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  if (counts.size === 1) {
+    const [only] = counts.keys();
+    return {
+      note: only ? staleDateNote(only, today) : null,
+      tags: dates.map(() => null),
+    };
+  }
+  let refDate = present[0]!;
+  let refCount = -1;
+  for (const [d, count] of counts) {
+    if (count > refCount || (count === refCount && d > refDate)) {
+      refDate = d;
+      refCount = count;
+    }
+  }
+  const refHead =
+    refDate >= yesterday
+      ? OBSERVED_DATE_COPY.yesterdayValue
+      : (staleDateNote(refDate, today) ?? OBSERVED_DATE_COPY.yesterdayValue);
+  return {
+    note: `${refHead} ${OBSERVED_DATE_COPY.mixedSuffix}`,
+    tags: dates.map((d) => (d && d !== refDate ? shortDate(d) : null)),
+  };
 }
 
 /** 요약의 관수 필요 예상일(몇 번째 날, 0 = 지금) → 오늘부터 며칠 뒤. 없으면 null. */

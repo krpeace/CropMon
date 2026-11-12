@@ -78,6 +78,17 @@ test("햇빛: sun_daily 가 없는 지점은 '햇빛을 재지 않아요'와 가
   await expect(total(page)).toContainText("올해 햇빛은 평년의 96%");
 });
 
+test("햇빛: sun_daily 에 null 365줄만 있는 미측정 지점도 '햇빛을 재지 않아요' (울진)", async ({
+  page,
+}) => {
+  await page.goto("/sunlight?st=130&crop=apple");
+  const none = page.getByRole("region", { name: "햇빛 자료 없음" });
+  await expect(none).toContainText("자료 없음");
+  await expect(none).toContainText("울진 관측소는 햇빛을 재지 않아요");
+  const meta = page.getByRole("region", { name: "자료 정보" });
+  await expect(meta).toContainText("일사 관측 · 자료 없음");
+});
+
 test("햇빛: 사전은 '확인 안 됨'이어도 sun_daily 자료가 있으면 본문·자료 상자 모두 자료를 보여 준다 (홍천)", async ({
   page,
 }) => {
@@ -105,6 +116,33 @@ test("햇빛: 휴대폰 폭(390)에서 옆으로 넘치지 않는다", async ({ 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sunlight?st=101&crop=apple");
   await expect(total(page)).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("햇빛: 지역 비교 기준일 다름(후보 3) — 상단 안내와 예외 지점(서귀포) 괄호 날짜", async ({
+  page,
+}) => {
+  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sunlight?st=101&crop=apple");
+  await expect(compare(page)).toContainText(
+    "어제까지 값이에요 (다른 날은 괄호 표시)",
+  );
+  await expect(
+    compare(page).getByRole("link", { name: /^서귀포/ }),
+  ).toContainText(tag);
+  await expect(
+    compare(page).getByRole("link", { name: /^춘천/ }),
+  ).not.toContainText(tag);
+  await expect(
+    compare(page).getByRole("link", { name: /^진주/ }),
+  ).not.toContainText(tag);
+
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );

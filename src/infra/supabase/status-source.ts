@@ -36,6 +36,7 @@ export type BalanceStatusRow = {
   date: string;
   status: string;
   dr_mm: number | null;
+  filled: boolean;
 };
 export type OutlookDayRow = {
   run_id: number;
@@ -58,6 +59,7 @@ export type SoilWaterStatusRow = {
   raw_mm: number;
   aw_pct: number | null;
   status: string | null;
+  filled: boolean;
 };
 
 export type StatusSource = {
@@ -196,7 +198,7 @@ export function createStatusSource(
             "water_balance_daily",
             client
               .from("water_balance_daily")
-              .select("scenario_id,date,status,dr_mm")
+              .select("scenario_id,date,status,dr_mm,filled")
               .in("scenario_id", chunk)
               .gte("date", since)
               .order("scenario_id", { ascending: true })
@@ -264,7 +266,9 @@ export function createStatusSource(
           "soil_water_latest",
           client
             .from("soil_water_latest")
-            .select("stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status")
+            .select(
+              "stn_id,soil_code,date,dr_mm,taw_mm,raw_mm,aw_pct,status,filled",
+            )
             .in("stn_id", stnIds)
             .order("stn_id", { ascending: true })
             .order("soil_code", { ascending: true })

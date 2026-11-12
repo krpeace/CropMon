@@ -19,10 +19,15 @@ import { STATIONS } from "@/infra/stations";
  */
 
 export type HeatLatest = {
+  date: string;
   cum: number | null;
   normal: number | null;
 };
-export type SunLatest = { cum: number | null; normal: number | null };
+export type SunLatest = {
+  date: string;
+  cum: number | null;
+  normal: number | null;
+};
 
 /** 종합 화면용: 읽기에 실패한 쪽은 ok 가 false 이고 빈 표. */
 export type HomeGrowth = {
@@ -79,7 +84,11 @@ export async function readHeatLatest(
   );
   const out: Record<number, HeatLatest> = {};
   for (const [id, r] of rows) {
-    out[Number(id)] = { cum: r.gdd_cum, normal: r.gdd_normal_cum };
+    out[Number(id)] = {
+      date: r.date,
+      cum: r.gdd_cum,
+      normal: r.gdd_normal_cum,
+    };
   }
   return out;
 }
@@ -99,7 +108,11 @@ export async function readSunLatest(
   );
   const out: Record<number, SunLatest> = {};
   for (const [id, r] of rows) {
-    out[Number(id)] = { cum: r.rs_cum_mj, normal: r.rs_normal_cum_mj };
+    out[Number(id)] = {
+      date: r.date,
+      cum: r.rs_cum_mj,
+      normal: r.rs_normal_cum_mj,
+    };
   }
   return out;
 }

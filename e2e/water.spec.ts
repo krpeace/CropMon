@@ -349,3 +349,67 @@ test.describe("물(작물 공통): ③ 그래프 (휴대폰, 다크)", () => {
     await expect(page).toHaveURL(/\/water\?st=101&crop=common$/);
   });
 });
+
+test("물: filled=true 지점은 '추정 포함' 배지·안내를 보여 주고, CropMon 소개에 정정 한계를 남긴다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=189&crop=apple");
+  await expect(now(page)).toContainText("어제까지 기준 (추정 포함)");
+  await expect(now(page)).toContainText("추정 포함");
+  await expect(now(page)).toContainText("어제 (추정 포함)");
+  await expect(now(page)).toContainText(
+    "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+  );
+
+  await page.goto("/water?st=189&crop=common");
+  await expect(now(page)).toContainText("어제까지 기준 (추정 포함)");
+  await expect(now(page)).toContainText("추정 포함");
+  await expect(now(page)).toContainText(
+    "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+  );
+
+  await page.getByRole("button", { name: "CropMon 소개" }).click();
+  await expect(
+    page.getByText(
+      "기상청 자료가 뒤늦게 수정·회수되면 기준 날짜가 실제와 하루 어긋날 수 있어요.",
+    ),
+  ).toBeVisible();
+});
+
+test("물: 출발일 filled=true 지점은 앞으로 3일·작기 그래프 범례·툴팁에도 '추정 포함'이 보인다", async ({
+  page,
+}) => {
+  await page.goto("/water?st=146&crop=apple");
+  await expect(now(page)).toContainText("추정 포함");
+  await expect(outlook(page)).toContainText("추정 포함");
+  await expect(outlook(page)).toContainText(
+    "최근 기상 자료 중 빠진 날이 있어 추정이 포함된 값에서 이어 계산했어요. 자료가 들어오면 바뀔 수 있어요.",
+  );
+
+  const season = page.getByRole("region", { name: /작기 돌아보기/ });
+  await expect(season).toContainText("추정 포함");
+  await expect(season).toContainText(
+    "음영 구간은 최근 기상 자료 일부가 빠져 추정이 포함된 날이에요. 자료가 들어오면 바뀔 수 있어요.",
+  );
+
+  const box = await seasonPlot(page);
+  const tip = page.getByRole("tooltip");
+  // 오른쪽 끝(어제, filled=true)에 마우스를 올리면 툴팁에도 추정 포함 배지
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+  await expect(tip).toContainText("추정 포함");
+  // 왼쪽 끝(1월 1일, 휴면기)에서는 추정 포함 배지를 보이지 않는다
+  await page.mouse.move(box.x + 1, box.y + box.height / 2);
+  await expect(tip).toContainText("휴면기");
+  await expect(tip).not.toContainText("추정 포함");
+
+  await page.goto("/water?st=189&crop=common");
+  await expect(season).toContainText(
+    "음영 구간은 최근 기상 자료 일부가 빠져 추정이 포함된 날이에요. 자료가 들어오면 바뀔 수 있어요.",
+  );
+  const soilBox = await seasonPlot(page);
+  await page.mouse.move(
+    soilBox.x + soilBox.width - 2,
+    soilBox.y + soilBox.height / 2,
+  );
+  await expect(tip).toContainText("추정 포함");
+});

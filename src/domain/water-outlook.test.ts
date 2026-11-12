@@ -174,13 +174,79 @@ describe("물 화면 주소창 (기준 날짜·발표 회차)", () => {
 });
 
 describe("관측 기준 문구와 예상일 날 수", () => {
-  it("observedBasis: 어제면 '어제까지', 아니면 날짜", async () => {
-    const { observedBasis } = await import("./water-outlook");
+  it("observedBasis: 어제면 '어제까지', 아니면 날짜, filled 면 '추정 포함'", async () => {
+    const { FILLED_COPY, observedBasis, staleDateNote } =
+      await import("./water-outlook");
     expect(observedBasis("2026-10-24", "2026-10-25")).toBe(
       "어제까지 관측 기준",
     );
     expect(observedBasis("2026-10-22", "2026-10-25")).toBe(
       "10월 22일까지 관측 기준",
+    );
+    expect(observedBasis("2026-10-24", "2026-10-25", true)).toBe(
+      "어제까지 기준 (추정 포함)",
+    );
+    expect(observedBasis("2026-10-22", "2026-10-25", true)).toBe(
+      "10월 22일까지 기준 (추정 포함)",
+    );
+    expect(FILLED_COPY.badge).toBe("추정 포함");
+    expect(FILLED_COPY.notice).toBe(
+      "최근 기상 자료 중 빠진 날이 있어 일부를 추정해 계산한 값이에요. 자료가 들어오면 바뀔 수 있어요.",
+    );
+    expect(staleDateNote("2026-10-24", "2026-10-25")).toBeNull();
+    expect(staleDateNote("2026-10-22", "2026-10-25")).toBe(
+      "10월 22일까지의 값이에요",
+    );
+  });
+
+  it("shortDate·summarizeObservedDates: 후보 3(어제 생략·동일 과거 1줄·예외 지점만 M/D)", async () => {
+    const { FILLED_COPY, shortDate, summarizeObservedDates } =
+      await import("./water-outlook");
+    expect(shortDate("2026-10-24")).toBe("10/24");
+    expect(FILLED_COPY.rowTag).toBe("추정");
+
+    const today = "2026-10-25";
+    // 모두 어제(+결측 null)면 생략
+    expect(
+      summarizeObservedDates(["2026-10-24", null, "2026-10-24"], today),
+    ).toEqual({
+      note: null,
+      tags: [null, null, null],
+    });
+
+    // 모두 같은 과거일이면 상단 1줄만
+    expect(
+      summarizeObservedDates(["2026-10-22", "2026-10-22", null], today),
+    ).toEqual({
+      note: "10월 22일까지의 값이에요",
+      tags: [null, null, null],
+    });
+
+    // 어제 다수 + 일부 과거면 기준 안내 + 예외 지점만 M/D
+    expect(
+      summarizeObservedDates(
+        ["2026-10-24", "2026-10-21", "2026-10-24", null],
+        today,
+      ),
+    ).toEqual({
+      note: "어제까지 값이에요 (다른 날은 괄호 표시)",
+      tags: [null, "10/21", null, null],
+    });
+
+    // 과거 다수 + 더 옛날 예외
+    expect(
+      summarizeObservedDates(["2026-10-22", "2026-10-22", "2026-10-20"], today),
+    ).toEqual({
+      note: "10월 22일까지의 값이에요 (다른 날은 괄호 표시)",
+      tags: [null, null, "10/20"],
+    });
+
+    // 동률이면 더 최근 날짜가 기준
+    expect(summarizeObservedDates(["2026-10-21", "2026-10-24"], today)).toEqual(
+      {
+        note: "어제까지 값이에요 (다른 날은 괄호 표시)",
+        tags: ["10/21", null],
+      },
     );
   });
 

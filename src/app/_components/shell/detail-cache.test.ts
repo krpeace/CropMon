@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Selection } from "@/domain/selection";
-import type { WaterQuery } from "@/domain/water-outlook";
+import { OBSERVED_DATE_COPY, type WaterQuery } from "@/domain/water-outlook";
 import type { Station } from "@/services/shell";
 import * as sunlightService from "@/services/sunlight";
 import * as temperatureService from "@/services/temperature";
@@ -23,10 +23,14 @@ vi.mock("next/cache", () => ({
 
 vi.mock("./board", () => ({
   fetchHomeHeat: vi.fn(async () => ({
-    101: { cum: 3000, normal: 2900 },
+    101: { date: "2026-11-08", cum: 3000, normal: 2900 },
+    216: { date: "2026-11-08", cum: 2800, normal: 2750 },
+    119: { date: "2026-11-06", cum: 2950, normal: 2900 },
   })),
   fetchHomeSun: vi.fn(async () => ({
-    101: { cum: 4500, normal: 4400 },
+    101: { date: "2026-11-08", cum: 4500, normal: 4400 },
+    216: { date: "2026-11-08", cum: 4300, normal: 4200 },
+    119: { date: "2026-11-06", cum: 4100, normal: 4200 },
   })),
 }));
 
@@ -249,9 +253,11 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       // 결정 0017: 단일 지점 읽기가 실패해도 지역 비교 10곳은 보여 줌
       expect(result.compare).toHaveLength(10);
       expect(result.compare.find((c) => c.id === 101)?.selected).toBe(true);
-      // 결정 0017: 단일 지점 읽기가 실패해도 지역 비교 10곳은 보여 줌
-      expect(result.compare).toHaveLength(10);
-      expect(result.compare.find((c) => c.id === 101)?.selected).toBe(true);
+      expect(result.compareNote).toBe(
+        `${OBSERVED_DATE_COPY.yesterdayValue} ${OBSERVED_DATE_COPY.mixedSuffix}`,
+      );
+      expect(result.compare.find((c) => c.id === 101)?.dateTag).toBeNull();
+      expect(result.compare.find((c) => c.id === 119)?.dateTag).toBe("11/6");
     });
   });
 
@@ -340,6 +346,11 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       // 결정 0017: 단일 지점 읽기가 실패해도 지역 비교 10곳은 보여 줌
       expect(result.compare).toHaveLength(10);
       expect(result.compare.find((c) => c.id === 101)?.selected).toBe(true);
+      expect(result.compareNote).toBe(
+        `${OBSERVED_DATE_COPY.yesterdayValue} ${OBSERVED_DATE_COPY.mixedSuffix}`,
+      );
+      expect(result.compare.find((c) => c.id === 101)?.dateTag).toBeNull();
+      expect(result.compare.find((c) => c.id === 119)?.dateTag).toBe("11/6");
     });
   });
 
