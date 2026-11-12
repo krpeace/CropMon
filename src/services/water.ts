@@ -540,13 +540,14 @@ async function readView(
   }));
   const scenario = scenarios.find((s) => s.kc_set_id === set?.kc_set_id);
   if (!scenario) {
+    const reason =
+      station.isRepresentative === false
+        ? set && !set.is_default
+          ? "대표 지점 밖은 기본 재배 방식만 계산해요. 다른 재배 방식은 가까운 대표 지점을 골라 보세요"
+          : "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요"
+        : `이 지역·작물의 ${year} 계산 조건이 아직 없어요.`;
     return {
-      ...empty(
-        meta,
-        station.isRepresentative === false
-          ? "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요"
-          : `이 지역·작물의 ${year} 계산 조건이 아직 없어요.`,
-      ),
+      ...empty(meta, reason),
       cultivation,
     };
   }

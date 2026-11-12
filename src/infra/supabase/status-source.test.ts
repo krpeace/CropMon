@@ -274,7 +274,7 @@ describe("status-source", () => {
     expect(calls).toEqual([]);
   });
 
-  it("recentBalance: 194개 조건 × 7일(1,358줄)에서도 고정 정렬(scenario_id asc, date desc)로 range 나눠 읽고 빠짐이 없다", async () => {
+  it("recentBalance: 194개 조건 × 7일(1,358줄)을 100개 단위 청크로 나눠 읽고 고정 정렬로 빠짐없이 합친다 (#103)", async () => {
     // 194개 조건 × 7일 = 1,358줄 모의 데이터
     const mockRows = Array.from({ length: 1358 }, (_, i) => ({
       scenario_id: `scen-${String(Math.floor(i / 7) + 1).padStart(3, "0")}`,
@@ -290,6 +290,84 @@ describe("status-source", () => {
       calls.push(`from(${table})`);
       let cFrom = 0;
       let cTo = 0;
+      let currentChunk: string[] = [];
+      const builder: Record<string, unknown> = {
+        select: (cols: string) => (
+          calls.push(`select(${JSON.stringify(cols)})`),
+          builder
+        ),
+        gte: (col: string, val: unknown) => (
+          calls.push(`gte(${JSON.stringify(col)},${JSON.stringify(val)})`),
+          builder
+        ),
+        in: (col: string, vals: unknown[]) => {
+          calls.push(`in(${JSON.stringify(col)},${JSON.stringify(vals)})`);
+          if (col === "scenario_id") {
+            currentChunk = vals as string[];
+          }
+          return builder;
+        },
+        order: (col: string, opts: unknown) => (
+          calls.push(`order(${JSON.stringify(col)},${JSON.stringify(opts)})`),
+          builder
+        ),
+        range: (f: number, t: number) => {
+          cFrom = f;
+          cTo = t;
+          ranges.push([f, t]);
+          calls.push(`range(${f},${t})`);
+          return builder;
+        },
+        retry: () => builder,
+        abortSignal: () => builder,
+        then: (resolve: (v: unknown) => unknown) => {
+          const chunkSet = new Set(currentChunk);
+          const filtered = mockRows.filter((r) => chunkSet.has(r.scenario_id));
+          const slice = filtered.slice(cFrom, cTo + 1);
+          return Promise.resolve({ data: slice, error: null }).then(resolve);
+        },
+      };
+      return builder;
+    };
+
+    const client = { from } as unknown as SupabaseClient;
+    const db = createStatusSource(client);
+    const scenarioIds = Array.from(new Set(mockRows.map((r) => r.scenario_id)));
+    expect(scenarioIds).toHaveLength(194);
+
+    const result = await db.recentBalance(scenarioIds, "2026-10-18");
+
+    // 1. 고정 정렬 확인 (scenario_id asc, date desc)
+    expect(calls).toContain('order("scenario_id",{"ascending":true})');
+    expect(calls).toContain('order("date",{"ascending":false})');
+
+    // 2. 100개 단위 청크 2개(700줄, 658줄)로 분할되어 각 청크가 [0, 999] 1회씩 호출됨
+    expect(ranges).toEqual([
+      [0, 999],
+      [0, 999],
+    ]);
+
+    // 3. 총 1,358줄 빠짐 및 중복 없음
+    expect(result).toHaveLength(1358);
+    expect(result).toEqual(mockRows);
+  });
+
+  it("recentBalance: 한 묶음이 1,000줄 초과(1,200줄)에서도 range([0, 999], [1000, 1999])를 따라 빠짐없이 읽는다 (#103)", async () => {
+    // 100개 조건 × 12일 = 1,200줄 모의 데이터 (한 묶음 100개 이하)
+    const mock1200Rows = Array.from({ length: 1200 }, (_, i) => ({
+      scenario_id: `scen-${String(Math.floor(i / 12) + 1).padStart(3, "0")}`,
+      date: `2026-10-${String((i % 12) + 1).padStart(2, "0")}`,
+      status: "fair",
+      dr_mm: 12.5,
+    }));
+
+    const ranges: [number, number][] = [];
+    const calls: string[] = [];
+    let cFrom = 0;
+    let cTo = 0;
+    const from = (table: string) => {
+      expect(table).toBe("water_balance_daily");
+      calls.push(`from(${table})`);
       const builder: Record<string, unknown> = {
         select: (cols: string) => (
           calls.push(`select(${JSON.stringify(cols)})`),
@@ -317,7 +395,7 @@ describe("status-source", () => {
         retry: () => builder,
         abortSignal: () => builder,
         then: (resolve: (v: unknown) => unknown) => {
-          const slice = mockRows.slice(cFrom, cTo + 1);
+          const slice = mock1200Rows.slice(cFrom, cTo + 1);
           return Promise.resolve({ data: slice, error: null }).then(resolve);
         },
       };
@@ -326,8 +404,10 @@ describe("status-source", () => {
 
     const client = { from } as unknown as SupabaseClient;
     const db = createStatusSource(client);
-    const scenarioIds = Array.from(new Set(mockRows.map((r) => r.scenario_id)));
-    expect(scenarioIds).toHaveLength(194);
+    const scenarioIds = Array.from(
+      new Set(mock1200Rows.map((r) => r.scenario_id)),
+    );
+    expect(scenarioIds).toHaveLength(100);
 
     const result = await db.recentBalance(scenarioIds, "2026-10-18");
 
@@ -341,9 +421,9 @@ describe("status-source", () => {
       [1000, 1999],
     ]);
 
-    // 3. 총 1,358줄 빠짐 및 중복 없음
-    expect(result).toHaveLength(1358);
-    expect(result).toEqual(mockRows);
+    // 3. 총 1,200줄 빠짐 및 중복 없음
+    expect(result).toHaveLength(1200);
+    expect(result).toEqual(mock1200Rows);
   });
 
   it("recentRuns: 3일치 582줄(97곳×2회×3일) 및 1,000줄 초과(1,200줄)에서도 range 페이징으로 빠짐없이 읽는다 (#110)", async () => {
@@ -455,5 +535,115 @@ describe("status-source", () => {
       expect(res).toHaveLength(1200);
       expect(res).toEqual(mock1200Rows);
     }
+  });
+
+  describe("scenario_id 100개 단위 분할 조회 (chunkedByScenarios, #103)", () => {
+    it("194개 ID 전달 시 summaries, recentBalance, outlookDays 가 100개, 94개로 2번 나누어 요청하고 결과를 합친다", async () => {
+      const ids = Array.from({ length: 194 }, (_, i) => `scen-${i}`);
+      const inCalls: unknown[][] = [];
+      const client = {
+        from: () => {
+          let currentChunk: string[] = [];
+          const chain: Record<string, unknown> = {};
+          for (const m of [
+            "select",
+            "gte",
+            "order",
+            "range",
+            "retry",
+            "abortSignal",
+          ]) {
+            chain[m] = () => chain;
+          }
+          chain.in = (col: string, vals: unknown[]) => {
+            if (col === "scenario_id") {
+              currentChunk = vals as string[];
+              inCalls.push(vals);
+            }
+            return chain;
+          };
+          chain.then = (ok: (v: unknown) => unknown) => {
+            const mockData = currentChunk.map((id) => ({
+              scenario_id: id,
+              date: "2026-11-10",
+              status: "normal",
+              dr_mm: 10,
+              run_id: 1,
+              target_date: "2026-11-11",
+              lead_day: 1,
+              status_start: "normal",
+              start_date: "2026-11-10",
+              dr_start_mm: 10,
+              need_center_in: null,
+            }));
+            return Promise.resolve({ data: mockData, error: null }).then(ok);
+          };
+          return chain;
+        },
+      } as unknown as SupabaseClient;
+
+      const db = createStatusSource(client);
+
+      // 1. summaries
+      inCalls.length = 0;
+      const sums = await db.summaries([1], ids);
+      expect(inCalls).toHaveLength(2);
+      expect(inCalls[0]).toHaveLength(100);
+      expect(inCalls[1]).toHaveLength(94);
+      expect(sums).toHaveLength(194);
+
+      // 2. recentBalance
+      inCalls.length = 0;
+      const bals = await db.recentBalance(ids, "2026-11-03");
+      expect(inCalls).toHaveLength(2);
+      expect(inCalls[0]).toHaveLength(100);
+      expect(inCalls[1]).toHaveLength(94);
+      expect(bals).toHaveLength(194);
+
+      // 3. outlookDays
+      inCalls.length = 0;
+      const days = await db.outlookDays([1], ids);
+      expect(inCalls).toHaveLength(2);
+      expect(inCalls[0]).toHaveLength(100);
+      expect(inCalls[1]).toHaveLength(94);
+      expect(days).toHaveLength(194);
+    });
+
+    it("분할된 묶음 중 하나라도 실패하면 전체 작업이 실패(reject)한다", async () => {
+      const ids = Array.from({ length: 194 }, (_, i) => `scen-${i}`);
+      let callCount = 0;
+      const client = {
+        from: () => {
+          const chain: Record<string, unknown> = {};
+          for (const m of [
+            "select",
+            "gte",
+            "order",
+            "range",
+            "retry",
+            "abortSignal",
+          ]) {
+            chain[m] = () => chain;
+          }
+          chain.in = () => chain;
+          chain.then = (ok: (v: unknown) => unknown) => {
+            callCount++;
+            if (callCount === 2) {
+              return Promise.resolve({
+                data: null,
+                error: { message: "connection timeout" },
+              }).then(ok);
+            }
+            return Promise.resolve({ data: [], error: null }).then(ok);
+          };
+          return chain;
+        },
+      } as unknown as SupabaseClient;
+
+      const db = createStatusSource(client);
+      await expect(db.recentBalance(ids, "2026-11-03")).rejects.toThrow(
+        "water_balance_daily 읽기 실패: connection timeout",
+      );
+    });
   });
 });

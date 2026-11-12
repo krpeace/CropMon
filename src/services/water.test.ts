@@ -538,6 +538,21 @@ describe("작기 돌아보기와 실패", () => {
     expect(vOut.problem).toBe(
       "이 지점은 아직 물 계산을 하지 않아요. 가까운 대표 지점을 골라 보세요",
     );
+
+    // 대표 밖 지점에서 기본이 아닌 재배방식을 고르면 전용 안내 문구 반환 (#103)
+    const vNonDefault = await getWaterView(
+      { stationId: 212, crop: "apple", kc: 1 },
+      hongcheon,
+      TODAY,
+      {
+        createSource: () => fake({ scenarios: async () => [] }),
+        now: NOW,
+      },
+    );
+    expect(vNonDefault.now).toBeNull();
+    expect(vNonDefault.problem).toBe(
+      "대표 지점 밖은 기본 재배 방식만 계산해요. 다른 재배 방식은 가까운 대표 지점을 골라 보세요",
+    );
   });
 
   it("DB를 읽지 못하면 던지지 않고 '자료 없음'으로 돌려준다", async () => {
