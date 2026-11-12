@@ -1,19 +1,18 @@
 -- 목적: 대표 밖 87곳 계산 조건(scenarios) 사전 등록 (croplib-dp #28 C6, 2단계-나 S5 전, 이슈 #103).
 --       사과 초생 재배(apple-k3) 및 여름배추 기본(kimchi_cabbage-k1) 2조건을
 --       2026년(174개)과 2027년(174개) 총 348개 줄 등록한다.
---       값의 근거는 docs/DATA_CONTRACT.md 와 docs/decisions/0041-non-rep-scenarios-seed.md.
+--       값의 근거는 docs/DATA_CONTRACT.md 와 docs/decisions/0042-non-rep-scenarios-seed.md.
 --
--- 주의: 이 파일은 croplib-dp 2단계-나 S5(대표 밖 3일 물 전망) 수집기를 켜는 날 실행하고 병합한다 (그 전 병합 금지).
---
--- 병합·SQL 실행 순서 (croplib-dp #87 계획 §7 연동):
---   1. croplib-dp S5-a 병합
---   2. 이 시드 SQL 실행 (Supabase 대시보드 → SQL Editor 에 붙여 넣고 Run)
---   3. 확인 조회 3개 실행 후 기대 결과 확인
---   4. PR #125 Draft 해제
---   5. CropMon PR #125 병합
+-- 실제 실행·병합 순서 (정정):
+--   1. croplib-dp S5-a (#97, 2026-11-11 병합)
+--   2. CropMon PR #125 병합 (2026-11-13, 518f612)
+--   3. 사용자가 SQL Editor에서 시드 실행 (2026-11-13 00시경)
+--   4. 확인 조회 3개 (croplib-dp ①-2창이 읽기 전용으로 실행)
+--   5. croplib-dp 작은 dry-run
 --   6. croplib-dp NONREP_SCENARIOS 켜기
 --   * 주의: S5-a 병합 전에 시드하면 14일 창 규칙이 풀려 회차마다 3/1~어제를 다시 올립니다.
---           croplib-dp 채팅의 신호 전에는 SQL 실행·병합 금지.
+--   * 이력: 당초 계획(PR #125 Draft 유지, croplib-dp 신호 전 실행·병합 금지)에서
+--           S5-a(#97) 병합 이후 #125를 먼저 병합하고 SQL을 실행하는 순서로 정정됨.
 --
 -- 여러 번 실행해도 오류가 나지 않는다 (on conflict do update).
 --
