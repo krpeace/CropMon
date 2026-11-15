@@ -265,3 +265,43 @@ test("판이 열려 있는 동안 뒤 화면은 스크롤되지 않는다", asyn
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+// 대표 밖 지점(강릉 105·서울 108)의 사과·배추 선택 줄과 지역 목록 배지 (#138).
+// 가짜 Supabase 에는 두 지점의 사과·배추 관측 물수지가 있고, 홍천 212 는 줄이 없다.
+test.describe("대표 밖 지점의 선택 줄 (#138)", () => {
+  const CASES = [
+    { st: 105, name: "강릉", crop: "apple" },
+    { st: 105, name: "강릉", crop: "cabbage" },
+    { st: 108, name: "서울", crop: "apple" },
+    { st: 108, name: "서울", crop: "cabbage" },
+  ];
+
+  for (const { st, name, crop } of CASES) {
+    test(`선택 줄이 '자료 없음'이 아니다: ${name} ${st} ${crop}`, async ({
+      page,
+    }) => {
+      await open(page, `/water?st=${st}&crop=${crop}`);
+      await expect(regionButton(page)).toHaveAccessibleName(
+        new RegExp(`${name}.*${st}`),
+      );
+      await expect(regionButton(page)).not.toHaveAccessibleName(/자료 없음/);
+
+      // 지역 목록의 같은 지점 배지도 같은 판정이다
+      await regionButton(page).click();
+      const option = regionDialog(page)
+        .getByRole("option", { name: new RegExp(`${name}\\s*${st}`) })
+        .last();
+      await expect(option).toBeVisible();
+      await expect(option).not.toContainText("자료 없음");
+    });
+  }
+
+  test("줄이 없는 대표 밖 지점(홍천 212)은 기존처럼 '자료 없음'이다", async ({
+    page,
+  }) => {
+    await open(page, "/water?st=212&crop=apple");
+    await expect(regionButton(page)).toHaveAccessibleName(
+      /홍천.*212.*자료 없음/,
+    );
+  });
+});

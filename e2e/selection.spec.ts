@@ -250,3 +250,21 @@ test("모바일 390×844 뷰포트에서 펼침 판으로 지역을 고르고 �
   await expect(page).toHaveURL(/\/\?st=212&crop=apple$/);
   await expect(dialog).toBeHidden();
 });
+
+test("대표 밖 지점(강릉 105·서울 108)의 사과·배추 선택 줄도 DB 판정을 보인다 (#138)", async ({
+  page,
+}) => {
+  for (const [st, name, crop] of [
+    [105, "강릉", "apple"],
+    [105, "강릉", "cabbage"],
+    [108, "서울", "apple"],
+    [108, "서울", "cabbage"],
+  ] as const) {
+    await page.goto(`/water?st=${st}&crop=${crop}`);
+    const button = region(page).getByRole("button", {
+      name: new RegExp(`${name} ${st}`),
+    });
+    await expect(button).toBeVisible();
+    await expect(button).not.toHaveAccessibleName(/자료 없음/);
+  }
+});
