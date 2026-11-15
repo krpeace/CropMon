@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { withSelection, type Crop } from "@/domain/selection";
-import type { SunlightView } from "@/services/sunlight";
+import type { NearbyStation, SunlightView } from "@/services/sunlight";
 
 import { Badge } from "../ui/Badge";
 import { monthBars, sunCompareBar, SUN_NORMAL_LINE } from "./sun-chart";
@@ -188,8 +188,16 @@ export function SunCompareCard({
   );
 }
 
-/** 일사를 재지 않는 지점 (시안 그대로): 엠블럼, "자료 없음", 가까운 지점 버튼(춘천·안동 고정). */
-export function NotMeasuredCard({ name, crop }: { name: string; crop: Crop }) {
+/** 일사를 재지 않는 지점: 엠블럼, "자료 없음", 가까운 실측 지점 버튼(#78). */
+export function NotMeasuredCard({
+  name,
+  crop,
+  nearby,
+}: {
+  name: string;
+  crop: Crop;
+  nearby: NearbyStation[];
+}) {
   return (
     <section
       aria-label="햇빛 자료 없음"
@@ -212,20 +220,27 @@ export function NotMeasuredCard({ name, crop }: { name: string; crop: Crop }) {
         일사 관측 장비가 없는 지점이에요. 가까운 지점의 햇빛을 대신 볼 수
         있어요.
       </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        <Link
-          href={withSelection("/sunlight", { stationId: 101, crop })}
-          className="bg-brand text-17 flex h-12.5 items-center rounded-full px-5.5 font-bold text-white"
-        >
-          춘천 햇빛 보기
-        </Link>
-        <Link
-          href={withSelection("/sunlight", { stationId: 136, crop })}
-          className="bg-brand-ink/10 text-brand-ink text-17 flex h-12.5 items-center rounded-full px-5.5 font-bold"
-        >
-          안동 햇빛 보기
-        </Link>
-      </div>
+      {nearby.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-3">
+          {nearby.map((s, i) => (
+            <div key={s.id} className="flex flex-col items-center gap-1">
+              <Link
+                href={withSelection("/sunlight", { stationId: s.id, crop })}
+                className={`text-17 flex h-12.5 items-center rounded-full px-5.5 font-bold ${
+                  i === 0
+                    ? "bg-brand text-white"
+                    : "bg-brand-ink/10 text-brand-ink"
+                }`}
+              >
+                {s.name} 햇빛 보기
+              </Link>
+              <span className="text-13 text-ink-2/75">
+                약 {Math.round(s.km)}km
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
