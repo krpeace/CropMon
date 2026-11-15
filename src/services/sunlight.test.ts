@@ -182,7 +182,12 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
     expect(v.updatedAt).toBeNull();
     expect(v.observedDate).toBeNull();
     expect(v.problem).toBeNull();
-    expect(v.compare).toHaveLength(10);
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toMatchObject({
+      name: "울진",
+      selected: true,
+      text: "자료 없음",
+    });
   });
 
   it("DB 가 오류를 주면 '자료 없음'과 쉬운 이유, 지역 비교는 따로 보인다", async () => {
@@ -272,5 +277,123 @@ describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
     );
     expect(allPast.compareNote).toBe("10월 21일까지의 값이에요");
     expect(allPast.compare.every((r) => r.dateTag === null)).toBe(true);
+  });
+});
+
+describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
+  const SEOUL = { id: 108, name: "서울", measuresSunlight: true };
+  const SEL_SEOUL = { stationId: 108, crop: "apple" as const };
+  const JINDO = { id: 268, name: "진도군", measuresSunlight: false };
+  const SEL_JINDO = { stationId: 268, crop: "apple" as const };
+  const REP_NAMES = [
+    "춘천",
+    "태백",
+    "수원",
+    "청주",
+    "서산",
+    "전주",
+    "광주",
+    "안동",
+    "진주",
+    "서귀포",
+  ];
+
+  it("서울(108)을 고르면 11줄이고, 첫 줄 서울(selected: true) 아래 대표 10곳 순서가 그대로다", async () => {
+    const v = await getSunlightView(
+      SEL_SEOUL,
+      SEOUL,
+      opts({
+        onDate: async (ids) =>
+          ids.includes("108")
+            ? [latest("108", "2026-10-24", 3300, 3200)]
+            : [
+                latest("101", "2026-10-24", 3218, 3352),
+                latest("216", "2026-10-24", 3500, 3333),
+              ],
+      }),
+    );
+    expect(v.compareProblem).toBeNull();
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toMatchObject({
+      id: 108,
+      name: "서울",
+      selected: true,
+      pct: 103,
+      text: "103%",
+      dateTag: null,
+    });
+    expect(v.compare.slice(1).map((r) => r.name)).toEqual(REP_NAMES);
+    expect(v.compare.slice(1).every((r) => !r.selected)).toBe(true);
+  });
+
+  it("미관측 대표 밖 지점(진도군 268)은 kind=notMeasured 여도 첫 줄 '자료 없음' + 대표 10곳을 함께 돌려준다", async () => {
+    const v = await getSunlightView(
+      SEL_JINDO,
+      JINDO,
+      opts({
+        year: async () => [],
+      }),
+    );
+    expect(v.kind).toBe("notMeasured");
+    expect(v.compareProblem).toBeNull();
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toEqual({
+      id: 268,
+      name: "진도군",
+      selected: true,
+      pct: null,
+      text: "자료 없음",
+      dateTag: null,
+    });
+  });
+
+  it("서울(108) 한 곳 읽기만 실패해도 대표 10곳은 보이고 서울 줄만 '자료 없음', compareProblem 은 null", async () => {
+    const v = await getSunlightView(
+      SEL_SEOUL,
+      SEOUL,
+      opts({
+        onDate: async (ids) => {
+          if (ids.length === 1 && ids[0] === "108") {
+            throw new Error("timeout");
+          }
+          return [latest("101", "2026-10-24", 3218, 3352)];
+        },
+      }),
+    );
+    expect(v.compareProblem).toBeNull();
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toMatchObject({
+      id: 108,
+      name: "서울",
+      selected: true,
+      pct: null,
+      text: "자료 없음",
+      dateTag: null,
+    });
+    expect(v.compare.find((r) => r.id === 101)).toMatchObject({
+      pct: 96,
+      text: "96%",
+    });
+  });
+
+  it("compareNote 는 대표 10곳 기준만 쓰고, 고른 지점 줄은 자기 기준일만 표시한다", async () => {
+    const v = await getSunlightView(
+      SEL_SEOUL,
+      SEOUL,
+      opts({
+        onDate: async (ids) =>
+          ids.includes("108")
+            ? []
+            : [
+                latest("101", "2026-10-24", 3218, 3352),
+                latest("216", "2026-10-24", 3500, 3333),
+              ],
+        recent: async (ids) =>
+          ids.includes("108") ? [latest("108", "2026-10-20", 3100, 3200)] : [],
+      }),
+    );
+    expect(v.compareNote).toBeNull();
+    expect(v.compare[0]).toMatchObject({ id: 108, dateTag: "10/20" });
+    expect(v.compare.slice(1).every((r) => r.dateTag === null)).toBe(true);
   });
 });

@@ -447,3 +447,121 @@ describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
     expect(allPast.compare.every((r) => r.dateTag === null)).toBe(true);
   });
 });
+
+describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
+  const SEOUL = { id: 108, name: "서울", measuresSunlight: true };
+  const SEL_SEOUL = { stationId: 108, crop: "apple" as const };
+  const REP_NAMES = [
+    "춘천",
+    "태백",
+    "수원",
+    "청주",
+    "서산",
+    "전주",
+    "광주",
+    "안동",
+    "진주",
+    "서귀포",
+  ];
+
+  it("서울(108)을 고르면 11줄이고, 첫 줄 서울(selected: true) 아래 대표 10곳 순서가 그대로다", async () => {
+    const v = await getTemperatureView(SEL_SEOUL, SEOUL, {
+      createSource: () =>
+        source({
+          onDate: async (ids) =>
+            ids.includes("108")
+              ? [latest("108", "2026-10-24", 4120, 4000)]
+              : [
+                  latest("101", "2026-10-24", 4180, 4000),
+                  latest("119", "2026-10-24", 3950, 4000),
+                ],
+        }),
+      now: NOW,
+    });
+    expect(v.compareProblem).toBeNull();
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toMatchObject({
+      id: 108,
+      name: "서울",
+      selected: true,
+      diff: 120,
+      text: "+120℃",
+      dateTag: null,
+    });
+    expect(v.compare.slice(1).map((r) => r.name)).toEqual(REP_NAMES);
+    expect(v.compare.slice(1).every((r) => !r.selected)).toBe(true);
+  });
+
+  it("서울(108) 값이 없으면 첫 줄은 '자료 없음'(diff: null, dateTag: null)이고 대표 10곳은 그대로다", async () => {
+    const v = await getTemperatureView(SEL_SEOUL, SEOUL, {
+      createSource: () => source(),
+      now: NOW,
+    });
+    expect(v.compareProblem).toBeNull();
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toEqual({
+      id: 108,
+      name: "서울",
+      selected: true,
+      diff: null,
+      text: "자료 없음",
+      dateTag: null,
+    });
+  });
+
+  it("서울(108) 한 곳 읽기만 실패해도 대표 10곳은 보이고 서울 줄만 '자료 없음', compareProblem 은 null", async () => {
+    const v = await getTemperatureView(SEL_SEOUL, SEOUL, {
+      createSource: () =>
+        source({
+          onDate: async (ids) => {
+            if (ids.length === 1 && ids[0] === "108") {
+              throw new Error("timeout");
+            }
+            return [
+              latest("101", "2026-10-24", 4180, 4000),
+              latest("119", "2026-10-24", 3950, 4000),
+            ];
+          },
+        }),
+      now: NOW,
+    });
+    expect(v.compareProblem).toBeNull();
+    expect(v.compare).toHaveLength(11);
+    expect(v.compare[0]).toMatchObject({
+      id: 108,
+      name: "서울",
+      selected: true,
+      diff: null,
+      text: "자료 없음",
+      dateTag: null,
+    });
+    expect(v.compare.find((r) => r.id === 101)).toMatchObject({
+      diff: 180,
+      text: "+180℃",
+    });
+  });
+
+  it("compareNote 는 대표 10곳 기준만 쓰고, 고른 지점 줄은 자기 기준일만 표시한다", async () => {
+    // 대표 10곳은 모두 어제(10-24), 서울(108)만 10-21일 때: 안내문(compareNote)은 null, 서울 줄에만 10/21
+    const v = await getTemperatureView(SEL_SEOUL, SEOUL, {
+      createSource: () =>
+        source({
+          onDate: async (ids) =>
+            ids.includes("108")
+              ? []
+              : [
+                  latest("101", "2026-10-24", 4180, 4000),
+                  latest("119", "2026-10-24", 3950, 4000),
+                ],
+          recent: async (ids) =>
+            ids.includes("108")
+              ? [latest("108", "2026-10-21", 4050, 3980)]
+              : [],
+        }),
+      now: NOW,
+    });
+    expect(v.compareNote).toBeNull();
+    expect(v.compare[0]).toMatchObject({ id: 108, dateTag: "10/21" });
+    expect(v.compare.slice(1).every((r) => r.dateTag === null)).toBe(true);
+  });
+});

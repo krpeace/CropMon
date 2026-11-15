@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 기능 (온도·햇빛 지역 비교에 지금 보는 지점 함께 표시 — 이슈 #79)
+
+- 온도·햇빛 상세 화면의 지역 비교 카드(`CompareCard`, `SunCompareCard`)에서 대표 10곳 밖 지점을 보고 있을 때, 맨 위에 지금 보는 지점 줄을 함께 띄우고 얇은 구분선으로 대표 10곳과 구분한다 (결정 0043).
+- `services/growth-latest.ts`: `latestRows`가 지점 목록(`ids`)을 인자로 받도록 하고 `readHeatLatest`·`readSunLatest`에 선택 인자 `stationIds?: readonly number[]`를 추가했다. 인자를 넘기지 않으면 기존처럼 대표 10곳만 읽으므로 종합 화면(`loadGrowth`, 30분 캐시)·전국 표·헤더 동작과 egress는 그대로다.
+- `services/temperature.ts`·`services/sunlight.ts`: `readCompare`에서 대표 밖 지점을 고르면 대표 10곳 읽기와 선택 지점 1곳 읽기를 `Promise.all`로 함께 수행하고, 1곳 읽기만 실패해도 대표 10곳은 그대로 보이고 선택 지점 줄만 `"자료 없음"`으로 표시한다. `detail-cache.ts` 폴백 경로의 `buildHeatCompare`·`buildSunCompare`에도 동일 규칙을 적용했다.
+- 기준일 표기(#132): 상단 안내문(`compareNote`)은 대표 10곳 기준으로 유지하고, 맨 위 선택 지점 줄만 대표 기준일과 다를 때 자기 줄에 `(M/D)`를 표시한다(`extraCompareDateTag`).
+- 시험: `growth-latest.test.ts`·`temperature.test.ts`·`sunlight.test.ts`·`detail-cache.test.ts`·`e2e/temperature.spec.ts`·`e2e/sunlight.spec.ts`·`e2e/fake-supabase.mjs`에 대표 밖 지점(서울 108, 미관측 진도군 268) 단위·E2E 시험 추가 (`sunlight.test.ts` 기존 미측정 130 울진 비교 길이 기대값 10 → 11 갱신).
+
 ### 수정 (대표 밖 지점의 사과·배추 선택 줄이 "자료 없음"으로 나오던 문제 — 이슈 #138)
 
 - 증상: `/water?st=105&crop=apple`, `st=108&crop=cabbage` 처럼 대표 10곳 밖 지점의 사과·배추를 보면 지역 선택 줄이 "강릉 105 자료 없음"으로 나왔다 (본문 값은 있었음). 대표 10곳과 작물 공통(토양)은 정상.

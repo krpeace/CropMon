@@ -50,6 +50,8 @@ export function CompareCard({
   crop: Crop;
 }) {
   const { zero, bars } = compareBars(view.compare.map((r) => r.diff));
+  const hasPinned =
+    view.compare.length > 10 && Boolean(view.compare[0]?.selected);
   return (
     <section
       aria-label="지역 비교 · 평년 대비 적산온도"
@@ -68,49 +70,56 @@ export function CompareCard({
       {view.compare.map((r, i) => {
         const bar = bars[i];
         return (
-          <Link
-            key={r.id}
-            href={withSelection("/temperature", { stationId: r.id, crop })}
-            scroll={false}
-            aria-current={r.selected ? "true" : undefined}
-            className="text-ink hit-44 grid min-h-9 grid-cols-(--compare-cols) items-center gap-2.5"
-          >
-            <span
-              className={`text-15 ${r.selected ? "font-extrabold" : "font-medium"}`}
+          <div key={r.id} className="contents">
+            <Link
+              href={withSelection("/temperature", { stationId: r.id, crop })}
+              scroll={false}
+              aria-current={r.selected ? "true" : undefined}
+              className="text-ink hit-44 grid min-h-9 grid-cols-(--compare-cols) items-center gap-2.5"
             >
-              {r.name}
-            </span>
-            <span className="relative h-4" aria-hidden="true">
               <span
-                className="bg-ink-2/35 absolute -top-0.75 -bottom-0.75 w-px"
-                style={{ left: `${zero}%` }}
-              />
-              {bar && (
-                <span
-                  className={`rounded-bar absolute inset-y-0 ${
-                    r.selected
-                      ? "bg-selbar"
-                      : (r.diff ?? 0) < 0
-                        ? "bg-fill/45"
-                        : "bg-lime"
-                  }`}
-                  style={{ left: `${bar.left}%`, width: `${bar.width}%` }}
-                />
-              )}
-            </span>
-            <span className="flex flex-col items-end text-right leading-tight">
-              <span
-                className={`text-15 font-bold ${r.diff == null ? "text-gray-ink" : ""}`}
+                className={`text-15 ${r.selected ? "font-extrabold" : "font-medium"}`}
               >
-                {r.text}
+                {r.name}
               </span>
-              {r.dateTag && (
-                <span className="text-12 text-ink-2/75 font-normal tabular-nums">
-                  ({r.dateTag})
+              <span className="relative h-4" aria-hidden="true">
+                <span
+                  className="bg-ink-2/35 absolute -top-0.75 -bottom-0.75 w-px"
+                  style={{ left: `${zero}%` }}
+                />
+                {bar && (
+                  <span
+                    className={`rounded-bar absolute inset-y-0 ${
+                      r.selected
+                        ? "bg-selbar"
+                        : (r.diff ?? 0) < 0
+                          ? "bg-fill/45"
+                          : "bg-lime"
+                    }`}
+                    style={{ left: `${bar.left}%`, width: `${bar.width}%` }}
+                  />
+                )}
+              </span>
+              <span className="flex flex-col items-end text-right leading-tight">
+                <span
+                  className={`text-15 font-bold ${r.diff == null ? "text-gray-ink" : ""}`}
+                >
+                  {r.text}
                 </span>
-              )}
-            </span>
-          </Link>
+                {r.dateTag && (
+                  <span className="text-12 text-ink-2/75 font-normal tabular-nums">
+                    ({r.dateTag})
+                  </span>
+                )}
+              </span>
+            </Link>
+            {hasPinned && i === 0 && (
+              <div
+                aria-hidden="true"
+                className="border-ink-2/15 my-0.5 border-b-(length:--hairline)"
+              />
+            )}
+          </div>
         );
       })}
     </section>

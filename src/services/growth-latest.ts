@@ -47,15 +47,15 @@ const ACTIVE_STATIONS = STATIONS.filter((s) => s.isActive);
 /** 어제 + 빠진 지점 보충. 지점마다 올해 값(has)이 있는 마지막 줄을 남긴다. */
 async function latestRows<T extends { stn_id: string }>(
   today: string,
-  stations: readonly (typeof STATIONS)[number][],
+  ids: readonly string[],
   has: (r: T) => boolean,
   onDate: (ids: string[], date: string) => Promise<T[]>,
   recent: (ids: string[], from: string, until: string) => Promise<T[]>,
 ): Promise<Map<string, T>> {
   const yesterday = addDays(today, -1);
-  const ids = stations.map((s) => String(s.id));
   const found = new Map<string, T>();
-  for (const r of await onDate(ids, yesterday))
+  if (ids.length === 0) return found;
+  for (const r of await onDate([...ids], yesterday))
     if (has(r)) found.set(r.stn_id, r);
   const missing = ids.filter((id) => !found.has(id));
   if (missing.length > 0) {
@@ -68,16 +68,25 @@ async function latestRows<T extends { stn_id: string }>(
   return found;
 }
 
+function targetIds(
+  stationScope: StationScope,
+  stationIds?: readonly number[],
+): string[] {
+  if (stationIds) return stationIds.map(String);
+  const stations = stationScope === "active" ? ACTIVE_STATIONS : REP_STATIONS;
+  return stations.map((s) => String(s.id));
+}
+
 export async function readHeatLatest(
   db: HeatSource,
   cropId: string,
   today: string,
   stationScope: StationScope = "rep",
+  stationIds?: readonly number[],
 ): Promise<Record<number, HeatLatest>> {
-  const stations = stationScope === "active" ? ACTIVE_STATIONS : REP_STATIONS;
   const rows = await latestRows<HeatLatestRow>(
     today,
-    stations,
+    targetIds(stationScope, stationIds),
     (r) => r.gdd_cum != null,
     (ids, date) => db.onDate(ids, cropId, date),
     (ids, from, until) => db.recent(ids, cropId, from, until),
@@ -97,11 +106,11 @@ export async function readSunLatest(
   db: SunSource,
   today: string,
   stationScope: StationScope = "rep",
+  stationIds?: readonly number[],
 ): Promise<Record<number, SunLatest>> {
-  const stations = stationScope === "active" ? ACTIVE_STATIONS : REP_STATIONS;
   const rows = await latestRows<SunLatestRow>(
     today,
-    stations,
+    targetIds(stationScope, stationIds),
     (r) => r.rs_cum_mj != null,
     (ids, date) => db.onDate(ids, date),
     (ids, from, until) => db.recent(ids, from, until),
