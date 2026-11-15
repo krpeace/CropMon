@@ -60,7 +60,11 @@ async function ResolvedSunlightBoard({ searchParams }: Props) {
     <>
       <PageHead page="sunlight" meta={meta} />
       {view.kind === "notMeasured" ? (
-        <NotMeasuredCard name={station.name} crop={selection.crop} />
+        <NotMeasuredCard
+          name={station.name}
+          crop={selection.crop}
+          nearby={view.nearby}
+        />
       ) : (
         <>
           <TotalCard view={view} />

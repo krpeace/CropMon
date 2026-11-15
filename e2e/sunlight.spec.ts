@@ -73,9 +73,9 @@ test("햇빛: sun_daily 가 없는 지점은 '햇빛을 재지 않아요'와 가
   const meta = page.getByRole("region", { name: "자료 정보" });
   await expect(meta).toContainText("일사 관측 · 자료 없음");
   await expect(meta).not.toContainText("09:20");
-  await none.getByRole("link", { name: "춘천 햇빛 보기" }).click();
-  await expect(page).toHaveURL(/\/sunlight\?st=101&crop=apple$/);
-  await expect(total(page)).toContainText("올해 햇빛은 평년의 96%");
+  await none.getByRole("link", { name: "광주 햇빛 보기" }).click();
+  await expect(page).toHaveURL(/\/sunlight\?st=156&crop=apple$/);
+  await expect(total(page)).toContainText("올해 햇빛은 평년의 103%");
 });
 
 test("햇빛: sun_daily 에 null 365줄만 있는 미측정 지점도 '햇빛을 재지 않아요' (울진)", async ({
@@ -167,19 +167,25 @@ test("햇빛: 대표 밖 지점(서울 108) — 지역 비교 맨 위에 선택 
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("햇빛: 미관측 대표 밖 지점(진도군 268) — 안내 카드가 어색함 없이 보이고 가로로 넘치지 않는다", async ({
+test("햇빛: 미관측 대표 밖 지점(진도군 268) — 춘천 고정 대신 가까운 실측 지점 버튼이 보이고 가로로 넘치지 않는다", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sunlight?st=268&crop=apple");
 
-  await expect(
-    page.getByText("진도군 관측소는 햇빛을 재지 않아요"),
-  ).toBeVisible();
+  const none = page.getByRole("region", { name: "햇빛 자료 없음" });
+  await expect(none).toContainText("진도군 관측소는 햇빛을 재지 않아요");
+  await expect(none.getByRole("link", { name: "춘천 햇빛 보기" })).toHaveCount(
+    0,
+  );
+  await expect(none).toContainText("약 97km");
   await expect(compare(page)).toHaveCount(0);
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+
+  await none.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/sunlight\?st=156&crop=apple$/);
 });

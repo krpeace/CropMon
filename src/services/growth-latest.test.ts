@@ -61,6 +61,7 @@ function sunSource(over: Partial<SunSource> = {}): SunSource {
     lastUpdated: async () => null,
     onDate: async () => [sunRow("101", 3218, 3352), sunRow("216", 3500, 3333)],
     recent: async () => [],
+    measured: async () => [],
     ...over,
   };
 }

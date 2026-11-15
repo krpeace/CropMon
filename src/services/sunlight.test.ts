@@ -68,6 +68,7 @@ function source(over: Partial<SunSource> = {}): SunSource {
             latest("119", "2026-10-23", 3351, 3419),
           ]
         : [],
+    measured: async () => [],
     ...over,
   };
 }
@@ -395,5 +396,105 @@ describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
     expect(v.compareNote).toBeNull();
     expect(v.compare[0]).toMatchObject({ id: 108, dateTag: "10/20" });
     expect(v.compare.slice(1).every((r) => r.dateTag === null)).toBe(true);
+  });
+});
+
+describe("가까운 실측 지점 추천 (#78)", () => {
+  const JINDO = { id: 268, name: "진도군", measuresSunlight: false };
+  const SEL_JINDO = { stationId: 268, crop: "apple" as const };
+
+  it("진도군(268)에서 해남(261) 줄은 없고 목포(165)·완도(170) 줄이 있으면 가까운 순 2곳을 돌려준다", async () => {
+    const v = await getSunlightView(
+      SEL_JINDO,
+      JINDO,
+      opts({
+        year: async () => [],
+        measured: async () => ["170", "165"],
+      }),
+    );
+    expect(v.kind).toBe("notMeasured");
+    expect(v.nearby.map((s) => s.id)).toEqual([165, 170]);
+    expect(v.nearby.map((s) => s.name)).toEqual(["목포", "완도"]);
+    expect(Math.round(v.nearby[0].km)).toBe(40);
+    expect(Math.round(v.nearby[1].km)).toBe(42);
+  });
+
+  it("후보 8곳 중 1곳만 자료가 있으면 1곳만 돌려준다", async () => {
+    const v = await getSunlightView(
+      SEL_JINDO,
+      JINDO,
+      opts({
+        year: async () => [],
+        measured: async () => ["165"],
+      }),
+    );
+    expect(v.kind).toBe("notMeasured");
+    expect(v.nearby.map((s) => s.id)).toEqual([165]);
+  });
+
+  it("추천된 지점으로 다시 햇빛 화면을 열면 notMeasured가 아니다", async () => {
+    const db = source({
+      year: async (stnId) => (stnId === "268" ? [] : yearRows()),
+      measured: async () => ["165", "170"],
+    });
+    const first = await getSunlightView(SEL_JINDO, JINDO, {
+      createSource: () => db,
+      now: NOW,
+    });
+    const rec = first.nearby[0];
+    const next = await getSunlightView(
+      { stationId: rec.id, crop: "apple" },
+      { id: rec.id, name: rec.name, measuresSunlight: true },
+      { createSource: () => db, now: NOW },
+    );
+    expect(next.kind).toBe("data");
+  });
+
+  it("후보 8곳 모두 줄이 없으면 대표 실측 지점 중 가까운 2곳(광주·서귀포)으로 대신한다", async () => {
+    const v = await getSunlightView(
+      SEL_JINDO,
+      JINDO,
+      opts({
+        year: async () => [],
+        measured: async () => [],
+      }),
+    );
+    expect(v.kind).toBe("notMeasured");
+    expect(v.nearby.map((s) => s.id)).toEqual([156, 189]);
+    expect(Math.round(v.nearby[0].km)).toBe(97);
+    expect(Math.round(v.nearby[1].km)).toBe(139);
+  });
+
+  it("후보 읽기가 실패해도 멈추지 않고 대표 실측 지점 중 가까운 2곳으로 대신한다", async () => {
+    const v = await getSunlightView(
+      SEL_JINDO,
+      JINDO,
+      opts({
+        year: async () => [],
+        measured: async () => {
+          throw new Error("timeout");
+        },
+      }),
+    );
+    expect(v.kind).toBe("notMeasured");
+    expect(v.problem).toBeNull();
+    expect(v.nearby.map((s) => s.id)).toEqual([156, 189]);
+  });
+
+  it("측정 지점(춘천 101)은 후보 읽기를 호출하지 않는다", async () => {
+    let calls = 0;
+    const v = await getSunlightView(
+      SEL,
+      CHUNCHEON,
+      opts({
+        measured: async () => {
+          calls++;
+          return [];
+        },
+      }),
+    );
+    expect(v.kind).toBe("data");
+    expect(v.nearby).toEqual([]);
+    expect(calls).toBe(0);
   });
 });

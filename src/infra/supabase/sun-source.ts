@@ -41,12 +41,15 @@ export type SunSource = {
   ): Promise<SunLatestRow[]>;
   /** 이 지점 줄 중 가장 늦은 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 줄이 없으면 null. */
   lastUpdated(stnId: string): Promise<string | null>;
+  /** 여러 지점 중 최근 기간 안에 유효 일사(rs_cum_mj)가 있는 지점 번호 목록. */
+  measured(stnIds: string[], from: string, until: string): Promise<string[]>;
 };
 
 export const COLUMNS = {
   sun_daily:
     "date,rs_day_mj,rs_cum_mj,rs_normal_day_mj,rs_normal_cum_mj,normal_from,normal_to,filled",
   sun_latest: "stn_id,date,rs_cum_mj,rs_normal_cum_mj",
+  measured: "stn_id",
   updated: "updated_at",
 } as const;
 
@@ -129,6 +132,23 @@ export function createSunSource(
           .abortSignal(signal()),
       );
       return rows[0]?.updated_at ?? null;
+    },
+    measured: async (stnIds, from, until) => {
+      if (stnIds.length === 0) return [];
+      const rows = await many<{ stn_id: string }>(
+        "sun_daily",
+        client
+          .from("sun_daily")
+          .select(COLUMNS.measured)
+          .in("stn_id", stnIds)
+          .gte("date", from)
+          .lte("date", until)
+          .not("rs_cum_mj", "is", null)
+          .limit(1000)
+          .retry(false)
+          .abortSignal(signal()),
+      );
+      return [...new Set(rows.map((r) => r.stn_id))];
     },
   };
 }

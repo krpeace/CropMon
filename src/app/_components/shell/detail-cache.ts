@@ -213,6 +213,7 @@ async function fallbackSunlight(
     today,
     months: [],
     monthNote: null,
+    nearby: [],
     compare,
     compareNote,
     compareProblem: null,

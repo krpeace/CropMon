@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 기능 (햇빛 미관측 지점의 "대신 볼 지점"을 가까운 실측 지점으로 — 이슈 #78)
+
+- 햇빛을 재지 않는 지점(`kind === "notMeasured"`)에서 고정 춘천(101)·안동(136) 대신, 실제로 최근 일사 자료(`rs_cum_mj is not null`)가 있는 가까운 1~2곳을 대신 볼 지점으로 추천한다 (`NotMeasuredCard`, 결정 0044).
+- `src/infra/stations.ts`: `StationEntry`에 `lat`, `lon`을 추가해 사전 SQL(`20261028030000_seed_stations_asos.sql`) 105곳과 일치시켰다(`seed.test.ts` 검증 추가).
+- `src/domain/nearby.ts`: 하버사인 거리(km) 순수 정렬 함수 `nearestStations`를 추가했다.
+- `src/infra/supabase/sun-source.ts` · `src/services/sunlight.ts`: `readMain`이 `notMeasured`를 돌려줄 때만 가까운 운영 지점 8곳을 `sun_daily`(`stn_id` 1열, 최근 14일)에서 한 번에 조회해 유효 자료가 있는 가까운 1~2곳을 고른다(`SunlightView.nearby`). 8곳 모두 비거나 읽기 실패 시 대표 실측 지점 중 가까운 2곳으로 대체한다. 측정 지점·종합 화면(`loadGrowth`)은 추가 읽기가 없다.
+- 시험: `nearby.test.ts` 신규 추가, `seed.test.ts`·`sunlight.test.ts`·`e2e/sunlight.spec.ts`에 거리순 추천·폴백·실측 재확인·측정 지점 미호출 시험 추가 (`e2e/sunlight.spec.ts` 진주 `192` 기존 `"춘천 햇빛 보기"` 클릭 시험을 거리순 `"광주 햇빛 보기"`로 갱신).
+
 ### 기능 (온도·햇빛 지역 비교에 지금 보는 지점 함께 표시 — 이슈 #79)
 
 - 온도·햇빛 상세 화면의 지역 비교 카드(`CompareCard`, `SunCompareCard`)에서 대표 10곳 밖 지점을 보고 있을 때, 맨 위에 지금 보는 지점 줄을 함께 띄우고 얇은 구분선으로 대표 10곳과 구분한다 (결정 0043).

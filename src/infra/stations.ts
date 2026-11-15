@@ -1,7 +1,7 @@
 /**
  * 지점 사전 (고정, 데이터 계약 v1.6).
  * DB `stations` 의 사전 자료(supabase/migrations/20261028030000_seed_stations_asos.sql)와
- * 번호·이름·시도·대표 여부·운영 여부·일사 관측 여부·순서가 같다.
+ * 번호·이름·시도·대표 여부·운영 여부·일사 관측 여부·위경도도 사전 SQL과 같다.
  * 주소창 읽기처럼 화면을 그리기 전에 바로 써야 해서 DB 를 묻지 않고 여기 둔다.
  * 같은지는 src/infra/supabase/seed.test.ts 가 검사한다. 지점을 바꾸면 사전 SQL 과 이 파일을 같은 PR 에서 고친다.
  */
@@ -16,6 +16,8 @@ export type StationEntry = {
   isActive: boolean;
   /** 일사(햇빛)를 재는 관측소인가 (미관측 32곳은 false, 일사 관측 지점은 true, 폐지·휴지 8곳은 null). */
   measuresSunlight: boolean | null;
+  lat: number;
+  lon: number;
 };
 
 export const STATIONS: readonly StationEntry[] = [
@@ -26,6 +28,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.90262,
+    lon: 127.7357,
   },
   {
     id: 216,
@@ -34,6 +38,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.17038,
+    lon: 128.98929,
   },
   {
     id: 119,
@@ -42,6 +48,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.25746,
+    lon: 126.983,
   },
   {
     id: 131,
@@ -50,6 +58,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.63924,
+    lon: 127.44066,
   },
   {
     id: 129,
@@ -58,6 +68,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.77658,
+    lon: 126.4939,
   },
   {
     id: 146,
@@ -66,6 +78,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.84092,
+    lon: 127.11718,
   },
   {
     id: 156,
@@ -74,6 +88,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.17294,
+    lon: 126.89156,
   },
   {
     id: 136,
@@ -82,6 +98,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.57293,
+    lon: 128.70733,
   },
   {
     id: 192,
@@ -90,6 +108,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.16378,
+    lon: 128.04004,
   },
   {
     id: 189,
@@ -98,6 +118,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: true,
     isActive: true,
     measuresSunlight: true,
+    lat: 33.24616,
+    lon: 126.5653,
   },
   {
     id: 105,
@@ -106,6 +128,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.75147,
+    lon: 128.89099,
   },
   {
     id: 259,
@@ -114,6 +138,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.64457,
+    lon: 126.78408,
   },
   {
     id: 201,
@@ -122,6 +148,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 37.70739,
+    lon: 126.44634,
   },
   {
     id: 294,
@@ -130,6 +158,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 34.88818,
+    lon: 128.60459,
   },
   {
     id: 284,
@@ -138,6 +168,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.66739,
+    lon: 127.9099,
   },
   {
     id: 283,
@@ -146,6 +178,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.81747,
+    lon: 129.20123,
   },
   {
     id: 185,
@@ -154,6 +188,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 33.29382,
+    lon: 126.16283,
   },
   {
     id: 172,
@@ -162,6 +198,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.34824,
+    lon: 126.599,
   },
   {
     id: 251,
@@ -170,6 +208,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.42346,
+    lon: 126.69231,
   },
   {
     id: 262,
@@ -178,6 +218,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.61826,
+    lon: 127.27572,
   },
   {
     id: 116,
@@ -186,6 +228,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 37.444233,
+    lon: 126.963921,
   },
   {
     id: 266,
@@ -194,6 +238,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.9434,
+    lon: 127.6914,
   },
   {
     id: 279,
@@ -202,6 +248,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.13055,
+    lon: 128.32055,
   },
   {
     id: 140,
@@ -210,6 +258,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.0053,
+    lon: 126.76135,
   },
   {
     id: 238,
@@ -218,6 +268,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.10563,
+    lon: 127.48175,
   },
   {
     id: 253,
@@ -226,6 +278,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.22981,
+    lon: 128.89075,
   },
   {
     id: 247,
@@ -234,6 +288,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.4213,
+    lon: 127.39652,
   },
   {
     id: 295,
@@ -242,6 +298,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 34.81662,
+    lon: 127.92641,
   },
   {
     id: 100,
@@ -250,6 +308,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.67713,
+    lon: 128.71834,
   },
   {
     id: 143,
@@ -258,6 +318,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.87797,
+    lon: 128.65296,
   },
   {
     id: 176,
@@ -266,6 +328,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 35.8782,
+    lon: 128.6522,
   },
   {
     id: 133,
@@ -274,6 +338,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.37199,
+    lon: 127.3721,
   },
   {
     id: 98,
@@ -282,6 +348,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.90188,
+    lon: 127.0607,
   },
   {
     id: 106,
@@ -290,6 +358,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.50709,
+    lon: 129.12433,
   },
   {
     id: 165,
@@ -298,6 +368,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.81732,
+    lon: 126.38151,
   },
   {
     id: 164,
@@ -306,6 +378,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 35.093845,
+    lon: 126.285118,
   },
   {
     id: 273,
@@ -314,6 +388,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.62727,
+    lon: 128.14879,
   },
   {
     id: 288,
@@ -322,6 +398,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.49147,
+    lon: 128.74412,
   },
   {
     id: 102,
@@ -330,6 +408,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.97396,
+    lon: 124.71237,
   },
   {
     id: 235,
@@ -338,6 +418,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.32724,
+    lon: 126.55744,
   },
   {
     id: 258,
@@ -346,6 +428,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.76335,
+    lon: 127.21226,
   },
   {
     id: 226,
@@ -354,6 +438,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.48761,
+    lon: 127.73415,
   },
   {
     id: 271,
@@ -362,6 +448,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.94361,
+    lon: 128.91449,
   },
   {
     id: 159,
@@ -370,6 +458,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.10468,
+    lon: 129.03203,
   },
   {
     id: 243,
@@ -378,6 +468,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.72961,
+    lon: 126.71657,
   },
   {
     id: 236,
@@ -386,6 +478,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.27242,
+    lon: 126.92079,
   },
   {
     id: 104,
@@ -394,6 +488,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.80456,
+    lon: 128.85535,
   },
   {
     id: 296,
@@ -402,6 +498,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.21778,
+    lon: 128.96024,
   },
   {
     id: 255,
@@ -410,6 +508,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.22655,
+    lon: 128.6726,
   },
   {
     id: 93,
@@ -418,6 +518,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.94738,
+    lon: 127.75443,
   },
   {
     id: 289,
@@ -426,6 +528,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.413,
+    lon: 127.8791,
   },
   {
     id: 214,
@@ -434,6 +538,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 37.36666667,
+    lon: 129.21666667,
   },
   {
     id: 137,
@@ -442,6 +548,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.40837,
+    lon: 128.15741,
   },
   {
     id: 108,
@@ -450,6 +558,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.57142,
+    lon: 126.9658,
   },
   {
     id: 181,
@@ -458,6 +568,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.63994,
+    lon: 127.38458,
   },
   {
     id: 187,
@@ -466,6 +578,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 33.386822,
+    lon: 126.880394,
   },
   {
     id: 188,
@@ -474,6 +588,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 33.38677,
+    lon: 126.8802,
   },
   {
     id: 265,
@@ -482,6 +598,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 33.386822,
+    lon: 126.880394,
   },
   {
     id: 239,
@@ -490,6 +608,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.48522,
+    lon: 127.24438,
   },
   {
     id: 90,
@@ -498,6 +618,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 38.25085,
+    lon: 128.56473,
   },
   {
     id: 254,
@@ -506,6 +628,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.37131,
+    lon: 127.1286,
   },
   {
     id: 174,
@@ -514,6 +638,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.0204,
+    lon: 127.3694,
   },
   {
     id: 257,
@@ -522,6 +648,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.30737,
+    lon: 129.02009,
   },
   {
     id: 202,
@@ -530,6 +658,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 37.48863,
+    lon: 127.49446,
   },
   {
     id: 168,
@@ -538,6 +668,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.73929,
+    lon: 127.74063,
   },
   {
     id: 252,
@@ -546,6 +678,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.28366,
+    lon: 126.47784,
   },
   {
     id: 277,
@@ -554,6 +688,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.53337,
+    lon: 129.40926,
   },
   {
     id: 121,
@@ -562,6 +698,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.18126,
+    lon: 128.45743,
   },
   {
     id: 272,
@@ -570,6 +708,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.87183,
+    lon: 128.51687,
   },
   {
     id: 281,
@@ -578,6 +718,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.97742,
+    lon: 128.9514,
   },
   {
     id: 170,
@@ -586,6 +728,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.3959,
+    lon: 126.70182,
   },
   {
     id: 115,
@@ -594,6 +738,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.48129,
+    lon: 130.89863,
   },
   {
     id: 152,
@@ -602,6 +748,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.58237,
+    lon: 129.33469,
   },
   {
     id: 130,
@@ -610,6 +758,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.99176,
+    lon: 129.41278,
   },
   {
     id: 114,
@@ -618,6 +768,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.33749,
+    lon: 127.94659,
   },
   {
     id: 263,
@@ -626,6 +778,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.32258,
+    lon: 128.28812,
   },
   {
     id: 278,
@@ -634,6 +788,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.3561,
+    lon: 128.68864,
   },
   {
     id: 203,
@@ -642,6 +798,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 37.26399,
+    lon: 127.48421,
   },
   {
     id: 211,
@@ -650,6 +808,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 38.05991,
+    lon: 128.16811,
   },
   {
     id: 112,
@@ -658,6 +818,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.47772,
+    lon: 126.6249,
   },
   {
     id: 244,
@@ -666,6 +828,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.61203,
+    lon: 127.28556,
   },
   {
     id: 248,
@@ -674,6 +838,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.65696,
+    lon: 127.52031,
   },
   {
     id: 260,
@@ -682,6 +848,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 34.68886,
+    lon: 126.91951,
   },
   {
     id: 217,
@@ -690,6 +858,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 37.38071,
+    lon: 128.67312,
   },
   {
     id: 245,
@@ -698,6 +868,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.56333,
+    lon: 126.83904,
   },
   {
     id: 184,
@@ -706,6 +878,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 33.51411,
+    lon: 126.52969,
   },
   {
     id: 221,
@@ -714,6 +888,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 37.15928,
+    lon: 128.19433,
   },
   {
     id: 256,
@@ -722,6 +898,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 35.075,
+    lon: 127.23911,
   },
   {
     id: 175,
@@ -730,6 +908,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: false,
     measuresSunlight: null,
+    lat: 34.47211,
+    lon: 126.3238,
   },
   {
     id: 268,
@@ -738,6 +918,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 34.47296,
+    lon: 126.25846,
   },
   {
     id: 155,
@@ -746,6 +928,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.17019,
+    lon: 128.57282,
   },
   {
     id: 232,
@@ -754,6 +938,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 36.76217,
+    lon: 127.29282,
   },
   {
     id: 95,
@@ -762,6 +948,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 38.14787,
+    lon: 127.3042,
   },
   {
     id: 276,
@@ -770,6 +958,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.4351,
+    lon: 129.04005,
   },
   {
     id: 135,
@@ -778,6 +968,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.22025,
+    lon: 127.99458,
   },
   {
     id: 127,
@@ -786,6 +978,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.97045,
+    lon: 127.9525,
   },
   {
     id: 162,
@@ -794,6 +988,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.84541,
+    lon: 128.43561,
   },
   {
     id: 99,
@@ -802,6 +998,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 37.88589,
+    lon: 126.76648,
   },
   {
     id: 138,
@@ -810,6 +1008,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.03201,
+    lon: 129.38002,
   },
   {
     id: 264,
@@ -818,6 +1018,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 35.51138,
+    lon: 127.74538,
   },
   {
     id: 285,
@@ -826,6 +1028,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 35.56505,
+    lon: 128.16994,
   },
   {
     id: 261,
@@ -834,6 +1038,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 34.55375,
+    lon: 126.56907,
   },
   {
     id: 177,
@@ -842,6 +1048,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 36.65759,
+    lon: 126.68772,
   },
   {
     id: 212,
@@ -850,6 +1058,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: false,
+    lat: 37.6836,
+    lon: 127.88043,
   },
   {
     id: 169,
@@ -858,6 +1068,8 @@ export const STATIONS: readonly StationEntry[] = [
     isRepresentative: false,
     isActive: true,
     measuresSunlight: true,
+    lat: 34.68719,
+    lon: 125.45105,
   },
 ];
 

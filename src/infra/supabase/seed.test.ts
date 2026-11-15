@@ -334,7 +334,7 @@ describe("사전 자료: 지점", () => {
     );
   });
 
-  it("v1.6: 마이그레이션 SQL ↔ stations.ts 105곳의 번호·이름·시도·대표·운영·일사 여부가 순서대로 일치한다", () => {
+  it("v1.6: 마이그레이션 SQL ↔ stations.ts 105곳의 번호·이름·시도·대표·운영·일사 여부·위경도가 순서대로 일치한다", () => {
     expect(STATIONS).toHaveLength(105);
     expect(effectiveAsosStations).toHaveLength(105);
     const sorted = [...effectiveAsosStations].sort(
@@ -348,6 +348,8 @@ describe("사전 자료: 지점", () => {
         r.is_representative,
         r.is_active,
         r.measures_sunlight,
+        r.lat,
+        r.lon,
       ]),
     ).toEqual(
       STATIONS.map((s) => [
@@ -357,6 +359,8 @@ describe("사전 자료: 지점", () => {
         s.isRepresentative,
         s.isActive,
         s.measuresSunlight,
+        (s as { lat?: number }).lat,
+        (s as { lon?: number }).lon,
       ]),
     );
   });

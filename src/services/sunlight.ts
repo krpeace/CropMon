@@ -1,4 +1,5 @@
 import type { Selection } from "@/domain/selection";
+import { nearestStations } from "@/domain/nearby";
 import {
   lastMonthNote,
   lowestMonth,
@@ -51,6 +52,12 @@ export type SunCompareRow = {
   dateTag: string | null;
 };
 
+export type NearbyStation = {
+  id: number;
+  name: string;
+  km: number;
+};
+
 export type SunlightView = {
   /** data: 자료 있음 · notMeasured: 그 지점 sun_daily 줄이 없음 (햇빛을 재지 않음) · error: 읽지 못함 */
   kind: "data" | "notMeasured" | "error";
@@ -71,6 +78,8 @@ export type SunlightView = {
   months: SunMonthBar[];
   /** "10월은 24일까지" */
   monthNote: string | null;
+  /** 일사를 재지 않는 지점일 때 대신 볼 가까운 실측 지점 최대 2곳 (#78). */
+  nearby: NearbyStation[];
   compare: SunCompareRow[];
   /** 지역 비교 기준일 안내 (전원 동일 과거일·혼재 시 후보 3). 전원 어제면 null. */
   compareNote: string | null;
@@ -82,6 +91,9 @@ export type SunlightView = {
 
 const NO_DATA = "자료 없음";
 const LOW_PCT = 95;
+const NEARBY_CANDIDATES = 8;
+const NEARBY_COUNT = 2;
+const NEARBY_LOOKBACK_DAYS = 14;
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
 type Deps = { createSource?: () => SunSource; now?: () => Date };
@@ -102,6 +114,7 @@ const EMPTY: Main = {
   days: [],
   months: [],
   monthNote: null,
+  nearby: [],
   problem: null,
   failed: false,
 };
@@ -139,7 +152,8 @@ async function readMain(
     ]);
     // 햇빛을 재지 않는 지점은 DB 에 줄이 없거나 올해 유효 값(rs_cum_mj)이 모두 비어 있다 (stations.ts 가 아니라 DB 기준)
     if (!rows.some((r) => r.rs_cum_mj != null)) {
-      return { ...EMPTY, kind: "notMeasured" };
+      const nearby = await findNearbyMeasured(db, station.id, today);
+      return { ...EMPTY, kind: "notMeasured", nearby };
     }
     return { ...mainView(rows, today), updatedAt };
   } catch (error) {
@@ -195,8 +209,60 @@ function mainView(rows: SunRow[], today: string): Omit<Main, "updatedAt"> {
       low: m.pct != null && m.pct < LOW_PCT,
     })),
     monthNote: last ? lastMonthNote(last.date) : null,
+    nearby: [],
     problem: null,
   };
+}
+
+function shiftIsoDays(isoDate: string, deltaDays: number): string {
+  return new Date(Date.parse(`${isoDate}T00:00:00Z`) + deltaDays * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
+ * 미관측 지점일 때 가까운 운영 지점 8곳 중 최근 일사 실자료가 있는 1~2곳을 고른다 (#78).
+ * 8곳 모두 자료가 없거나 읽기가 실패하면 대표 지점 중 일사 관측소에서 가까운 2곳으로 대신한다.
+ */
+async function findNearbyMeasured(
+  db: SunSource,
+  stationId: number,
+  today: string,
+): Promise<NearbyStation[]> {
+  const origin = STATIONS.find((s) => s.id === stationId);
+  if (!origin) return [];
+  const repFallback = () =>
+    nearestStations(
+      origin,
+      STATIONS.filter((s) => s.isRepresentative && s.measuresSunlight === true),
+      NEARBY_COUNT,
+    ).map(({ item, km }) => ({ id: item.id, name: item.name, km }));
+
+  const candidates = nearestStations(
+    origin,
+    STATIONS.filter((s) => s.isActive),
+    NEARBY_CANDIDATES,
+  );
+  if (candidates.length === 0) return repFallback();
+
+  try {
+    const from = shiftIsoDays(today, -NEARBY_LOOKBACK_DAYS);
+    const measuredIds = new Set(
+      await db.measured(
+        candidates.map((c) => String(c.item.id)),
+        from,
+        today,
+      ),
+    );
+    const picked = candidates
+      .filter((c) => measuredIds.has(String(c.item.id)))
+      .slice(0, NEARBY_COUNT)
+      .map(({ item, km }) => ({ id: item.id, name: item.name, km }));
+    return picked.length > 0 ? picked : repFallback();
+  } catch (error) {
+    console.error("[sunlight] 가까운 실측 지점 읽기 실패:", error);
+    return repFallback();
+  }
 }
 
 /** 대표 10개 지점 적산일사 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). 대표 밖 지점이면 맨 위에 붙인다 (#79). */
