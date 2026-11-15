@@ -11,6 +11,7 @@ import {
 import type { Selection } from "@/domain/selection";
 import {
   CROP_DB_ID,
+  extraCompareDateTag,
   koreanDate,
   observedBasis,
   summarizeObservedDates,
@@ -219,32 +220,50 @@ function stageCard(rows: HeatRow[], stage: number): StageCard {
   };
 }
 
-/** 대표 10개 지점 적산온도 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). */
+/** 대표 10개 지점 적산온도 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). 대표 밖 지점이면 맨 위에 붙인다 (#79). */
 export function buildHeatCompare(
   found: Record<number, HeatLatest>,
   selectedId: number,
   today: string,
 ): { compare: CompareRow[]; compareNote: string | null } {
   const reps = STATIONS.filter((s) => s.isRepresentative);
-  const { note, tags } = summarizeObservedDates(
-    reps.map((s) => found[s.id]?.date ?? null),
-    today,
-  );
-  return {
-    compare: reps.map((s, i) => {
-      const h = found[s.id];
-      const diff = h ? heatDiff(h.cum, h.normal) : null;
-      return {
-        id: s.id,
-        name: s.name,
-        selected: s.id === selectedId,
-        diff: diff?.value ?? null,
-        text: diff?.text ?? NO_DATA,
-        dateTag: diff ? (tags[i] ?? null) : null,
-      };
-    }),
-    compareNote: note,
+  const selectedNonRep = reps.some((s) => s.id === selectedId)
+    ? null
+    : (STATIONS.find((s) => s.id === selectedId) ?? null);
+  const repDates = reps.map((s) => {
+    const h = found[s.id];
+    return h && heatDiff(h.cum, h.normal) ? h.date : null;
+  });
+  const { note, tags } = summarizeObservedDates(repDates, today);
+  const toRow = (
+    s: (typeof STATIONS)[number],
+    tag: string | null,
+  ): CompareRow => {
+    const h = found[s.id];
+    const diff = h ? heatDiff(h.cum, h.normal) : null;
+    return {
+      id: s.id,
+      name: s.name,
+      selected: s.id === selectedId,
+      diff: diff?.value ?? null,
+      text: diff?.text ?? NO_DATA,
+      dateTag: diff ? tag : null,
+    };
   };
+  const compare = reps.map((s, i) => toRow(s, tags[i] ?? null));
+  if (selectedNonRep) {
+    compare.unshift(
+      toRow(
+        selectedNonRep,
+        extraCompareDateTag(
+          found[selectedNonRep.id]?.date ?? null,
+          repDates,
+          today,
+        ),
+      ),
+    );
+  }
+  return { compare, compareNote: note };
 }
 
 async function readCompare(
@@ -257,9 +276,25 @@ async function readCompare(
 > {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
-    const found = await readHeatLatest(db, cropId, today);
+    const isRep = STATIONS.some(
+      (s) => s.id === selectedId && s.isRepresentative,
+    );
+    const [found, extra] = await Promise.all([
+      readHeatLatest(db, cropId, today),
+      isRep
+        ? Promise.resolve<Record<number, HeatLatest>>({})
+        : readHeatLatest(db, cropId, today, "rep", [selectedId]).catch(
+            (error) => {
+              console.error(
+                "[temperature] 선택 지점 지역 비교 읽기 실패:",
+                error,
+              );
+              return {};
+            },
+          ),
+    ]);
     return {
-      ...buildHeatCompare(found, selectedId, today),
+      ...buildHeatCompare({ ...found, ...extra }, selectedId, today),
       compareProblem: null,
     };
   } catch (error) {

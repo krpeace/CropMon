@@ -100,6 +100,40 @@ describe("readHeatLatest", () => {
     // 97개 지점 중 onDate 2곳(101, 216) 제외 95개 missing
     expect(asked).toEqual(["onDate 2026-10-24", "recent 95"]);
   });
+
+  it("stationIds 를 생략하면 지금처럼 대표 10곳만 묻는다 (종합 화면 보호)", async () => {
+    const queried: string[][] = [];
+    const { src } = heatSource({
+      onDate: async (ids, _crop, date) => {
+        queried.push(ids);
+        return [heatRow("101", date, 20, 4165, 3973)];
+      },
+      recent: async (ids) => {
+        queried.push(ids);
+        return [];
+      },
+    });
+    await readHeatLatest(src, "apple", TODAY);
+    expect(queried[0]).toHaveLength(10);
+    expect(queried[1]).toHaveLength(9);
+  });
+
+  it("stationIds 를 넘기면 그 지점만 묻는다 (대표 밖 1곳 읽기)", async () => {
+    const queried: string[][] = [];
+    const { src } = heatSource({
+      onDate: async (ids, _crop, date) => {
+        queried.push(ids);
+        return [heatRow("108", date, 10, 4050, 3900)];
+      },
+      recent: async (ids) => {
+        queried.push(ids);
+        return [];
+      },
+    });
+    const m = await readHeatLatest(src, "apple", TODAY, "rep", [108]);
+    expect(queried).toEqual([["108"]]);
+    expect(m[108]).toEqual({ date: "2026-10-24", cum: 4050, normal: 3900 });
+  });
 });
 
 describe("readSunLatest", () => {
@@ -146,6 +180,37 @@ describe("readSunLatest", () => {
     const m = await readSunLatest(src, TODAY, "active");
     expect(m[101]).toEqual({ date: "2026-10-24", cum: 3218, normal: 3352 });
     expect(asked).toEqual(["onDate 97"]);
+  });
+
+  it("stationIds 를 생략하면 대표 10곳만 묻고, 넘기면 그 지점만 묻는다", async () => {
+    const askedDefault: string[][] = [];
+    await readSunLatest(
+      sunSource({
+        onDate: async (ids) => {
+          askedDefault.push(ids);
+          return [sunRow("101", 3218, 3352)];
+        },
+        recent: async () => [],
+      }),
+      TODAY,
+    );
+    expect(askedDefault[0]).toHaveLength(10);
+
+    const askedSingle: string[][] = [];
+    const m = await readSunLatest(
+      sunSource({
+        onDate: async (ids) => {
+          askedSingle.push(ids);
+          return [sunRow("108", 3400, 3300)];
+        },
+        recent: async () => [],
+      }),
+      TODAY,
+      "rep",
+      [108],
+    );
+    expect(askedSingle).toEqual([["108"]]);
+    expect(m[108]).toEqual({ date: "2026-10-24", cum: 3400, normal: 3300 });
   });
 });
 

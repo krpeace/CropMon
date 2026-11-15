@@ -258,14 +258,7 @@ export function summarizeObservedDates(
       tags: dates.map(() => null),
     };
   }
-  let refDate = present[0]!;
-  let refCount = -1;
-  for (const [d, count] of counts) {
-    if (count > refCount || (count === refCount && d > refDate)) {
-      refDate = d;
-      refCount = count;
-    }
-  }
+  const refDate = dominantDate(present);
   const refHead =
     refDate >= yesterday
       ? OBSERVED_DATE_COPY.yesterdayValue
@@ -274,6 +267,38 @@ export function summarizeObservedDates(
     note: `${refHead} ${OBSERVED_DATE_COPY.mixedSuffix}`,
     tags: dates.map((d) => (d && d !== refDate ? shortDate(d) : null)),
   };
+}
+
+function dominantDate(present: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const d of present) {
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  let refDate = present[0]!;
+  let refCount = -1;
+  for (const [d, count] of counts) {
+    if (count > refCount || (count === refCount && d > refDate)) {
+      refDate = d;
+      refCount = count;
+    }
+  }
+  return refDate;
+}
+
+/**
+ * 대표 밖 지점 줄의 기준일 꼬리표(#79): 대표 10곳 기준일과 다를 때만 `M/D`를 붙인다.
+ * 상단 안내문(`compareNote`)은 대표 10곳만으로 계산해 어긋나지 않게 둔다.
+ */
+export function extraCompareDateTag(
+  date: string | null | undefined,
+  repDates: readonly (string | null | undefined)[],
+  today: string,
+): string | null {
+  if (!date) return null;
+  const present = repDates.filter((d): d is string => Boolean(d));
+  const refDate =
+    present.length > 0 ? dominantDate(present) : addDays(today, -1);
+  return date !== refDate ? shortDate(date) : null;
 }
 
 /** 요약의 관수 필요 예상일(몇 번째 날, 0 = 지금) → 오늘부터 며칠 뒤. 없으면 null. */

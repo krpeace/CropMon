@@ -142,3 +142,21 @@ test("온도: 지역 비교 기준일 다름(후보 3) — 상단 안내와 예�
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("온도: 대표 밖 지점(서울 108) — 지역 비교 맨 위에 선택 지점 + 대표 10곳(11줄)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/temperature?st=108&crop=apple");
+
+  const links = compare(page).getByRole("link");
+  await expect(links).toHaveCount(11);
+  await expect(links.first()).toContainText("서울");
+  await expect(links.first()).toHaveAttribute("aria-current", "true");
+  await expect(links.nth(1)).toContainText("춘천");
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

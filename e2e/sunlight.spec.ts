@@ -148,3 +148,38 @@ test("햇빛: 지역 비교 기준일 다름(후보 3) — 상단 안내와 예�
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("햇빛: 대표 밖 지점(서울 108) — 지역 비교 맨 위에 선택 지점 + 대표 10곳(11줄)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sunlight?st=108&crop=apple");
+
+  const links = compare(page).getByRole("link");
+  await expect(links).toHaveCount(11);
+  await expect(links.first()).toContainText("서울");
+  await expect(links.first()).toHaveAttribute("aria-current", "true");
+  await expect(links.nth(1)).toContainText("춘천");
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("햇빛: 미관측 대표 밖 지점(진도군 268) — 안내 카드가 어색함 없이 보이고 가로로 넘치지 않는다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sunlight?st=268&crop=apple");
+
+  await expect(
+    page.getByText("진도군 관측소는 햇빛을 재지 않아요"),
+  ).toBeVisible();
+  await expect(compare(page)).toHaveCount(0);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

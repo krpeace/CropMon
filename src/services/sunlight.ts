@@ -7,6 +7,7 @@ import {
   sunSummary,
 } from "@/domain/sun";
 import {
+  extraCompareDateTag,
   koreanDate,
   observedBasis,
   summarizeObservedDates,
@@ -198,35 +199,52 @@ function mainView(rows: SunRow[], today: string): Omit<Main, "updatedAt"> {
   };
 }
 
-/** 대표 10개 지점 적산일사 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). */
+/** 대표 10개 지점 적산일사 지역 비교 + 후보 3 기준일 안내를 만든다 (`detail-cache` 폴백 공용). 대표 밖 지점이면 맨 위에 붙인다 (#79). */
 export function buildSunCompare(
   found: Record<number, SunLatest>,
   selectedId: number,
   today: string,
 ): { compare: SunCompareRow[]; compareNote: string | null } {
   const reps = STATIONS.filter((s) => s.isRepresentative);
-  const pcts = reps.map((s) => {
-    const r = found[s.id];
+  const selectedNonRep = reps.some((s) => s.id === selectedId)
+    ? null
+    : (STATIONS.find((s) => s.id === selectedId) ?? null);
+  const pctOf = (id: number) => {
+    const r = found[id];
     return sunPercent(r?.cum ?? null, r?.normal ?? null);
-  });
-  const { note, tags } = summarizeObservedDates(
-    reps.map((s, i) => (pcts[i] != null ? (found[s.id]?.date ?? null) : null)),
-    today,
-  );
-  return {
-    compare: reps.map((s, i) => {
-      const pct = pcts[i] ?? null;
-      return {
-        id: s.id,
-        name: s.name,
-        selected: s.id === selectedId,
-        pct,
-        text: pct == null ? NO_DATA : `${pct}%`,
-        dateTag: pct != null ? (tags[i] ?? null) : null,
-      };
-    }),
-    compareNote: note,
   };
+  const repDates = reps.map((s) =>
+    pctOf(s.id) != null ? (found[s.id]?.date ?? null) : null,
+  );
+  const { note, tags } = summarizeObservedDates(repDates, today);
+  const toRow = (
+    s: (typeof STATIONS)[number],
+    tag: string | null,
+  ): SunCompareRow => {
+    const pct = pctOf(s.id);
+    return {
+      id: s.id,
+      name: s.name,
+      selected: s.id === selectedId,
+      pct,
+      text: pct == null ? NO_DATA : `${pct}%`,
+      dateTag: pct != null ? tag : null,
+    };
+  };
+  const compare = reps.map((s, i) => toRow(s, tags[i] ?? null));
+  if (selectedNonRep) {
+    compare.unshift(
+      toRow(
+        selectedNonRep,
+        extraCompareDateTag(
+          found[selectedNonRep.id]?.date ?? null,
+          repDates,
+          today,
+        ),
+      ),
+    );
+  }
+  return { compare, compareNote: note };
 }
 
 async function readCompare(
@@ -236,9 +254,20 @@ async function readCompare(
 ): Promise<Pick<SunlightView, "compare" | "compareNote" | "compareProblem">> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
-    const found = await readSunLatest(db, today);
+    const isRep = STATIONS.some(
+      (s) => s.id === selectedId && s.isRepresentative,
+    );
+    const [found, extra] = await Promise.all([
+      readSunLatest(db, today),
+      isRep
+        ? Promise.resolve<Record<number, SunLatest>>({})
+        : readSunLatest(db, today, "rep", [selectedId]).catch((error) => {
+            console.error("[sunlight] 선택 지점 지역 비교 읽기 실패:", error);
+            return {};
+          }),
+    ]);
     return {
-      ...buildSunCompare(found, selectedId, today),
+      ...buildSunCompare({ ...found, ...extra }, selectedId, today),
       compareProblem: null,
     };
   } catch (error) {

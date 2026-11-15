@@ -7,6 +7,7 @@ import * as sunlightService from "@/services/sunlight";
 import * as temperatureService from "@/services/temperature";
 import * as waterService from "@/services/water";
 
+import * as boardModule from "./board";
 import {
   fetchSunlight,
   fetchTemperature,
@@ -259,6 +260,37 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       expect(result.compare.find((c) => c.id === 101)?.dateTag).toBeNull();
       expect(result.compare.find((c) => c.id === 119)?.dateTag).toBe("11/6");
     });
+
+    it("loadTemperature: 대표 밖 지점(108) 폴백 시 캐시 맵에서 꺼내 맨 위에 함께 표시한다 (#79)", async () => {
+      vi.spyOn(temperatureService, "getTemperatureView").mockResolvedValueOnce({
+        problem: "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
+      } as unknown as temperatureService.TemperatureView);
+      vi.mocked(boardModule.fetchHomeHeat).mockResolvedValueOnce({
+        101: { date: "2026-11-08", cum: 3000, normal: 2900 },
+        108: { date: "2026-11-08", cum: 3150, normal: 3000 },
+      });
+
+      const seoul: Station = {
+        id: 108,
+        name: "서울",
+        sido: "서울",
+        isRepresentative: false,
+        measuresSunlight: true,
+      };
+      const result = await loadTemperature(
+        { stationId: 108, crop: "apple" },
+        seoul,
+        "2026-11-09",
+      );
+      expect(result.compare).toHaveLength(11);
+      expect(result.compare[0]).toMatchObject({
+        id: 108,
+        name: "서울",
+        selected: true,
+        diff: 150,
+      });
+    });
   });
 
   describe("Sunlight 화면 (fetchSunlight & loadSunlight)", () => {
@@ -351,6 +383,38 @@ describe("상세 화면 캐시 안전성 및 실패 캐시 방지 (#81)", () => 
       );
       expect(result.compare.find((c) => c.id === 101)?.dateTag).toBeNull();
       expect(result.compare.find((c) => c.id === 119)?.dateTag).toBe("11/6");
+    });
+
+    it("loadSunlight: 대표 밖 지점(108) 폴백 시 캐시 맵에서 꺼내 맨 위에 함께 표시한다 (#79)", async () => {
+      vi.spyOn(sunlightService, "getSunlightView").mockResolvedValueOnce({
+        kind: "error",
+        problem: "햇빛 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
+        failed: true,
+      } as unknown as sunlightService.SunlightView);
+      vi.mocked(boardModule.fetchHomeSun).mockResolvedValueOnce({
+        101: { date: "2026-11-08", cum: 4500, normal: 4400 },
+        108: { date: "2026-11-08", cum: 4200, normal: 4000 },
+      });
+
+      const seoul: Station = {
+        id: 108,
+        name: "서울",
+        sido: "서울",
+        isRepresentative: false,
+        measuresSunlight: true,
+      };
+      const result = await loadSunlight(
+        { stationId: 108, crop: "apple" },
+        seoul,
+        "2026-11-09",
+      );
+      expect(result.compare).toHaveLength(11);
+      expect(result.compare[0]).toMatchObject({
+        id: 108,
+        name: "서울",
+        selected: true,
+        pct: 105,
+      });
     });
   });
 
