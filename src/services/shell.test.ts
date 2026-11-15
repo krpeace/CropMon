@@ -54,6 +54,33 @@ describe("listStationChips", () => {
   });
 });
 
+describe("listStationChips — 대표 밖 판정이 섞여도 (#138)", () => {
+  it("statuses 에 대표 밖 지점(105·108)이 들어 있어도 칩은 대표 10곳 그대로다", () => {
+    const statuses = {
+      apple: { 101: "caution" as const, 105: "need" as const },
+      cabbage: { 108: "dormant" as const },
+    };
+    const chips = listStationChips("apple", statuses);
+    expect(chips.map((c) => c.id)).toEqual(STATION_IDS);
+    expect(chips.find((c) => c.id === 101)?.status).toBe("caution");
+    expect(listStationChips("cabbage", statuses)).toHaveLength(10);
+  });
+
+  it("지역 목록은 대표 밖 지점의 사과·배추 판정을 배지로 붙인다", () => {
+    const statuses = {
+      apple: { 105: "need" as const },
+      cabbage: { 108: "dormant" as const },
+    };
+    const item = (crop: "apple" | "cabbage", id: number) =>
+      listRegionPicker(crop, statuses, "")
+        .sections.flatMap((s) => s.items)
+        .find((x) => x.id === id);
+    expect(item("apple", 105)?.status).toBe("need");
+    expect(item("cabbage", 108)?.status).toBe("dormant");
+    expect(item("apple", 108)?.status).toBeNull();
+  });
+});
+
 describe("getStation", () => {
   it("없는 지점 번호나 폐지 지점(isActive=false)은 null 이다", () => {
     expect(getStation(999)).toBeNull();

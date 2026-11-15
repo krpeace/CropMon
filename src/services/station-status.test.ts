@@ -4,7 +4,8 @@ import { SOIL_CODES } from "@/domain/selection";
 import { STATIONS } from "@/infra/stations";
 import type { StatusSource } from "@/infra/supabase/status-source";
 
-import { getStationBoard, statusesOf } from "./station-status";
+import { listRegionPicker } from "./shell";
+import { emptyBoard, getStationBoard, statusesOf } from "./station-status";
 
 /** 가짜 DB. 값은 지어낸 것이다. */
 const S101 = "101-apple-main-k3-loam-2026";
@@ -683,5 +684,196 @@ describe("토양수분 최신 뷰 (이슈 #82)", () => {
       expect(board.water.apple[101]?.forecast).toBeNull();
       expect(board.water.apple[101]?.observedDate).toBe("2026-10-24");
     });
+  });
+});
+
+describe("대표 밖 지점의 사과·배추 판정 (#138)", () => {
+  const rep = STATIONS.filter((s) => s.isRepresentative);
+  const active = STATIONS.filter((s) => s.isActive);
+  const repIds = rep.map((s) => s.id);
+  // 강릉 105·서울 108: 운영 중이지만 대표 10곳 밖. 진도(첨찰산) 175: 폐지라 운영 97곳 밖.
+  const byId = (id: number) => STATIONS.find((s) => s.id === id)!;
+  const A105 = "105-apple-main-k3-loam-2026";
+  const C105 = "105-kimchi_cabbage-summer-k1-loam-2026";
+  const A108 = "108-apple-main-k3-loam-2026";
+  const C108 = "108-kimchi_cabbage-summer-k1-loam-2026";
+  const A175 = "175-apple-main-k3-loam-2026";
+  const scen = (id: string, stn: string, crop: string) => ({
+    scenario_id: id,
+    stn_id: stn,
+    crop_id: crop,
+    ...season,
+  });
+  const NON_REP_SCEN = [
+    ...SCEN,
+    scen(A105, "105", "apple"),
+    scen(C105, "105", "kimchi_cabbage"),
+    scen(A108, "108", "apple"),
+    scen(C108, "108", "kimchi_cabbage"),
+    scen(A175, "175", "apple"),
+  ];
+  const bal = (
+    scenario_id: string,
+    date: string,
+    status: string,
+    dr: number,
+  ) => ({
+    scenario_id,
+    date,
+    status,
+    dr_mm: dr,
+    filled: false,
+  });
+  const NON_REP_BAL = [
+    bal(A105, "2026-10-24", "caution", 40),
+    bal(A105, "2026-10-23", "need", 70),
+    bal(C105, "2026-10-24", "normal", 10),
+    bal(A108, "2026-10-24", "need", 66),
+    bal(C108, "2026-10-24", "dormant", 0),
+    bal(A175, "2026-10-24", "normal", 5),
+    bal(S101, "2026-10-24", "caution", 50.7),
+  ];
+  const source = () =>
+    fake({
+      defaultScenarios: async () => NON_REP_SCEN,
+      recentBalance: async () => NON_REP_BAL,
+      summaries: async () => [],
+      outlookDays: async () => [],
+      recentRuns: async () => [],
+    });
+
+  it("전제: 105·108 은 운영 중인 대표 밖 지점, 175 는 운영 97곳 밖이다", () => {
+    for (const id of [105, 108]) {
+      expect(byId(id)).toMatchObject({
+        isRepresentative: false,
+        isActive: true,
+      });
+    }
+    expect(byId(175).isActive).toBe(false);
+    expect(active).toHaveLength(97);
+    expect(rep).toHaveLength(10);
+  });
+
+  it("active: 대표 밖 사과·배추 칸이 운영 97곳으로 만들어지고 상태가 채워진다", async () => {
+    const board = await getStationBoard({
+      stationScope: "active",
+      createSource: source,
+      now: NOW,
+    });
+    expect(Object.keys(board.water.apple)).toHaveLength(97);
+    expect(Object.keys(board.water.cabbage)).toHaveLength(97);
+    // 강릉 105 사과: 회차가 없으니 가장 최근 관측일(10/24) 판정, 예보 없음
+    expect(board.water.apple[105]).toMatchObject({
+      status: "caution",
+      drMm: 40,
+      observedDate: "2026-10-24",
+      forecast: null,
+    });
+    expect(board.water.cabbage[105]).toMatchObject({ status: "normal" });
+    expect(board.water.apple[108]).toMatchObject({ status: "need" });
+    expect(board.water.cabbage[108]).toMatchObject({ status: "dormant" });
+  });
+
+  it("active: 대표 10곳의 사과 판정은 그대로다 (대표 밖을 넣어도 달라지지 않는다)", async () => {
+    const board = await getStationBoard({
+      stationScope: "active",
+      createSource: source,
+      now: NOW,
+    });
+    expect(board.water.apple[101]).toMatchObject({ status: "caution" });
+  });
+
+  it("active: 시나리오나 판정 줄이 없는 대표 밖 지점은 기존처럼 null(자료 없음)이다", async () => {
+    const board = await getStationBoard({
+      stationScope: "active",
+      createSource: source,
+      now: NOW,
+    });
+    // 홍천 212: 운영 중이지만 위 가짜 DB 에 시나리오가 없다
+    expect(byId(212).isActive).toBe(true);
+    expect(212 in board.water.apple).toBe(true);
+    expect(board.water.apple[212]).toBeNull();
+    expect(board.water.cabbage[212]).toBeNull();
+    expect(statusesOf(board).apple[212]).toBeNull();
+  });
+
+  it("운영 97곳 밖 지점(175)은 줄이 있어도 칸이 없고 '자료 없음'(null)이다", async () => {
+    const board = await getStationBoard({
+      stationScope: "active",
+      createSource: source,
+      now: NOW,
+    });
+    expect(175 in board.water.apple).toBe(false);
+    const statuses = statusesOf(board);
+    expect(175 in statuses.apple).toBe(false);
+    expect(statuses.apple[175] ?? null).toBeNull();
+    // 지역 목록(운영 97곳)에도 없다
+    const ids = listRegionPicker("apple", statuses, "").sections.flatMap((s) =>
+      s.items.map((x) => x.id),
+    );
+    expect(ids).not.toContain(175);
+  });
+
+  it("범위가 rep 인 호출은 사과·배추 칸이 대표 10곳 그대로다 (전국 표 설계 보호)", async () => {
+    for (const opts of [{}, { stationScope: "rep" as const }]) {
+      const board = await getStationBoard({
+        ...opts,
+        createSource: source,
+        now: NOW,
+      });
+      expect(Object.keys(board.water.apple).map(Number).sort()).toEqual(
+        [...repIds].sort(),
+      );
+      expect(Object.keys(board.water.cabbage).map(Number).sort()).toEqual(
+        [...repIds].sort(),
+      );
+      // 가짜 DB 에 강릉·서울 줄이 있어도 대표 보드에는 들어오지 않는다
+      expect(105 in board.water.apple).toBe(false);
+      expect(108 in board.water.cabbage).toBe(false);
+      const statuses = statusesOf(board);
+      expect(Object.keys(statuses.apple)).toHaveLength(10);
+      expect(Object.keys(statuses.cabbage)).toHaveLength(10);
+      expect(statuses.apple[101]).toBe("caution");
+    }
+  });
+
+  it("emptyBoard: 기본은 대표 10곳, 운영 97곳을 넘기면 사과·배추도 97곳 (읽기 실패 폴백 포함)", () => {
+    const base = emptyBoard(true);
+    expect(Object.keys(base.water.apple)).toHaveLength(10);
+    expect(Object.keys(base.water.cabbage)).toHaveLength(10);
+    const wide = emptyBoard(false, active, active);
+    expect(wide.ok).toBe(false);
+    expect(Object.keys(wide.water.apple)).toHaveLength(97);
+    expect(Object.keys(wide.water.cabbage)).toHaveLength(97);
+    expect(wide.water.apple[105]).toBeNull();
+    expect(Object.keys(wide.soil.loam)).toHaveLength(97);
+    // 칸 범위를 따로 줄 수도 있다
+    const only = emptyBoard(true, rep, rep, active);
+    expect(Object.keys(only.water.apple)).toHaveLength(97);
+    expect(Object.keys(only.soil.loam)).toHaveLength(10);
+  });
+
+  it("선택 줄이 읽는 값(statuses[작물][지점])과 지역 목록 배지·보드 값이 같다", async () => {
+    const board = await getStationBoard({
+      stationScope: "active",
+      createSource: source,
+      now: NOW,
+    });
+    const statuses = statusesOf(board);
+    const listed = (crop: "apple" | "cabbage", id: number) =>
+      listRegionPicker(crop, statuses, "")
+        .sections.flatMap((s) => s.items)
+        .find((x) => x.id === id)?.status;
+    for (const [crop, id] of [
+      ["apple", 105],
+      ["cabbage", 105],
+      ["apple", 108],
+      ["cabbage", 108],
+    ] as const) {
+      const fromBoard = board.water[crop][id]?.status;
+      expect(fromBoard).toBeDefined();
+      expect(statuses[crop][id]).toBe(fromBoard);
+      expect(listed(crop, id)).toBe(fromBoard);
+    }
   });
 });

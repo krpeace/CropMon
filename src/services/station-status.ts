@@ -98,10 +98,16 @@ function code(v: string | undefined): WaterStatus | null {
     : null;
 }
 
+/**
+ * 빈 판정 표. 토양·갱신 시각·사과·배추 칸을 모두 같은 지점 범위로 만든다 (#138).
+ * 기본(대표 10곳)은 그대로이고, 운영 97곳을 넘기면 대표 밖 지점의 사과·배추 칸도 생긴다.
+ * 칸이 없는 지점(운영 97곳 밖)은 채우지 않으므로 화면에서 "자료 없음"이다.
+ */
 export function emptyBoard(
   ok: boolean,
   soilStations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
   updatedStations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
+  waterStations: readonly (typeof STATIONS)[number][] = soilStations,
 ): StationBoard {
   const blank = <T>(
     stations: readonly (typeof STATIONS)[number][] = REP_STATIONS,
@@ -116,8 +122,8 @@ export function emptyBoard(
   return {
     ok,
     water: {
-      apple: blank<StationWater>(REP_STATIONS),
-      cabbage: blank<StationWater>(REP_STATIONS),
+      apple: blank<StationWater>(waterStations),
+      cabbage: blank<StationWater>(waterStations),
     },
     soil,
     updated: blank<NonNullable<StationUpdated>>(updatedStations),
@@ -259,11 +265,18 @@ export async function getStationBoard({
   }
 }
 
-/** 헤더 지역 칩 점 색: 상태만. */
+/**
+ * 헤더 지역 칩 점 색·선택 줄·지역 목록 배지: 상태만.
+ * 지점 범위는 보드가 가진 칸을 그대로 따른다 (토양과 같은 방식, #138).
+ * 대표 10곳 보드면 10곳, 운영 97곳 보드면 대표 밖 사과·배추도 담긴다.
+ */
 export function statusesOf(board: StationBoard): StationStatuses {
   const pick = (crop: "apple" | "cabbage") =>
     Object.fromEntries(
-      REP_STATIONS.map((s) => [s.id, board.water[crop][s.id]?.status ?? null]),
+      Object.entries(board.water[crop]).map(([id, val]) => [
+        Number(id),
+        val?.status ?? null,
+      ]),
     ) as Record<number, WaterStatus | null>;
   const soil = Object.fromEntries(
     SOIL_CODES.map((c) => [
