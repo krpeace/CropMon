@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { valueUnit } from "@/domain/display";
 import type { Selection } from "@/domain/selection";
 import type {
   CommonNowCard as CommonNow,
@@ -44,8 +45,9 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
       {now.active && now.drMm != null && now.gauge && (
         <>
           <div className="text-19 text-ink-2/92">
-            부족한 물 <b className="text-ink">{Math.round(now.drMm)} mm</b> /
-            관수 시작점 {Math.round(now.rawMm)} mm
+            부족한 물{" "}
+            <b className="text-ink">{valueUnit(Math.round(now.drMm), "mm")}</b>{" "}
+            / 관수 시작점 {valueUnit(Math.round(now.rawMm), "mm")}
           </div>
           <div className="flex flex-col gap-1.5 pt-1">
             <div

@@ -1,3 +1,4 @@
+import { monthDay } from "./datetime";
 import type { Crop } from "./selection";
 import type { SoilWaterStatus } from "./soil-water";
 import type { WaterStatus } from "./water-status";
@@ -31,11 +32,6 @@ type VerdictInput = {
   /** 단기예보가 있는가. 없으면(관측만) 앞날을 말하지 않는다. 기본 true. */
   forecast?: boolean;
 };
-
-function monthDay(iso: string) {
-  const [, m, d] = iso.split("-").map(Number);
-  return `${m}월 ${d}일`;
-}
 
 function dormant(i: VerdictInput): Verdict {
   const start = (i.date > i.seasonEnd ? "내년 " : "") + monthDay(i.seasonStart);

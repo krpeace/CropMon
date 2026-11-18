@@ -79,9 +79,3 @@ export function pickStages(
   const i = Math.min(Math.max(passed, 0), s.length - 2);
   return [s[i], s[i + 1]];
 }
-
-/** "2026-04-23" → "4월 23일" */
-export function monthDay(iso: string): string {
-  const [, m, d] = iso.split("-").map(Number);
-  return `${m}월 ${d}일`;
-}

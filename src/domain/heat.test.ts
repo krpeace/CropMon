@@ -4,7 +4,6 @@ import {
   gddNumbers,
   heatDiff,
   heatVerdict,
-  monthDay,
   pickStages,
   reachDate,
   stageLag,
@@ -135,11 +134,5 @@ describe("pickStages", () => {
     expect(pickStages([1500, 500, 1000], 700)).toEqual([500, 1000]);
     expect(pickStages([], 700)).toEqual([]);
     expect(pickStages([500], 700)).toEqual([500]);
-  });
-});
-
-describe("monthDay", () => {
-  it("'4월 23일'", () => {
-    expect(monthDay("2026-04-23")).toBe("4월 23일");
   });
 });
