@@ -169,9 +169,8 @@ test.describe("휴대폰", () => {
     await expect(rows).toHaveText(
       DEFAULT_LABELS.map((l) => new RegExp(`^${l}`)),
     );
-    await expect(
-      page.getByRole("main").getByText("준비 중", { exact: true }),
-    ).toHaveCount(6);
+    // 서비스 메뉴 줄(링크) 안의 꼬리표만 센다 — 아래 공지·문의·화면 구성 줄의 꼬리표는 more-bottom.spec.ts 가 본다 (#161)
+    await expect(rows.getByText("준비 중", { exact: true })).toHaveCount(6);
     // 켜진 메뉴 4개에는 꼬리표가 없다
     await expect(rows.nth(1)).not.toContainText("준비 중");
     // 끈 메뉴가 없으면 "숨긴 메뉴" 줄도 없다

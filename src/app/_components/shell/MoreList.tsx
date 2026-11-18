@@ -7,16 +7,22 @@ import { withSelection, type Selection } from "@/domain/selection";
 import { Badge } from "../ui/Badge";
 import { Icon } from "../ui/Icon";
 import { useMenus } from "./menu-store";
-import { MENU_ICON } from "./pages";
+import { ICON_PATH, MENU_ICON } from "./pages";
 import { useThemeToggle } from "./ThemeToggle";
 
 const ROW =
   "text-17 border-ink-2/14 flex fh-54 items-center gap-3 border-t-(length:--hairline) font-semibold first:border-t-0";
 
+const GROUP = "rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5";
+
 /**
- * 더보기 화면의 서비스 메뉴 (시안 v0.4.6 더보기 1단계). 맨 위 종합, 그 아래 켠 메뉴(준비 중은 꼬리표),
- * 끈 메뉴가 있으면 맨 아래에 "숨긴 메뉴 n개" 한 줄. 화면 구성 화면이 생기기 전이라 그 줄은 이동하지 않는다.
- * 공지·문의·FAQ·약관과 화면 구성·글씨 크기·다크 모드는 이번 범위 밖 (#145).
+ * 더보기 화면 (시안 v0.4.6 12절 "더보기", 이슈 #145 · #161). 위에서 아래로:
+ * ① 서비스 메뉴 — 맨 위 종합, 켠 메뉴(준비 중은 꼬리표, 설정값 순서)
+ * ② 구분선
+ * ③ 공지 · 문의 · FAQ · 약관 — 아직 화면이 없어 "준비 중" (약관은 L1 에서 /terms 링크로)
+ * ④ (비회원) 화면 구성 · 글씨 크기("준비 중", S5 · S7) · 다크 모드(스위치 — 휴대폰 맥락 바에는 해/달 버튼이 없다)
+ * ⑤ 끈 메뉴가 있으면 맨 아래 "숨긴 메뉴 n개" 한 줄
+ * 준비 중 줄은 버튼처럼 보이되 aria-disabled 이고 눌러도 이동하지 않는다.
  */
 export function MoreList({ selection }: { selection: Selection | null }) {
   const { more, hiddenCount } = useMenus();
@@ -26,10 +32,7 @@ export function MoreList({ selection }: { selection: Selection | null }) {
   return (
     <div className="flex flex-col gap-3">
       {groups.map((rows) => (
-        <ul
-          key={rows[0].id}
-          className="rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5"
-        >
+        <ul key={rows[0].id} className={GROUP}>
           {rows.map((menu) => (
             <li key={menu.id} className="contents">
               <Link href={withSelection(menu.href, selection)} className={ROW}>
@@ -52,6 +55,21 @@ export function MoreList({ selection }: { selection: Selection | null }) {
         </ul>
       ))}
 
+      <hr className="border-ink-2/14 mx-1 my-0.5 border-0 border-t-(length:--hairline)" />
+
+      <ul className={GROUP}>
+        <SoonRow icon="notice" label="공지" />
+        <SoonRow icon="inquiry" label="문의" />
+        <SoonRow icon="faq" label="FAQ" />
+        <SoonRow icon="doc" label="약관" />
+      </ul>
+
+      <ul className={GROUP}>
+        <SoonRow icon="layout" label="화면 구성" />
+        <SoonRow icon="text" label="글씨 크기" />
+        <ThemeRow />
+      </ul>
+
       {hiddenCount > 0 && (
         <button
           type="button"
@@ -65,20 +83,41 @@ export function MoreList({ selection }: { selection: Selection | null }) {
           </span>
         </button>
       )}
-
-      <ThemeRow />
     </div>
   );
 }
 
+/** 아직 화면이 없는 줄: 버튼처럼 보이되 aria-disabled, 회색 "준비 중" 꼬리표, 눌러도 이동 없음. */
+function SoonRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof ICON_PATH;
+  label: string;
+}) {
+  return (
+    <li className="contents">
+      <button
+        type="button"
+        aria-disabled="true"
+        className={`${ROW} w-full cursor-default text-left`}
+      >
+        <Icon name={icon} size={24} className="text-brand-ink flex-none" />
+        <span className="flex-1">{label}</span>
+        <Badge>준비 중</Badge>
+      </button>
+    </li>
+  );
+}
+
 /**
- * 맨 아래 "다크 모드" 한 줄. 휴대폰 맥락 바에는 해/달 버튼이 없어서(비회원은 더보기 맨 아래) 여기서 바꾼다.
- * 동작은 데스크톱 해/달 버튼과 같다(useThemeToggle). 모양 정리는 S4.
+ * "다크 모드" 스위치 줄. 휴대폰 맥락 바에는 해/달 버튼이 없어서(비회원은 더보기 맨 아래) 여기서 바꾼다.
+ * 동작은 데스크톱 해/달 버튼과 같다(useThemeToggle). 버튼 이름("다크 모드로 보기" / "라이트 모드로 보기")은 기존 시험이 쓴다.
  */
 function ThemeRow() {
   const { dark, label, toggle } = useThemeToggle();
   return (
-    <div className="rounded-card bg-card px-4 py-0.5">
+    <li className="contents">
       <button
         type="button"
         aria-label={label}
@@ -104,6 +143,6 @@ function ThemeRow() {
           />
         </span>
       </button>
-    </div>
+    </li>
   );
 }

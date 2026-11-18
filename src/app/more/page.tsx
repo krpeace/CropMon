@@ -26,7 +26,11 @@ async function ResolvedMore({
   return <MoreScreen selection={selection} />;
 }
 
-/** 더보기: 제목 + 서비스 메뉴 목록. 지역·작물 줄과 자료 상자는 없다. */
+/**
+ * 더보기: 제목 + 서비스 메뉴 목록. 지역·작물 줄과 자료 상자는 없다.
+ * 휴대폰(폭 1024 미만)에서는 위 맥락 바에 "더보기"가 있으므로 큰 제목은 시각적으로만 숨기고
+ * (`sr-only`) h1 은 화면 읽기용으로 남긴다 (이슈 #161). 데스크톱은 그대로.
+ */
 function MoreScreen({
   selection,
 }: {
@@ -34,7 +38,7 @@ function MoreScreen({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-title leading-title tracking-title m-0 pt-1.5 font-bold">
+      <h1 className="text-title leading-title tracking-title max-desktop:sr-only m-0 pt-1.5 font-bold">
         더보기
       </h1>
       <MoreList selection={selection} />

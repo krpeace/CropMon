@@ -18,6 +18,12 @@ export const ICON_PATH = {
   diary:
     "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7zM7 3v18M4.5 7.5H7M4.5 12H7M4.5 16.5H7M11 8h4M11 12h4",
   more: "M4 7h16M4 12h16M4 17h16",
+  notice: "M4 10v4h3l6 4V6l-6 4zM16.5 9.5a3.5 3.5 0 0 1 0 5",
+  inquiry: "M4 5h16v11H9l-5 4z",
+  faq: "M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 16.5v.01",
+  doc: "M6 3h9l4 4v14H6zM14 3v5h5",
+  layout: "M4 6h16M4 12h16M4 18h16M8 4v4M15 10v4M10 16v4",
+  text: "M3 19 8 6l5 13M4.8 14.5h6.4M14.5 19l3.2-8.5L21 19M15.6 16h4.3",
   pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
   play: "M8 5.5v13l10.5-6.5z",
   chevron: "M9 6l6 6-6 6",
