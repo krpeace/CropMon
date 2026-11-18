@@ -66,6 +66,10 @@
   --color-very-dry-dot: rgb(235 68 44);
   --color-very-dry-card: rgb(255 235 232);
 
+  /* ── 색: 위험 (회원탈퇴 글자 · 관수 기록 "지우기" 글자 · "탈퇴하기" 버튼 바탕, 이슈 #161). 글자 대비 4.5:1 이상은 src/app/tokens.test.ts 가 지킨다 ── */
+  --color-danger: rgb(196 43 28);
+  --color-on-danger: #fff; /* 위험 색 바탕 위의 글자 (다크는 어두운 글자) */
+
   /* ── 글꼴 ── */
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
@@ -282,6 +286,8 @@
   --color-very-dry-fg: rgb(255 130 120);
   --color-very-dry-bg: rgb(255 69 58 / 0.22);
   --color-very-dry-card: rgb(56 20 18);
+  --color-danger: rgb(255 105 97);
+  --color-on-danger: #000; /* 다크에서 흰 글자는 위험 색 바탕 위에서 대비가 2.8:1 로 부족해 어두운 글자를 쓴다 */
 
   --shadow-hairline: 0 0 0 0.5px rgb(255 255 255 / 0.12);
   --shadow-edge: 0 0 0 0.5px rgb(255 255 255 / 0.08);

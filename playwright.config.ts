@@ -60,7 +60,7 @@ export default defineConfig({
         hasTouch: true,
       },
       testMatch:
-        /(theme|national-mobile|tabbar|more|font-scale|context-bar-mobile|bottom-sheet-mobile|auto-hide-mobile|crop-sheet-mobile|tap-targets|selection-mobile)\.spec\.ts/,
+        /(theme|national-mobile|tabbar|more|font-scale|context-bar-mobile|bottom-sheet-mobile|auto-hide-mobile|more-bottom|footer|crop-sheet-mobile|tap-targets|selection-mobile)\.spec\.ts/,
     },
   ],
   // 가짜 Supabase(e2e/fake-supabase.mjs)를 먼저 띄운다. 화면은 build 때 NEXT_PUBLIC_SUPABASE_URL 을
