@@ -176,12 +176,20 @@ test.describe("닫기", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
-  test("머리말의 테마 버튼을 누르면 판이 먼저 닫힌다", async ({ page }) => {
+  // 예전에는 머리말의 테마 버튼이었다. 휴대폰 맥락 바에는 해/달 버튼이 없어서(이슈 #155)
+  // 같은 확인("머리말의 다른 버튼을 누르면 열린 판이 먼저 닫힌다")을 맥락 바의 "로그인"으로 한다.
+  test("머리말의 로그인 버튼을 누르면 판이 먼저 닫힌다", async ({ page }) => {
     await open(page, "/water?st=101&crop=apple");
     await cropButton(page).click();
     await expect(cropDialog(page)).toBeVisible();
-    await page.getByRole("button", { name: /모드로 보기/ }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page
+      .getByTestId("context-bar")
+      .getByRole("button", { name: "로그인" })
+      .click();
+    await expect(cropDialog(page)).toHaveCount(0);
+    await expect(
+      page.getByRole("dialog", { name: "로그인 안내" }),
+    ).toBeVisible();
   });
 
   test("폭이 1024 이상이 되면 닫힌다", async ({ page }) => {

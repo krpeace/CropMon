@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import {
   CROPS,
@@ -11,23 +11,16 @@ import {
   DEFAULT_SOIL,
   parseSelection,
   withSelection,
-  type Crop,
   type Selection,
 } from "@/domain/selection";
 import { MORE_HREF } from "@/domain/menus";
-import {
-  SOIL_WATER_LABEL,
-  soilLegendStatuses,
-  type SoilWaterStatus,
-} from "@/domain/soil-water";
-import { WATER_STATUS_LABEL, type WaterStatus } from "@/domain/water-status";
+import { SOIL_WATER_LABEL, soilLegendStatuses } from "@/domain/soil-water";
+import { WATER_STATUS_LABEL } from "@/domain/water-status";
 import {
   getStation,
   inactiveStationNotice,
-  listRegionPicker,
   listStationChips,
   STATION_ENTRIES,
-  STATION_IDS,
 } from "@/services/shell";
 import type {
   AnyWaterStatus,
@@ -37,51 +30,17 @@ import type {
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { useMenus } from "./menu-store";
+import { MobileContextBar } from "./MobileContextBar";
 import { MENU_ICON } from "./pages";
-import { SelectionPanel } from "./SelectionPanel";
 import { TabBar } from "./TabBar";
 import { ThemeToggle } from "./ThemeToggle";
+import {
+  anyStatusLabel,
+  CropPickerBody,
+  cropInfo,
+  RegionPickerBody,
+} from "./pickers";
 import { useSheet } from "./sheet-context";
-
-function anyStatusLabel(st: AnyWaterStatus): string {
-  return st in SOIL_WATER_LABEL
-    ? SOIL_WATER_LABEL[st as SoilWaterStatus]
-    : WATER_STATUS_LABEL[st as WaterStatus];
-}
-
-function cropInfo(
-  crop: Crop,
-  statuses: StationStatuses | null,
-  stationId: number = STATION_IDS[0],
-) {
-  if (crop === "common") {
-    return {
-      sub: "토양 물 상태",
-      short: "토양 물",
-      type: "작물 구분 없이 토양의 물 상태 보기",
-      txt: "기준 증발산 ETo로 계산",
-      badge: "",
-    };
-  }
-  if (crop === "apple") {
-    const dormant = statuses?.apple?.[stationId] === "dormant";
-    return {
-      sub: dormant ? "휴면기" : "생육기",
-      short: dormant ? "휴면기" : "생육기",
-      type: "과수 · 후지 기준 · 4월 1일 생육 시작",
-      txt: dormant ? "" : "지금 생육기",
-      badge: dormant ? "휴면기" : "",
-    };
-  }
-  const dormant = statuses?.cabbage?.[stationId] === "dormant";
-  return {
-    sub: dormant ? "작기 아님" : "생육기",
-    short: dormant ? "작기 아님" : "생육기",
-    type: "봄배추 3월 20일 · 가을배추 8월 5일 정식",
-    txt: dormant ? "" : "지금 생육기",
-    badge: dormant ? "작기 아님" : "",
-  };
-}
 
 /**
  * 주소창의 지역·작물을 읽는 헤더. layout 에서 <Suspense> 안에 둔다.
@@ -135,7 +94,13 @@ function SiteHeaderView({
             )}
           </div>
         )}
-        <div className="fz-fixed desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
+        {/* 휴대폰(폭 1024 미만): 한 줄 맥락 바 (이슈 #155). 아래 머리 줄과 선택 바는 휴대폰에서 숨는다. */}
+        <MobileContextBar
+          pathname={pathname}
+          selection={selection}
+          statuses={statuses}
+        />
+        <div className="fz-fixed max-desktop:hidden desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
           <Link
             href={withSelection("/", selection)}
             className="bg-plate rounded-row flex-none dark:px-2 dark:py-0.5"
@@ -188,11 +153,13 @@ function SiteHeaderView({
           </button>
         </div>
         {pathname !== MORE_HREF && (
-          <SelectionBar
-            pathname={pathname}
-            selection={selection}
-            statuses={statuses}
-          />
+          <div className="max-desktop:hidden">
+            <SelectionBar
+              pathname={pathname}
+              selection={selection}
+              statuses={statuses}
+            />
+          </div>
         )}
       </header>
       <TabBar pathname={pathname} selection={selection} />
@@ -225,24 +192,7 @@ function SelectionBar({
 
   const { popover, setPopover } = useSheet();
   const [anchor, setAnchor] = useState<"wide" | "compact">("wide");
-  // 휴대폰(폭 1024 미만) 고르기 판. 이 선택 줄 안에서만 쓰므로 전역 상태가 아니라 로컬 상태로 둔다.
-  // 경로나 선택(지역·작물·재배 방식·토양)이 바뀌면(urlKey 가 달라지면) 저절로 닫힌 것으로 본다.
-  const urlKey = [
-    pathname,
-    selection?.stationId,
-    selection?.crop,
-    selection?.kc,
-    selection?.soil,
-  ].join("|");
-  const [panelState, setPanelState] = useState<{
-    kind: "crop" | "region";
-    key: string;
-  } | null>(null);
-  const panel = panelState?.key === urlKey ? panelState.kind : null;
-  const closePanel = useCallback(() => setPanelState(null), []);
-  const barRef = useRef<HTMLDivElement>(null);
-  const cropButtonRef = useRef<HTMLButtonElement>(null);
-  const regionButtonRef = useRef<HTMLButtonElement>(null);
+  // 휴대폰(폭 1024 미만)의 작물·지역 고르기 판은 맥락 바(MobileContextBar)가 맡는다 (이슈 #155).
   const groupRef = useRef<HTMLDivElement>(null);
   const cropGroupRef = useRef<HTMLDivElement>(null);
 
@@ -292,10 +242,7 @@ function SelectionBar({
         }));
 
   return (
-    <div
-      ref={barRef}
-      className="fz-fixed border-ink-2/12 bg-bg/70 border-t-(length:--hairline)"
-    >
+    <div className="fz-fixed border-ink-2/12 bg-bg/70 border-t-(length:--hairline)">
       <div className="desktop:flex-wrap desktop:gap-3 mx-auto flex max-w-(--page-max) flex-nowrap items-center gap-2 px-(--page-gutter) py-2.5">
         <div
           ref={cropGroupRef}
@@ -304,20 +251,10 @@ function SelectionBar({
           className="desktop:flex-initial desktop:basis-auto desktop:flex-wrap relative flex min-w-0 flex-1 basis-0 items-center gap-1.5"
         >
           <button
-            ref={cropButtonRef}
             type="button"
             aria-haspopup="listbox"
-            aria-expanded={popover === "crop" || panel === "crop"}
-            onClick={() => {
-              if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                setPopover(null);
-                setPanelState(
-                  panel === "crop" ? null : { kind: "crop", key: urlKey },
-                );
-              } else {
-                setPopover(popover === "crop" ? null : "crop");
-              }
-            }}
+            aria-expanded={popover === "crop"}
+            onClick={() => setPopover(popover === "crop" ? null : "crop")}
             className="bg-card text-17 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-bold whitespace-nowrap"
           >
             <Icon
@@ -527,28 +464,12 @@ function SelectionBar({
           <div className="wide:hidden desktop:flex-none relative flex min-w-0 flex-1">
             {selection && station ? (
               <button
-                ref={regionButtonRef}
                 type="button"
                 aria-haspopup="listbox"
-                aria-expanded={
-                  (popover === "region" && anchor === "compact") ||
-                  panel === "region"
-                }
+                aria-expanded={popover === "region" && anchor === "compact"}
                 onClick={() => {
-                  if (
-                    typeof window !== "undefined" &&
-                    window.innerWidth < 1024
-                  ) {
-                    setPopover(null);
-                    setPanelState(
-                      panel === "region"
-                        ? null
-                        : { kind: "region", key: urlKey },
-                    );
-                  } else {
-                    setAnchor("compact");
-                    setPopover(popover === "region" ? null : "region");
-                  }
+                  setAnchor("compact");
+                  setPopover(popover === "region" ? null : "region");
                 }}
                 className="bg-card text-15 text-ink shadow-hairline desktop:flex-none flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full px-3.5 font-semibold whitespace-nowrap"
               >
@@ -667,38 +588,6 @@ function SelectionBar({
           </div>
         </div>
       </div>
-      {panel === "crop" && (
-        <SelectionPanel
-          title="작물 고르기"
-          anchorRef={barRef}
-          triggerRef={cropButtonRef}
-          onClose={closePanel}
-        >
-          <div className="overflow-y-auto overscroll-contain px-2 pb-2">
-            <CropPickerBody
-              pathname={pathname}
-              selection={selection}
-              statuses={statuses}
-              onClose={closePanel}
-            />
-          </div>
-        </SelectionPanel>
-      )}
-      {panel === "region" && (
-        <SelectionPanel
-          title="지역 고르기"
-          anchorRef={barRef}
-          triggerRef={regionButtonRef}
-          onClose={closePanel}
-        >
-          <RegionPickerBody
-            pathname={pathname}
-            selection={selection}
-            statuses={statuses}
-            onClose={closePanel}
-          />
-        </SelectionPanel>
-      )}
     </div>
   );
 }
@@ -723,276 +612,5 @@ function RegionPopover({
         onClose={onClose}
       />
     </div>
-  );
-}
-
-function RegionPickerBody({
-  pathname,
-  selection,
-  statuses,
-  onClose,
-}: {
-  pathname: string;
-  selection: Selection | null;
-  statuses: StationStatuses | null;
-  onClose: () => void;
-}) {
-  const isPending = statuses === null;
-  const isFailed = Boolean(statuses?.failed);
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const crop: Crop = selection?.crop ?? CROPS[0];
-  const soil = selection?.soil ?? DEFAULT_SOIL;
-  const selectedId = selection?.stationId ?? STATION_IDS[0];
-  const { sections } = listRegionPicker(crop, statuses, query, soil);
-  const flatItems = sections.flatMap((s) => s.items);
-
-  // 휴대폰에서는 검색칸에 바로 포커스하지 않는다: 키보드가 올라와 대표 지점 목록을 가린다.
-  useEffect(() => {
-    if (window.innerWidth >= 1024) inputRef.current?.focus();
-  }, []);
-
-  const selectStation = (stationId: number) => {
-    router.push(
-      withSelection(pathname, {
-        stationId,
-        crop,
-        kc: selection?.kc,
-        soil: selection?.soil,
-      }),
-      { scroll: false },
-    );
-    onClose();
-  };
-
-  let flatCursor = -1;
-
-  return (
-    <>
-      <div className="border-ink-2/12 border-b-(length:--hairline) p-3 pb-2.5">
-        <div className="rounded-input bg-fill/12 focus-within:bg-card focus-within:shadow-focus fh-44 flex items-center gap-2 px-3">
-          <Icon name="search" size={18} className="text-ink-2/60 shrink-0" />
-          <input
-            ref={inputRef}
-            type="search"
-            role="searchbox"
-            aria-label="지역 검색"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActiveIndex(0);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setActiveIndex((i) => Math.min(flatItems.length - 1, i + 1));
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setActiveIndex((i) => Math.max(0, i - 1));
-              } else if (e.key === "Enter") {
-                e.preventDefault();
-                const pick = flatItems[activeIndex] ?? flatItems[0];
-                if (pick) selectStation(pick.id);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                onClose();
-              }
-            }}
-            placeholder="시·군 이름이나 지점번호 (예: 홍천, 212)"
-            className="text-16 text-ink placeholder:text-ink-2/60 min-w-0 flex-1 bg-transparent font-sans outline-none"
-          />
-          {query.trim().length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setActiveIndex(0);
-                inputRef.current?.focus();
-              }}
-              className="text-13 text-ink-2/75 hit-44 cursor-pointer px-1.5 py-1 font-semibold"
-            >
-              지우기
-            </button>
-          )}
-        </div>
-      </div>
-
-      {isFailed && (
-        <div className="border-ink-2/12 bg-tile text-12 text-ink-2/95 border-b-(length:--hairline) px-3.5 py-2 font-medium">
-          판정 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.
-        </div>
-      )}
-
-      <div
-        role="listbox"
-        aria-label="관측 지점 목록"
-        className="flex-1 overflow-y-auto overscroll-contain px-2 py-1.5"
-      >
-        {sections.length === 0 ? (
-          <div className="text-15 text-ink-2/75 px-3 py-7 text-center">
-            <div className="text-ink mb-1 font-bold">
-              일치하는 관측 지점이 없어요
-            </div>
-            <div className="text-13">
-              시·군 이름(예: 홍천, 청송)이나 기상청 지점번호(예: 212)로
-              찾아보세요.
-            </div>
-          </div>
-        ) : (
-          sections.map((section) => (
-            <div key={section.label} className="mb-1">
-              <div className="text-12 text-ink-2/75 flex items-center justify-between px-2.5 pt-2 pb-1 font-bold">
-                <span>{section.label}</span>
-              </div>
-              {section.items.map((item) => {
-                flatCursor += 1;
-                const itemIndex = flatCursor;
-                const selected = item.id === selectedId;
-                const active = itemIndex === activeIndex;
-                return (
-                  <button
-                    key={`${section.label}-${item.id}`}
-                    type="button"
-                    role="option"
-                    aria-selected={selected}
-                    onMouseEnter={() => setActiveIndex(itemIndex)}
-                    onClick={() => selectStation(item.id)}
-                    className={`rounded-input fh-44 flex w-full cursor-pointer items-center justify-between gap-2.5 px-2.5 py-2 text-left ${
-                      selected
-                        ? "bg-emerald/14"
-                        : active
-                          ? "bg-fill/12"
-                          : "hover:bg-fill/12"
-                    }`}
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className={`size-2 shrink-0 rounded-full ${
-                          isPending
-                            ? "bg-fill/30 motion-safe:animate-pulse"
-                            : item.status
-                              ? STATUS_DOT[item.status]
-                              : "bg-fill/30"
-                        }`}
-                      />
-                      <span className="text-16 font-semibold">{item.name}</span>
-                      <span className="text-13 text-ink-2/60">{item.id}</span>
-                      {item.isRepresentative && (
-                        <span className="fz-cap bg-emerald/14 text-12 text-brand-ink rounded-full px-1.75 py-0.5 font-bold">
-                          대표
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-13 text-ink-2/75">
-                        {isFailed
-                          ? item.sido
-                          : `${item.sido} · ${
-                              isPending
-                                ? "판정 불러오는 중"
-                                : item.status
-                                  ? anyStatusLabel(item.status)
-                                  : "자료 없음"
-                            }`}
-                      </span>
-                      {selected && (
-                        <Icon
-                          name="check"
-                          size={18}
-                          strokeWidth={2.5}
-                          className="text-brand-ink"
-                        />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="border-ink-2/12 bg-tile/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2">
-        기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중
-      </div>
-    </>
-  );
-}
-
-function CropPickerBody({
-  pathname,
-  selection,
-  statuses,
-  onClose,
-}: {
-  pathname: string;
-  selection: Selection | null;
-  statuses: StationStatuses | null;
-  onClose: () => void;
-}) {
-  const currentCrop = selection?.crop ?? CROPS[0];
-  const stationId = selection?.stationId ?? STATION_IDS[0];
-
-  return (
-    <>
-      <div
-        role="listbox"
-        aria-label="작물 목록"
-        className="flex flex-col gap-0.5"
-      >
-        {CROPS.map((c) => {
-          const selected = c === currentCrop;
-          const info = cropInfo(c, statuses, stationId);
-          return (
-            <Link
-              key={c}
-              href={withSelection(pathname, {
-                stationId,
-                crop: c,
-                soil: c === "common" ? selection?.soil : undefined,
-              })}
-              scroll={false}
-              onClick={onClose}
-              aria-current={selected ? "true" : undefined}
-              className={`rounded-input flex items-center justify-between gap-2 px-3 py-2.5 text-left ${
-                selected ? "bg-emerald/14" : "hover:bg-fill/12"
-              }`}
-            >
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-17 text-ink font-bold">
-                  {CROP_LABEL[c]}
-                </span>
-                <span className="text-14 text-ink-2/85">{info.type}</span>
-                {info.txt && (
-                  <span className="text-14 text-ink font-semibold">
-                    {info.txt}
-                  </span>
-                )}
-                {info.badge && (
-                  <span className="fz-cap bg-dormant-bg text-dormant-fg text-13 mt-0.5 self-start rounded-full px-2.25 py-0.5 font-bold whitespace-nowrap">
-                    {info.badge}
-                  </span>
-                )}
-              </div>
-              {selected && (
-                <Icon
-                  name="check"
-                  size={18}
-                  strokeWidth={2.5}
-                  className="text-brand-ink shrink-0"
-                />
-              )}
-            </Link>
-          );
-        })}
-      </div>
-      <div className="border-ink-2/12 text-13 text-ink-2/85 mt-1 border-t-(length:--hairline) px-3 pt-2.5 pb-1.5">
-        한 번 고르면 모든 메뉴에 적용돼요
-      </div>
-    </>
   );
 }

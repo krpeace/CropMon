@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 
 import { THEME_COLOR, THEME_STORAGE_KEY } from "@/domain/theme";
 
+import { NavHistory } from "./_components/shell/nav-history";
 import { Sheets } from "./_components/shell/Sheets";
 import { SheetProvider } from "./_components/shell/sheet-context";
 import { SiteFooter } from "./_components/shell/SiteFooter";
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         <SheetProvider>
+          <NavHistory />
           <Suspense fallback={<SiteHeaderFallback />}>
             <SiteHeaderWithStatus />
           </Suspense>

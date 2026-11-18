@@ -46,8 +46,11 @@ const getTheme = (): Theme =>
 
 const getServerTheme = (): Theme => "light";
 
-/** 헤더의 해·달 버튼. 누르면 바꾸고 기억한다. 기억이 없을 땐 휴대폰 설정이 바뀌는 대로 따른다. */
-export function ThemeToggle() {
+/**
+ * 화면 테마 바꾸기 규칙. 헤더의 해·달 버튼(ThemeToggle)과 /more 맨 아래 "다크 모드" 줄이 같이 쓴다.
+ * 누르면 바꾸고 기억한다. 기억이 없을 땐 휴대폰 설정이 바뀌는 대로 따른다.
+ */
+export function useThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getTheme, getServerTheme);
 
   useEffect(() => {
@@ -60,20 +63,31 @@ export function ThemeToggle() {
   }, []);
 
   const dark = theme === "dark";
+  return {
+    dark,
+    /** 누르면 갈 테마를 읽어 주는 이름 (화면 읽기 · 시험이 쓰는 이름이라 바꾸지 않는다). */
+    label: dark ? "라이트 모드로 보기" : "다크 모드로 보기",
+    toggle: () => {
+      const next: Theme = dark ? "light" : "dark";
+      applyTheme(next);
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+      } catch {
+        // 저장이 안 돼도 이번 화면은 바뀐다.
+      }
+    },
+  };
+}
+
+/** 헤더의 해·달 버튼 (데스크톱). */
+export function ThemeToggle() {
+  const { dark, label, toggle } = useThemeToggle();
 
   return (
     <button
       type="button"
-      aria-label={dark ? "라이트 모드로 보기" : "다크 모드로 보기"}
-      onClick={() => {
-        const next: Theme = dark ? "light" : "dark";
-        applyTheme(next);
-        try {
-          localStorage.setItem(THEME_STORAGE_KEY, next);
-        } catch {
-          // 저장이 안 돼도 이번 화면은 바뀐다.
-        }
-      }}
+      aria-label={label}
+      onClick={toggle}
       className="bg-fill/12 text-ink flex size-11 flex-none cursor-pointer items-center justify-center rounded-full"
     >
       <Icon name={dark ? "sun" : "moon"} size={22} />
