@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 export type SheetKind = "login" | "about";
 export type PopoverKind = "region" | "crop" | null;
@@ -11,6 +17,10 @@ type SheetState = {
   close: () => void;
   popover: PopoverKind;
   setPopover: (kind: PopoverKind) => void;
+  /** 열려 있는 아래 시트의 수. 오토 하이드가 시트가 열린 동안 상태를 안 바꾸려고 읽는다 (이슈 #159). */
+  holds: number;
+  /** 아래 시트가 열릴 때 부르고, 돌려받은 함수를 닫힐 때 부른다. */
+  hold: () => () => void;
 };
 
 const SheetContext = createContext<SheetState | null>(null);
@@ -19,6 +29,11 @@ const SheetContext = createContext<SheetState | null>(null);
 export function SheetProvider({ children }: { children: React.ReactNode }) {
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [popover, setPopover] = useState<PopoverKind>(null);
+  const [holds, setHolds] = useState(0);
+  const hold = useCallback(() => {
+    setHolds((n) => n + 1);
+    return () => setHolds((n) => n - 1);
+  }, []);
   const value = useMemo(
     () => ({
       sheet,
@@ -26,8 +41,10 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
       close: () => setSheet(null),
       popover,
       setPopover,
+      holds,
+      hold,
     }),
-    [sheet, popover],
+    [sheet, popover, holds, hold],
   );
   return <SheetContext value={value}>{children}</SheetContext>;
 }

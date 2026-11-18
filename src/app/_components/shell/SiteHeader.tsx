@@ -33,6 +33,7 @@ import { useMenus } from "./menu-store";
 import { MobileContextBar } from "./MobileContextBar";
 import { MENU_ICON } from "./pages";
 import { TabBar } from "./TabBar";
+import { useAutoFold } from "./use-auto-fold";
 import { ThemeToggle } from "./ThemeToggle";
 import {
   anyStatusLabel,
@@ -73,18 +74,22 @@ function SiteHeaderView({
   notice: string | null;
 }) {
   const pathname = usePathname();
-  const { open } = useSheet();
+  const { open, sheet, holds } = useSheet();
   const { desktop } = useMenus();
   const isFailed = Boolean(statuses?.failed);
+  // 휴대폰 오토 하이드 (이슈 #159): 시트(가운데 창 · 아래 시트)가 열려 있는 동안은 상태를 안 바꾼다.
+  const { folded, unfold } = useAutoFold(sheet !== null || holds > 0);
 
   return (
     <>
-      <header className="glass border-ink-2/15 bg-card/88 sticky top-0 z-20 border-b-(length:--hairline)">
+      {/* 휴대폰은 높이 52 의 "자리"(sticky, pointer-events 없음)이고 배경 · 흐림 · 선은 안쪽 바(MobileContextBar)가 갖는다 —
+          접힐 때 문서 흐름 높이가 안 바뀌어 내용이 튀지 않는다 (결정 0051). 데스크톱 헤더는 그대로. */}
+      <header className="desktop:glass desktop:bg-card/88 desktop:border-b-(length:--hairline) border-ink-2/15 max-desktop:pointer-events-none sticky top-0 z-20">
         {(notice || isFailed) && (
           <div
             role="status"
             aria-live="polite"
-            className="border-ink-2/12 bg-tile text-13 desktop:text-14 text-ink-2/95 flex flex-col gap-1 border-b-(length:--hairline) px-(--page-gutter) py-2 text-center font-medium"
+            className="border-ink-2/12 bg-tile text-13 desktop:text-14 text-ink-2/95 pointer-events-auto flex flex-col gap-1 border-b-(length:--hairline) px-(--page-gutter) py-2 text-center font-medium"
           >
             {notice && <div>{notice}</div>}
             {isFailed && (
@@ -99,6 +104,8 @@ function SiteHeaderView({
           pathname={pathname}
           selection={selection}
           statuses={statuses}
+          folded={folded}
+          onUnfold={unfold}
         />
         <div className="fz-fixed max-desktop:hidden desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
           <Link
@@ -162,7 +169,12 @@ function SiteHeaderView({
           </div>
         )}
       </header>
-      <TabBar pathname={pathname} selection={selection} />
+      <TabBar
+        pathname={pathname}
+        selection={selection}
+        folded={folded}
+        onReveal={unfold}
+      />
     </>
   );
 }

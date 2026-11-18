@@ -33,6 +33,9 @@ async function smallTargets(
       if (style.visibility === "hidden" || el.getClientRects().length === 0) {
         continue;
       }
+      // 이슈 #159: 펼쳐 있는 동안의 접힌 줄 버튼처럼 inert(눌림 · 탭 이동에서 빠짐)인 요소는 누를 수 없는 요소라 재지 않는다.
+      // 접힌 줄을 눌리는 영역(44)은 auto-hide-mobile.spec.ts 가 접힌 상태에서 따로 잰다.
+      if (el.closest("[inert]")) continue;
       el.scrollIntoView({ block: "center", inline: "center" });
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;

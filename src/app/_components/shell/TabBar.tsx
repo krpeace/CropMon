@@ -19,9 +19,15 @@ import { MENU_ICON } from "./pages";
 export function TabBar({
   pathname,
   selection,
+  folded,
+  onReveal,
 }: {
   pathname: string;
   selection: Selection | null;
+  /** 오토 하이드로 숨겨져 있다 (아래로 내려감). 숨어도 aria-hidden · inert 는 아니다. */
+  folded: boolean;
+  /** 숨은 탭바 안으로 포커스가 들어오면 다시 펼친다 (화면 읽기 · 키보드 사용자가 메뉴를 잃지 않게). */
+  onReveal: () => void;
 }) {
   const { tabs } = useMenus();
   const items = [
@@ -37,7 +43,14 @@ export function TabBar({
   return (
     <nav
       aria-label="메뉴"
-      className="fz-cap glass-strong bg-card/80 shadow-tabbar rounded-tabbar desktop:hidden dark:bg-tile/82 fixed right-[calc(10px+env(safe-area-inset-right))] bottom-[calc(12px+env(safe-area-inset-bottom))] left-[calc(10px+env(safe-area-inset-left))] z-30 flex h-(--tabbar-h) gap-0 p-1"
+      onFocus={() => {
+        if (folded) onReveal();
+      }}
+      className={`fz-cap glass-strong bg-card/80 shadow-tabbar rounded-tabbar desktop:hidden dark:bg-tile/82 fixed right-[calc(10px+env(safe-area-inset-right))] bottom-[calc(12px+env(safe-area-inset-bottom))] left-[calc(10px+env(safe-area-inset-left))] z-30 flex h-(--tabbar-h) gap-0 p-1 motion-safe:transition-transform motion-safe:duration-(--fold-duration) ${
+        folded
+          ? "translate-y-[calc(100%+52px+env(safe-area-inset-bottom))]"
+          : ""
+      }`}
     >
       {items.map((item) => {
         const active = pathname === item.href;
