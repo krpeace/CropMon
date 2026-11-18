@@ -39,7 +39,8 @@ test.describe("다크 설정인 휴대폰", () => {
   test("주소창 색: 처음 열면 다크 색, 버튼으로 라이트를 고르면 라이트 색", async ({
     page,
   }) => {
-    await page.goto("/water?st=101&crop=apple");
+    // 휴대폰 맥락 바에는 해/달 버튼이 없어서 /more 맨 아래 "다크 모드" 줄로 바꾼다 (이슈 #155)
+    await page.goto("/more?st=101&crop=apple");
     await page.waitForLoadState("networkidle");
     await expectThemeColor(page, DARK_COLOR);
     await page.getByRole("button", { name: "라이트 모드로 보기" }).click();
@@ -58,7 +59,8 @@ test.describe("다크 설정인 휴대폰", () => {
   test("버튼으로 라이트로 바꾸면 새로 고침해도 라이트가 유지된다", async ({
     page,
   }) => {
-    await page.goto("/water?st=101&crop=apple");
+    // 휴대폰 맥락 바에는 해/달 버튼이 없어서 /more 맨 아래 "다크 모드" 줄로 바꾼다 (이슈 #155)
+    await page.goto("/more?st=101&crop=apple");
     await page.waitForLoadState("networkidle"); // 버튼이 살아난 뒤에 누른다
     await page.getByRole("button", { name: "라이트 모드로 보기" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -106,7 +108,8 @@ test.describe("라이트 설정인 휴대폰", () => {
   test("주소창 색: 버튼으로 다크를 고르면 바뀌고 새로 고침해도 유지된다", async ({
     page,
   }) => {
-    await page.goto("/");
+    // 휴대폰 맥락 바에는 해/달 버튼이 없어서 /more 맨 아래 "다크 모드" 줄로 바꾼다 (이슈 #155)
+    await page.goto("/more");
     await page.waitForLoadState("networkidle");
     await expectThemeColor(page, LIGHT_COLOR);
     await page.getByRole("button", { name: "다크 모드로 보기" }).click();
@@ -118,7 +121,8 @@ test.describe("라이트 설정인 휴대폰", () => {
   test("처음 열면 라이트, 다크 버튼을 누르면 다크로 기억한다", async ({
     page,
   }) => {
-    await page.goto("/");
+    // 휴대폰 맥락 바에는 해/달 버튼이 없어서 /more 맨 아래 "다크 모드" 줄로 바꾼다 (이슈 #155)
+    await page.goto("/more");
     await page.waitForLoadState("networkidle");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await page.getByRole("button", { name: "다크 모드로 보기" }).click();

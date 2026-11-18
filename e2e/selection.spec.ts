@@ -233,8 +233,9 @@ test("모바일 390×844 뷰포트에서 펼침 판으로 지역을 고르고 �
   );
   expect(hasOverflow).toBe(false);
 
+  // 휴대폰(폭 1024 미만)은 맥락 바의 지역 칸이다 — 예전의 "지역 · " 접두어 없이 "춘천 101 …" (이슈 #155)
   const compactBtn = region(page).getByRole("button", {
-    name: /지역 · 춘천 101/,
+    name: /춘천 101/,
   });
   await expect(compactBtn).toBeVisible();
   await compactBtn.click();

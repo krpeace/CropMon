@@ -7,6 +7,7 @@ import {
   MENU_STORAGE_KEY,
   parseSavedMenus,
   resolveMenus,
+  screenContext,
   type MenuId,
 } from "./menus";
 
@@ -242,5 +243,102 @@ describe("parseSavedMenus — 기기 저장값 읽기", () => {
   it("모르는 판 번호는 null — 읽기만 하고 덮어쓰지 않는다", () => {
     expect(parseSavedMenus('{"v":2,"order":[],"off":[]}')).toBeNull();
     expect(parseSavedMenus('{"order":[],"off":[]}')).toBeNull();
+  });
+});
+
+describe("맥락 종류 — 휴대폰 상단 맥락 바 가운데에 무엇을 놓나 (이슈 #155)", () => {
+  it("종합 · 물 · 온도 · 햇빛 · 토양은 작물·지역 캡슐(selection)", () => {
+    for (const id of ["home", "water", "temp", "sun", "soil"] as const) {
+      expect(MENU_DEFS[id].context, id).toBe("selection");
+    }
+  });
+
+  it("관측 · 시세 · 농사정보 · 병해충 · 일지는 제목(title) — 준비 중이라 이번엔 제목만", () => {
+    for (const id of [
+      "outlook",
+      "price",
+      "farminfo",
+      "pest",
+      "diary",
+    ] as const) {
+      expect(MENU_DEFS[id].context, id).toBe("title");
+    }
+  });
+
+  it("메뉴 10개 모두 맥락 종류가 있다", () => {
+    for (const id of MENU_IDS) {
+      expect(["selection", "title"]).toContain(MENU_DEFS[id].context);
+    }
+  });
+});
+
+describe("screenContext(pathname)", () => {
+  it("캡슐 다섯 화면", () => {
+    for (const path of ["/", "/water", "/temperature", "/sunlight", "/soil"]) {
+      expect(screenContext(path), path).toEqual({ kind: "selection" });
+    }
+  });
+
+  it("제목 화면: 메뉴 이름이 제목, 뒤로 화살표 없음", () => {
+    expect(screenContext("/outlook")).toEqual({
+      kind: "title",
+      title: "관측",
+      back: false,
+    });
+    expect(screenContext("/market")).toEqual({
+      kind: "title",
+      title: "시세",
+      back: false,
+    });
+    expect(screenContext("/farminfo")).toEqual({
+      kind: "title",
+      title: "농사정보",
+      back: false,
+    });
+    expect(screenContext("/pest")).toEqual({
+      kind: "title",
+      title: "병해충",
+      back: false,
+    });
+    expect(screenContext("/diary")).toEqual({
+      kind: "title",
+      title: "일지",
+      back: false,
+    });
+  });
+
+  it("/more 는 제목 '더보기', 뒤로 없음", () => {
+    expect(screenContext("/more")).toEqual({
+      kind: "title",
+      title: "더보기",
+      back: false,
+    });
+  });
+
+  it("/my-farm 은 제목 '내 농장' + 뒤로 화살표 (탭 · 더보기에서 한 번 더 들어간 화면)", () => {
+    expect(screenContext("/my-farm")).toEqual({
+      kind: "title",
+      title: "내 농장",
+      back: true,
+    });
+  });
+
+  it("끝의 슬래시나 쿼리 문자열이 붙어도 같다", () => {
+    expect(screenContext("/water/")).toEqual({ kind: "selection" });
+    expect(screenContext("/my-farm/")).toEqual({
+      kind: "title",
+      title: "내 농장",
+      back: true,
+    });
+    expect(screenContext("/more?st=101&crop=apple")).toEqual({
+      kind: "title",
+      title: "더보기",
+      back: false,
+    });
+  });
+
+  it("모르는 주소(404 등)는 지금과 같은 캡슐", () => {
+    expect(screenContext("/없는-쪽")).toEqual({ kind: "selection" });
+    expect(screenContext("")).toEqual({ kind: "selection" });
   });
 });

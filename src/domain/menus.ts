@@ -18,6 +18,9 @@ export const MENU_IDS = [
 
 export type MenuId = (typeof MENU_IDS)[number];
 
+/** 휴대폰 상단 맥락 바 가운데에 놓을 것: 작물·지역 캡슐(selection) 또는 화면 제목(title). */
+export type MenuContext = "selection" | "title";
+
 export type MenuDef = {
   id: MenuId;
   /** 화면에 쓰는 이름 */
@@ -26,26 +29,87 @@ export type MenuDef = {
   href: string;
   /** 지금 쓸 수 있는 메뉴인가. false 면 "준비 중". */
   ready: boolean;
+  /**
+   * 이 화면의 맥락 종류 (이슈 #155, 결정 0049). 관측 · 시세 · 일지는 원래 품목 칩 · 농장 날짜지만
+   * 아직 "준비 중"이라 이번엔 제목만 둔다 — 나중에 이 값만 바꾸면 된다.
+   */
+  context: MenuContext;
   /** 끌 수 없는 메뉴 (종합) */
   alwaysOn?: true;
 };
 
 export const MENU_DEFS: Record<MenuId, MenuDef> = {
-  home: { id: "home", label: "종합", href: "/", ready: true, alwaysOn: true },
-  water: { id: "water", label: "물", href: "/water", ready: true },
-  temp: { id: "temp", label: "온도", href: "/temperature", ready: true },
-  sun: { id: "sun", label: "햇빛", href: "/sunlight", ready: true },
-  outlook: { id: "outlook", label: "관측", href: "/outlook", ready: false },
-  price: { id: "price", label: "시세", href: "/market", ready: false },
+  home: {
+    id: "home",
+    label: "종합",
+    href: "/",
+    ready: true,
+    context: "selection",
+    alwaysOn: true,
+  },
+  water: {
+    id: "water",
+    label: "물",
+    href: "/water",
+    ready: true,
+    context: "selection",
+  },
+  temp: {
+    id: "temp",
+    label: "온도",
+    href: "/temperature",
+    ready: true,
+    context: "selection",
+  },
+  sun: {
+    id: "sun",
+    label: "햇빛",
+    href: "/sunlight",
+    ready: true,
+    context: "selection",
+  },
+  outlook: {
+    id: "outlook",
+    label: "관측",
+    href: "/outlook",
+    ready: false,
+    context: "title",
+  },
+  price: {
+    id: "price",
+    label: "시세",
+    href: "/market",
+    ready: false,
+    context: "title",
+  },
   farminfo: {
     id: "farminfo",
     label: "농사정보",
     href: "/farminfo",
     ready: false,
+    context: "title",
   },
-  pest: { id: "pest", label: "병해충", href: "/pest", ready: false },
-  soil: { id: "soil", label: "토양", href: "/soil", ready: false },
-  diary: { id: "diary", label: "일지", href: "/diary", ready: false },
+  pest: {
+    id: "pest",
+    label: "병해충",
+    href: "/pest",
+    ready: false,
+    context: "title",
+  },
+  soil: {
+    id: "soil",
+    label: "토양",
+    href: "/soil",
+    ready: false,
+    context: "selection",
+  },
+  diary: {
+    id: "diary",
+    label: "일지",
+    href: "/diary",
+    ready: false,
+    context: "title",
+  },
 };
 
 /** 저장값이 없을 때의 순서. 데스크톱 메뉴 줄은 저장값과 상관없이 늘 이 순서다. */
@@ -134,4 +198,27 @@ export function resolveMenus(saved: SavedMenus | null): ResolvedMenus {
     ),
     hiddenCount: off.size,
   };
+}
+
+/** 휴대폰 맥락 바의 화면별 모양. 가운데가 캡슐이면 선택 줄, 제목이면 글자(뒤로 화살표가 있을 수 있다). */
+export type ScreenContext =
+  { kind: "selection" } | { kind: "title"; title: string; back: boolean };
+
+/** 탭 · 메뉴 사전에 없는 화면: 더보기, 그리고 한 번 더 들어간 2단계 화면(내 농장 미리보기). */
+const EXTRA_SCREENS: Record<string, ScreenContext> = {
+  [MORE_HREF]: { kind: "title", title: "더보기", back: false },
+  "/my-farm": { kind: "title", title: "내 농장", back: true },
+};
+
+/**
+ * 주소(pathname) → 맥락 바 가운데 모양. 쿼리 문자열 · 끝의 슬래시는 무시한다.
+ * 메뉴 사전 화면은 `context` 를 따르고(제목이면 메뉴 이름), 모르는 주소(404 등)는 지금과 같은 캡슐이다.
+ */
+export function screenContext(pathname: string): ScreenContext {
+  const path = pathname.split("?")[0].replace(/\/+$/, "") || "/";
+  const extra = EXTRA_SCREENS[path];
+  if (extra) return extra;
+  const def = MENU_IDS.map((id) => MENU_DEFS[id]).find((d) => d.href === path);
+  if (!def || def.context === "selection") return { kind: "selection" };
+  return { kind: "title", title: def.label, back: false };
 }
