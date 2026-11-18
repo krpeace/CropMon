@@ -85,8 +85,13 @@ test("누르는 곳 44px 이상: 작물 공통 '계산에 쓴 토양' 목록을 
   expect(await smallTargets(page)).toEqual([]);
 });
 
-// 작물·지역 고르기 판: 판 안의 버튼만 잰다 (뒤 화면은 덮개에 덮여 눌리지 않는다).
+// 작물·지역 고르기 시트: 시트 안의 버튼만 잰다 (뒤 화면은 덮개에 덮여 눌리지 않는다).
+// 이슈 #157: 시트가 올라오는 0.24초 동안 재면 덮개가 잡히므로, 올라오는 움직임이 끝난 뒤 잰다 (기준 44는 그대로).
 const DIALOG = '[role="dialog"]';
+const settled = (page: Page) =>
+  page.evaluate(() =>
+    Promise.all(document.getAnimations().map((a) => a.finished)),
+  );
 
 test("누르는 곳 44px 이상: 작물 고르기 판을 연 상태", async ({ page }) => {
   await open(page, "/water?st=101&crop=apple");
@@ -96,6 +101,7 @@ test("누르는 곳 44px 이상: 작물 고르기 판을 연 상태", async ({ p
     .first()
     .click();
   await expect(page.getByRole("dialog", { name: "작물 고르기" })).toBeVisible();
+  await settled(page);
   expect(await smallTargets(page, DIALOG)).toEqual([]);
 });
 
@@ -107,6 +113,7 @@ test("누르는 곳 44px 이상: 지역 고르기 판을 연 상태", async ({ p
     .first()
     .click();
   await expect(page.getByRole("dialog", { name: "지역 고르기" })).toBeVisible();
+  await settled(page);
   expect(await smallTargets(page, DIALOG)).toEqual([]);
 });
 
@@ -122,5 +129,6 @@ test("누르는 곳 44px 이상: 지역 판에 검색어를 넣어 '지우기'�
   const dialog = page.getByRole("dialog", { name: "지역 고르기" });
   await dialog.getByRole("searchbox", { name: "지역 검색" }).fill("홍");
   await expect(dialog.getByRole("button", { name: "지우기" })).toBeVisible();
+  await settled(page);
   expect(await smallTargets(page, DIALOG)).toEqual([]);
 });

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "./fixtures";
 
 // 휴대폰(mobile 프로젝트 390×844) 상단 맥락 바 (이슈 #155, 결정 0049).
 // 한 줄 52: 왼쪽 도깨비(또는 뒤로), 가운데 맥락(작물·지역 캡슐 또는 제목), 오른쪽 "로그인".
-// 가짜 Supabase 자료를 읽는다. 작물·지역 판은 이번에는 지금처럼 새 바 아래로 펼쳐진다(아래 시트는 후속 이슈).
+// 가짜 Supabase 자료를 읽는다. 작물·지역 판은 아래에서 올라오는 시트다(이슈 #157, 자세한 확인은 bottom-sheet-mobile.spec.ts).
 
 const bar = (page: Page) => page.getByTestId("context-bar");
 const cropGroup = (page: Page) => page.getByRole("group", { name: "작물" });
@@ -194,20 +194,22 @@ test.describe("로그인", () => {
   });
 });
 
-test.describe("작물·지역 판 (이번에는 새 바 아래로 펼쳐짐)", () => {
+test.describe("작물·지역 시트 (화면 아래에서 올라옴)", () => {
   test.skip(({ isMobile }) => !isMobile);
 
-  test("작물 칸: 판이 바 바로 아래에 열리고, 고르면 주소가 바뀌며, ✓는 고른 줄 하나뿐", async ({
+  test("작물 칸: 시트가 화면 아래에 붙어 열리고, 고르면 주소가 바뀌며, ✓는 고른 줄 하나뿐", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     await cropButton(page).click();
     const dialog = page.getByRole("dialog", { name: "작물 고르기" });
     await expect(dialog).toBeVisible();
-    const b = (await bar(page).boundingBox())!;
+    // 이슈 #157: 예전에는 "바 바로 아래"였다. 지금은 화면 아래 끝에 붙는다 (올라오는 움직임이 끝난 뒤)
+    await page.evaluate(() =>
+      Promise.all(document.getAnimations().map((a) => a.finished)),
+    );
     const d = (await dialog.boundingBox())!;
-    expect(d.y).toBeGreaterThanOrEqual(b.y + b.height - 1);
-    expect(d.y).toBeLessThanOrEqual(b.y + b.height + 16);
+    expect(Math.round(d.y + d.height)).toBe(844);
     // ✓ 표시(check 아이콘)는 고른 줄 하나에만
     await expect(
       dialog.locator('svg path[d="M5 12.5l4.5 4.5L19 7.5"]'),
@@ -223,17 +225,19 @@ test.describe("작물·지역 판 (이번에는 새 바 아래로 펼쳐짐)", (
     await expect(dialog).toBeHidden();
   });
 
-  test("지역 칸: 판이 바 바로 아래에 열리고, 홍천을 찾아 고르면 st=212 가 된다", async ({
+  test("지역 칸: 시트가 화면 아래에 붙어 열리고, 홍천을 찾아 고르면 st=212 가 된다", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     await regionButton(page).click();
     const dialog = page.getByRole("dialog", { name: "지역 고르기" });
     await expect(dialog).toBeVisible();
-    const b = (await bar(page).boundingBox())!;
+    // 이슈 #157: 예전에는 "바 바로 아래"였다. 지금은 화면 아래 끝에 붙는다 (올라오는 움직임이 끝난 뒤)
+    await page.evaluate(() =>
+      Promise.all(document.getAnimations().map((a) => a.finished)),
+    );
     const d = (await dialog.boundingBox())!;
-    expect(d.y).toBeGreaterThanOrEqual(b.y + b.height - 1);
-    expect(d.y).toBeLessThanOrEqual(b.y + b.height + 16);
+    expect(Math.round(d.y + d.height)).toBe(844);
     await dialog.getByRole("searchbox", { name: "지역 검색" }).fill("홍천");
     await dialog.getByRole("option", { name: /홍천/ }).click();
     await expect(page).toHaveURL(/st=212/);

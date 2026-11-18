@@ -22,13 +22,13 @@ import type {
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { useCanGoBack } from "./nav-history";
+import { BottomSheet } from "./BottomSheet";
 import {
   anyStatusLabel,
   CropPickerBody,
   cropInfo,
   RegionPickerBody,
 } from "./pickers";
-import { SelectionPanel } from "./SelectionPanel";
 import { useSheet } from "./sheet-context";
 
 /**
@@ -73,7 +73,6 @@ export function MobileContextBar({
   } | null>(null);
   const panel = panelState?.key === urlKey ? panelState.kind : null;
   const closePanel = useCallback(() => setPanelState(null), []);
-  const barRef = useRef<HTMLDivElement>(null);
   const cropButtonRef = useRef<HTMLButtonElement>(null);
   const regionButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -98,7 +97,6 @@ export function MobileContextBar({
 
   return (
     <div
-      ref={barRef}
       data-testid="context-bar"
       className="fz-fixed desktop:hidden flex h-13 items-center gap-2 pr-3 pl-2.5"
     >
@@ -279,9 +277,8 @@ export function MobileContextBar({
       </button>
 
       {panel === "crop" && (
-        <SelectionPanel
+        <BottomSheet
           title="작물 고르기"
-          anchorRef={barRef}
           triggerRef={cropButtonRef}
           onClose={closePanel}
         >
@@ -293,12 +290,11 @@ export function MobileContextBar({
               onClose={closePanel}
             />
           </div>
-        </SelectionPanel>
+        </BottomSheet>
       )}
       {panel === "region" && (
-        <SelectionPanel
+        <BottomSheet
           title="지역 고르기"
-          anchorRef={barRef}
           triggerRef={regionButtonRef}
           onClose={closePanel}
         >
@@ -308,7 +304,7 @@ export function MobileContextBar({
             statuses={statuses}
             onClose={closePanel}
           />
-        </SelectionPanel>
+        </BottomSheet>
       )}
     </div>
   );
