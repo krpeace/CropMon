@@ -48,10 +48,15 @@ export function MobileContextBar({
   pathname,
   selection,
   statuses,
+  folded,
+  onUnfold,
 }: {
   pathname: string;
   selection: Selection | null;
   statuses: StationStatuses | null;
+  /** 오토 하이드로 접혀 있다 (높이 32 한 줄). 접힌 줄을 누르면 onUnfold. */
+  folded: boolean;
+  onUnfold: () => void;
 }) {
   const context = screenContext(pathname);
   const router = useRouter();
@@ -89,6 +94,18 @@ export function MobileContextBar({
     : null;
   const info = cropInfo(crop, statuses, selection?.stationId);
 
+  const dotClass = isPending
+    ? "bg-fill/30 motion-safe:animate-pulse"
+    : selectedStatus
+      ? STATUS_DOT[selectedStatus]
+      : "bg-fill/30";
+  const foldLabel =
+    context.kind === "title"
+      ? `${context.title}, 위 바 펼치기`
+      : station
+        ? `${CROP_LABEL[crop]} ${station.name} ${station.id}, 위 바 펼치기`
+        : "위 바 펼치기";
+
   const goBack = () => {
     // 앱 안에서 들어왔으면 이전 화면으로, 주소로 바로 들어왔으면 종합으로
     if (canGoBack) router.back();
@@ -96,185 +113,243 @@ export function MobileContextBar({
   };
 
   return (
-    <div
-      data-testid="context-bar"
-      className="fz-fixed desktop:hidden flex h-13 items-center gap-2 pr-3 pl-2.5"
-    >
-      {context.kind === "title" && context.back ? (
-        <button
-          type="button"
-          aria-label="뒤로"
-          onClick={goBack}
-          className="bg-fill/12 text-ink flex size-11 flex-none cursor-pointer items-center justify-center rounded-full"
-        >
-          <Icon name="back" size={22} strokeWidth={2.4} />
-        </button>
-      ) : (
-        <Link
-          href={withSelection("/", selection)}
-          aria-label="종합 (첫 화면)"
-          className="flex h-11.5 w-11 flex-none items-center justify-center"
-        >
-          <span className="bg-plate flex rounded-full">
-            <Image
-              src="/brand/logo-emblem.png"
-              alt=""
-              width={412}
-              height={383}
-              className="h-11 w-auto max-w-none"
-            />
-          </span>
-        </Link>
-      )}
-
-      {context.kind === "title" ? (
-        <span
-          data-testid="context-title"
-          className="text-18 min-w-0 flex-1 truncate pl-1 font-bold"
-        >
-          {context.title}
-        </span>
-      ) : (
-        <div
-          data-testid="context-capsule"
-          className="bg-card shadow-hairline @container flex h-11 min-w-0 flex-1 rounded-full"
-        >
-          <div
-            role="group"
-            aria-label="작물"
-            style={{ flexGrow: "var(--ctx-crop-grow)" }}
-            className="flex min-w-min basis-0"
-          >
-            <button
-              ref={cropButtonRef}
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={panel === "crop"}
-              onClick={() =>
-                setPanelState(
-                  panel === "crop" ? null : { kind: "crop", key: urlKey },
-                )
-              }
-              className="text-ink flex h-11 w-full min-w-0 cursor-pointer items-center gap-1 rounded-l-full pr-1.5 pl-3 text-left @max-[240px]:pr-1 @max-[240px]:pl-2"
-            >
-              {isSelectionPending ? (
-                <>
-                  <span className="sr-only">작물 불러오는 중</span>
-                  <span
-                    aria-hidden="true"
-                    className="flex h-6 min-w-0 flex-1 items-center gap-1.5 overflow-hidden"
-                  >
-                    <span className="bg-fill/25 h-5 w-14 shrink-0 rounded-full motion-safe:animate-pulse" />
-                  </span>
-                </>
-              ) : (
-                <span className="flex h-6 min-w-0 flex-1 flex-wrap items-center gap-x-1.25 overflow-hidden text-left">
-                  <span
-                    data-testid="crop-name"
-                    className="text-17 shrink-0 leading-6 font-bold whitespace-nowrap"
-                  >
-                    {CROP_LABEL[crop]}
-                  </span>
-                  <span
-                    data-testid="crop-sub"
-                    className="text-14 text-ink-2/85 leading-6 font-medium whitespace-nowrap"
-                  >
-                    {info.short}
-                  </span>
-                </span>
-              )}
-              <Icon
-                name="chevronDown"
-                size={14}
-                strokeWidth={2.4}
-                className="text-ink-2/70 shrink-0 @max-[240px]:hidden"
-              />
-            </button>
-          </div>
-          <span
-            aria-hidden="true"
-            className="bg-ink-2/22 my-2.5 w-(--hairline) flex-none"
-          />
-          <div
-            role="group"
-            aria-label="지역"
-            className="flex min-w-min flex-1 basis-0"
-          >
-            {selection && station ? (
-              <button
-                ref={regionButtonRef}
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={panel === "region"}
-                onClick={() =>
-                  setPanelState(
-                    panel === "region" ? null : { kind: "region", key: urlKey },
-                  )
-                }
-                className="text-ink flex h-11 w-full min-w-0 cursor-pointer items-center gap-1.25 rounded-r-full px-2 text-left @max-[240px]:px-1.5"
-              >
-                <span className="flex h-6 min-w-0 flex-1 flex-wrap items-center gap-x-1.25 overflow-hidden text-left">
-                  <span className="flex shrink-0 items-center gap-1.25 whitespace-nowrap">
-                    <span
-                      aria-hidden="true"
-                      className={`size-2 flex-none rounded-full ${
-                        isPending
-                          ? "bg-fill/30 motion-safe:animate-pulse"
-                          : selectedStatus
-                            ? STATUS_DOT[selectedStatus]
-                            : "bg-fill/30"
-                      }`}
-                    />
-                    <span
-                      data-testid="station-name"
-                      className="text-17 leading-6 font-bold"
-                    >
-                      {station.name}
-                    </span>
-                  </span>
-                  <span
-                    data-testid="station-id"
-                    className="text-14 text-ink-2/85 leading-6 font-medium whitespace-nowrap"
-                  >
-                    {station.id}
-                  </span>
-                </span>
-                <span className="sr-only">
-                  {isFailed
-                    ? "불러오지 못함"
-                    : isPending
-                      ? "판정 불러오는 중"
-                      : selectedStatus
-                        ? anyStatusLabel(selectedStatus)
-                        : "자료 없음"}
-                </span>
-                <Icon
-                  name="chevronDown"
-                  size={14}
-                  strokeWidth={2.4}
-                  className="text-ink-2/70 shrink-0 @max-[240px]:hidden"
-                />
-              </button>
-            ) : (
-              <span className="text-ink-2/75 flex h-11 w-full min-w-0 items-center px-2.5 font-medium whitespace-nowrap">
-                지역 고르기
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => open("login")}
-        aria-hidden={loginOpen || undefined}
-        tabIndex={loginOpen ? -1 : undefined}
-        className={`bg-fill/12 text-15 text-ink h-11 flex-none cursor-pointer rounded-full px-3.25 font-semibold whitespace-nowrap ${
-          loginOpen ? "invisible" : ""
+    <div className="desktop:hidden relative h-13">
+      <div
+        data-testid="context-bar"
+        className={`fz-fixed glass bg-card/88 border-ink-2/15 pointer-events-auto absolute inset-x-0 top-0 overflow-hidden border-b-(length:--hairline) motion-safe:transition-[height] motion-safe:duration-(--fold-duration) ${
+          folded ? "h-8" : "h-13"
         }`}
       >
-        로그인
-      </button>
+        <div
+          data-testid="context-row"
+          inert={folded}
+          className={`flex h-13 items-center gap-2 pr-3 pl-2.5 motion-safe:transition-opacity motion-safe:duration-150 ${
+            folded ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          {context.kind === "title" && context.back ? (
+            <button
+              type="button"
+              aria-label="뒤로"
+              onClick={goBack}
+              className="bg-fill/12 text-ink flex size-11 flex-none cursor-pointer items-center justify-center rounded-full"
+            >
+              <Icon name="back" size={22} strokeWidth={2.4} />
+            </button>
+          ) : (
+            <Link
+              href={withSelection("/", selection)}
+              aria-label="종합 (첫 화면)"
+              className="flex h-11.5 w-11 flex-none items-center justify-center"
+            >
+              <span className="bg-plate flex rounded-full">
+                <Image
+                  src="/brand/logo-emblem.png"
+                  alt=""
+                  width={412}
+                  height={383}
+                  className="h-11 w-auto max-w-none"
+                />
+              </span>
+            </Link>
+          )}
+
+          {context.kind === "title" ? (
+            <span
+              data-testid="context-title"
+              className="text-18 min-w-0 flex-1 truncate pl-1 font-bold"
+            >
+              {context.title}
+            </span>
+          ) : (
+            <div
+              data-testid="context-capsule"
+              className="bg-card shadow-hairline @container flex h-11 min-w-0 flex-1 rounded-full"
+            >
+              <div
+                role="group"
+                aria-label="작물"
+                style={{ flexGrow: "var(--ctx-crop-grow)" }}
+                className="flex min-w-min basis-0"
+              >
+                <button
+                  ref={cropButtonRef}
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={panel === "crop"}
+                  onClick={() =>
+                    setPanelState(
+                      panel === "crop" ? null : { kind: "crop", key: urlKey },
+                    )
+                  }
+                  className="text-ink flex h-11 w-full min-w-0 cursor-pointer items-center gap-1 rounded-l-full pr-1.5 pl-3 text-left @max-[240px]:pr-1 @max-[240px]:pl-2"
+                >
+                  {isSelectionPending ? (
+                    <>
+                      <span className="sr-only">작물 불러오는 중</span>
+                      <span
+                        aria-hidden="true"
+                        className="flex h-6 min-w-0 flex-1 items-center gap-1.5 overflow-hidden"
+                      >
+                        <span className="bg-fill/25 h-5 w-14 shrink-0 rounded-full motion-safe:animate-pulse" />
+                      </span>
+                    </>
+                  ) : (
+                    <span className="flex h-6 min-w-0 flex-1 flex-wrap items-center gap-x-1.25 overflow-hidden text-left">
+                      <span
+                        data-testid="crop-name"
+                        className="text-17 shrink-0 leading-6 font-bold whitespace-nowrap"
+                      >
+                        {CROP_LABEL[crop]}
+                      </span>
+                      <span
+                        data-testid="crop-sub"
+                        className="text-14 text-ink-2/85 leading-6 font-medium whitespace-nowrap"
+                      >
+                        {info.short}
+                      </span>
+                    </span>
+                  )}
+                  <Icon
+                    name="chevronDown"
+                    size={14}
+                    strokeWidth={2.4}
+                    className="text-ink-2/70 shrink-0 @max-[240px]:hidden"
+                  />
+                </button>
+              </div>
+              <span
+                aria-hidden="true"
+                className="bg-ink-2/22 my-2.5 w-(--hairline) flex-none"
+              />
+              <div
+                role="group"
+                aria-label="지역"
+                className="flex min-w-min flex-1 basis-0"
+              >
+                {selection && station ? (
+                  <button
+                    ref={regionButtonRef}
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={panel === "region"}
+                    onClick={() =>
+                      setPanelState(
+                        panel === "region"
+                          ? null
+                          : { kind: "region", key: urlKey },
+                      )
+                    }
+                    className="text-ink flex h-11 w-full min-w-0 cursor-pointer items-center gap-1.25 rounded-r-full px-2 text-left @max-[240px]:px-1.5"
+                  >
+                    <span className="flex h-6 min-w-0 flex-1 flex-wrap items-center gap-x-1.25 overflow-hidden text-left">
+                      <span className="flex shrink-0 items-center gap-1.25 whitespace-nowrap">
+                        <span
+                          aria-hidden="true"
+                          className={`size-2 flex-none rounded-full ${
+                            isPending
+                              ? "bg-fill/30 motion-safe:animate-pulse"
+                              : selectedStatus
+                                ? STATUS_DOT[selectedStatus]
+                                : "bg-fill/30"
+                          }`}
+                        />
+                        <span
+                          data-testid="station-name"
+                          className="text-17 leading-6 font-bold"
+                        >
+                          {station.name}
+                        </span>
+                      </span>
+                      <span
+                        data-testid="station-id"
+                        className="text-14 text-ink-2/85 leading-6 font-medium whitespace-nowrap"
+                      >
+                        {station.id}
+                      </span>
+                    </span>
+                    <span className="sr-only">
+                      {isFailed
+                        ? "불러오지 못함"
+                        : isPending
+                          ? "판정 불러오는 중"
+                          : selectedStatus
+                            ? anyStatusLabel(selectedStatus)
+                            : "자료 없음"}
+                    </span>
+                    <Icon
+                      name="chevronDown"
+                      size={14}
+                      strokeWidth={2.4}
+                      className="text-ink-2/70 shrink-0 @max-[240px]:hidden"
+                    />
+                  </button>
+                ) : (
+                  <span className="text-ink-2/75 flex h-11 w-full min-w-0 items-center px-2.5 font-medium whitespace-nowrap">
+                    지역 고르기
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => open("login")}
+            aria-hidden={loginOpen || undefined}
+            tabIndex={loginOpen ? -1 : undefined}
+            className={`bg-fill/12 text-15 text-ink h-11 flex-none cursor-pointer rounded-full px-3.25 font-semibold whitespace-nowrap ${
+              loginOpen ? "invisible" : ""
+            }`}
+          >
+            로그인
+          </button>
+        </div>
+
+        {/* 접힌 줄 (높이 32)의 보이는 글자: 작물 · ● 지역 번호, 제목 화면은 제목. 읽는 이름은 아래 버튼이 갖는다. */}
+        <div
+          aria-hidden="true"
+          className={`text-ink pointer-events-none absolute inset-x-0 top-0 flex h-8 items-center justify-center px-4 motion-safe:transition-opacity motion-safe:duration-150 ${
+            folded ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span
+            data-testid="fold-text"
+            className="text-14 flex min-w-0 items-center gap-1.5 font-bold whitespace-nowrap"
+          >
+            {context.kind === "title" ? (
+              <span className="truncate">{context.title}</span>
+            ) : !station ? (
+              <span>불러오는 중</span>
+            ) : (
+              <>
+                <span>{CROP_LABEL[crop]}</span>
+                <span aria-hidden="true">·</span>
+                <span
+                  data-testid="fold-dot"
+                  aria-hidden="true"
+                  className={`size-2 flex-none rounded-full ${dotClass}`}
+                />
+                <span>{station.name}</span>
+                <span>{station.id}</span>
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+
+      {/* 접힌 줄을 누르면 펼친다. 보이는 줄은 32 지만 누르는 영역은 규칙(44 이상)대로 44 — 바의 잘라내는 상자 밖에 두어
+          보이는 줄 아래 12px 까지 눌린다. 펼쳐 있는 동안은 inert + pointer-events 없음(눌림 · 탭 이동에서 빠짐). */}
+      <button
+        type="button"
+        data-testid="context-fold"
+        inert={!folded}
+        onClick={onUnfold}
+        aria-label={foldLabel}
+        className={`absolute inset-x-0 top-0 z-10 h-11 ${
+          folded ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
+        }`}
+      />
 
       {panel === "crop" && (
         <BottomSheet

@@ -17,6 +17,8 @@ import {
   type SheetLayout,
 } from "@/domain/sheet";
 
+import { useSheet } from "./sheet-context";
+
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
 /** 보이는 화면(visualViewport) 기준 시트 위치 · 최대 높이. 계산은 src/domain/sheet.ts. */
@@ -53,11 +55,15 @@ export function BottomSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const { hold } = useSheet();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<{ pointerId: number; startY: number } | null>(null);
   const [layout, setLayout] = useState<SheetLayout>(readLayout);
   const [offset, setOffset] = useState(0); // 끄는 동안 따라 내려간 거리(px)
   const [dragging, setDragging] = useState(false);
+
+  // 시트가 열려 있는 동안 오토 하이드(위 바 접힘 · 탭바 숨김)가 상태를 안 바꾸게 알린다 (이슈 #159).
+  useEffect(() => hold(), [hold]);
 
   // 키보드가 뜨거나 화면이 돌아가면 보이는 화면이 바뀐다.
   useEffect(() => {
