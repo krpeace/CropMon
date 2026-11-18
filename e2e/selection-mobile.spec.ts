@@ -18,9 +18,14 @@ async function open(page: Page, path: string) {
   await page.waitForLoadState("networkidle"); // 버튼이 살아난 뒤에 누른다
 }
 
-/** 머리말(= 선택 줄 포함) 아래 끝. */
-const headerBottom = (page: Page) =>
-  page.locator("header").evaluate((el) => el.getBoundingClientRect().bottom);
+/** 시트가 올라오는 움직임이 끝날 때까지 기다린다 (움직이는 동안 재면 덮개가 잡힌다). */
+const settled = (page: Page) =>
+  page.evaluate(() =>
+    Promise.all(document.getAnimations().map((a) => a.finished)),
+  );
+/** 보이는 화면 아래 끝(= 시트가 붙어야 하는 곳). */
+const viewportBottom = (page: Page) =>
+  page.evaluate(() => window.visualViewport?.height ?? window.innerHeight);
 
 const CROPS = ["common", "apple", "cabbage"];
 const CROP_NAME: Record<string, string> = {
@@ -85,22 +90,24 @@ for (const width of [360, 375, 390, 412]) {
   });
 }
 
-test("작물 판은 선택 줄 바로 아래, 화면 안에 열린다", async ({ page }) => {
+// 이슈 #157: 예전에는 "선택 줄 바로 아래"에 열렸다. 지금은 화면 아래에서 올라오는 시트라 아래 끝에 붙는다.
+test("작물 시트는 화면 아래 끝에 붙어, 화면 안에 열린다", async ({ page }) => {
   await open(page, "/water?st=101&crop=apple");
   await cropButton(page).click();
   await expect(cropDialog(page)).toHaveCount(1);
+  await settled(page);
   const box = (await cropDialog(page).boundingBox())!;
-  const gap = box.y - (await headerBottom(page));
-  expect(gap).toBeGreaterThan(0);
-  expect(gap).toBeLessThanOrEqual(16);
+  expect(Math.round(box.y + box.height)).toBe(await viewportBottom(page));
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
 });
 
-test("덮개는 탭바를 덮고 머리말(작물 버튼)은 덮지 않는다", async ({ page }) => {
+// 이슈 #157: 예전에는 "머리말(작물 버튼)은 덮지 않는다"였다. 규칙은 덮개가 탭바 · 맥락 바까지 덮는 것이라 뒤집혔다.
+test("덮개는 탭바와 맥락 바(작물 버튼)를 덮는다", async ({ page }) => {
   await open(page, "/water?st=101&crop=apple");
   await cropButton(page).click();
   await expect(cropDialog(page)).toBeVisible();
+  await settled(page);
   const tabbar = (await page
     .getByRole("navigation", { name: "메뉴" })
     .boundingBox())!;
@@ -110,7 +117,7 @@ test("덮개는 탭바를 덮고 머리말(작물 버튼)은 덮지 않는다", 
       tabbarCovered: !document
         .elementFromPoint(tx, ty)
         ?.closest('nav[aria-label="메뉴"]'),
-      buttonVisible: !!document
+      buttonCovered: !document
         .elementFromPoint(bx, by)
         ?.closest('[role="group"][aria-label="작물"] button'),
     }),
@@ -122,7 +129,7 @@ test("덮개는 탭바를 덮고 머리말(작물 버튼)은 덮지 않는다", 
     },
   );
   expect(pts.tabbarCovered).toBe(true);
-  expect(pts.buttonVisible).toBe(true);
+  expect(pts.buttonCovered).toBe(true);
 });
 
 test.describe("닫기", () => {
@@ -130,7 +137,8 @@ test.describe("닫기", () => {
     await open(page, "/water?st=101&crop=apple");
     await cropButton(page).click();
     await expect(cropDialog(page)).toBeVisible();
-    await page.mouse.click(195, 820);
+    // 시트 위쪽의 덮개를 누른다 (예전 점 (195, 820)은 이제 시트 안이다)
+    await page.mouse.click(195, 20);
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
@@ -163,33 +171,44 @@ test.describe("닫기", () => {
     await expect(regionButton(page)).toBeFocused();
   });
 
-  test("같은 버튼을 다시 누르면 닫히고, 다른 버튼을 누르면 판이 바뀐다", async ({
+  // 이슈 #157: 예전에는 같은 칸을 다시 눌러 닫고, 다른 칸을 눌러 판을 바꿨다. 덮개가 두 칸을 덮어 칸을 직접 누를 수 없게 되어,
+  // 같은 확인("시트는 한 번에 하나")을 "덮개로 닫고 이어서 다른 칸을 누르면 그 시트가 열린다"로 한다.
+  test("덮개를 누르면 닫히고, 이어서 다른 칸을 누르면 그 시트가 열린다 (시트는 한 번에 하나)", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     await cropButton(page).click();
     await expect(cropDialog(page)).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await page.mouse.click(195, 20);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await regionButton(page).click();
     await expect(regionDialog(page)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(1);
-    await regionButton(page).click();
+    await page.mouse.click(195, 20);
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
-  // 예전에는 머리말의 테마 버튼이었다. 휴대폰 맥락 바에는 해/달 버튼이 없어서(이슈 #155)
-  // 같은 확인("머리말의 다른 버튼을 누르면 열린 판이 먼저 닫힌다")을 맥락 바의 "로그인"으로 한다.
-  test("머리말의 로그인 버튼을 누르면 판이 먼저 닫힌다", async ({ page }) => {
+  // 예전에는 머리말의 테마 버튼(이슈 #155 뒤에는 맥락 바의 "로그인")을 눌러도 열린 판이 먼저 닫혔다.
+  // 이슈 #157: 덮개가 맥락 바까지 덮어 머리말 버튼을 직접 누를 수 없다. 같은 확인("머리말 자리를 눌러도 시트가 먼저 닫힌다")을
+  // "머리말 자리(덮개)를 누르면 시트만 닫히고 뒤 화면(로그인 버튼)은 눌리지 않는다"로 한다.
+  test("머리말 자리를 누르면 시트가 먼저 닫히고, 뒤 화면의 로그인 버튼은 눌리지 않는다", async ({
+    page,
+  }) => {
     await open(page, "/water?st=101&crop=apple");
     await cropButton(page).click();
     await expect(cropDialog(page)).toBeVisible();
-    await page
+    await settled(page);
+    const login = (await page
       .getByTestId("context-bar")
       .getByRole("button", { name: "로그인" })
-      .click();
+      .boundingBox())!;
+    await page.mouse.click(
+      login.x + login.width / 2,
+      login.y + login.height / 2,
+    );
     await expect(cropDialog(page)).toHaveCount(0);
-    await expect(
-      page.getByRole("dialog", { name: "로그인 안내" }),
-    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0); // 로그인 시트도 안 열렸다
   });
 
   test("폭이 1024 이상이 되면 닫힌다", async ({ page }) => {
@@ -212,16 +231,15 @@ test("작물 판에서 배추를 누르면 crop=cabbage 가 되고 닫힌다", a
 });
 
 test.describe("지역 판", () => {
-  test("선택 줄 바로 아래에 열리고 검색칸에 포커스가 가 있지 않다", async ({
+  test("화면 아래 끝에 붙어 열리고 검색칸에 포커스가 가 있지 않다", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     await regionButton(page).click();
     await expect(regionDialog(page)).toBeVisible();
+    await settled(page);
     const box = (await regionDialog(page).boundingBox())!;
-    const gap = box.y - (await headerBottom(page));
-    expect(gap).toBeGreaterThan(0);
-    expect(gap).toBeLessThanOrEqual(16);
+    expect(Math.round(box.y + box.height)).toBe(await viewportBottom(page));
     const onSearch = await page.evaluate(
       () => document.activeElement?.getAttribute("role") === "searchbox",
     );
@@ -246,12 +264,16 @@ test.describe("지역 판", () => {
     await regionButton(page).click();
     await expect(regionDialog(page)).toBeVisible();
     await page.setViewportSize({ width: 390, height: 500 });
+    // 시트가 화면 아래 끝에 붙은 채 화면 안에 있다 (예전에는 "아래 끝 − 12"였다)
     await expect
       .poll(async () => {
         const b = (await regionDialog(page).boundingBox())!;
-        return b.y + b.height;
+        return Math.round(b.y + b.height);
       })
-      .toBeLessThanOrEqual(500 - 12);
+      .toBe(500);
+    expect((await regionDialog(page).boundingBox())!.y).toBeGreaterThanOrEqual(
+      47.5,
+    );
     const list = regionDialog(page).getByRole("listbox", {
       name: "관측 지점 목록",
     });
