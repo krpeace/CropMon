@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 // 휴대폰 390×844 로 본다 (playwright.config 의 mobile 프로젝트). 가짜 Supabase 자료를 읽는다.
 

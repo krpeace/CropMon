@@ -1,5 +1,8 @@
 // 화면 테스트용 가짜 Supabase (PostgREST 흉내). 값은 지어낸 것이다. 실제 농가·키 없음.
 // 오늘(한국 날짜)을 기준으로 춘천(101) 사과·배추 자료와 지점 10곳의 적산온도를 만든다. 태백(216)만 묻는 읽기는 일부러 오류를 돌려준다.
+// 날짜 규칙: 달력 날짜(예: 04-01)를 고정해 쓰지 않는다. 작기는 "오늘" 기준 상대 날짜(사과 = 오늘 안, 배추 = 오늘 밖)라
+// 어느 날 돌려도 같은 결과가 나온다. 날짜를 바꿔 보려면 E2E_TODAY=YYYY-MM-DD (e2e/fake-clock.mjs, playwright.config.ts).
+// E2E_TODAY 없이 한국 날짜가 1월 1~3일이면 올해 자료가 거의 없어 자동으로 그해 1월 4일로 잡는다 (playwright.config.ts).
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -109,7 +112,17 @@ const kcSets = [
   sort_order,
 }));
 
-const scen = (kc, crop, start, end, taw, raw, stn = "101") => ({
+// 작기는 오늘 기준 상대 날짜. 사과: 오늘이 작기 안(1월 1일은 휴면기). 배추: 오늘이 작기 밖(아직 안 심음).
+// 사과 시작: 올해 2월 1일 (1월 한 달은 늘 휴면기). 오늘이 2월 1일 이전이면 오늘이 작기 안이도록 1월 2일 (1월 1일만 휴면기).
+const APPLE_START = today > `${year}-02-01` ? `${year}-02-01` : `${year}-01-02`;
+const APPLE_END = add(today, 30);
+const CABBAGE_START = add(today, 60);
+const CABBAGE_END = add(today, 150);
+const SEASON = {
+  apple: [APPLE_START, APPLE_END],
+  kimchi_cabbage: [CABBAGE_START, CABBAGE_END],
+};
+const scen = (kc, crop, taw, raw, stn = "101") => ({
   scenario_id: `${stn}-${crop}-${kc}-loam-${year}`,
   stn_id: stn,
   crop_id: crop,
@@ -118,28 +131,28 @@ const scen = (kc, crop, start, end, taw, raw, stn = "101") => ({
   kc_set_id: `${crop}-${kc}`,
   taw_mm: taw,
   raw_mm: raw,
-  season_start: `${year}-${start}`,
-  season_end: `${year}-${end}`,
+  season_start: SEASON[crop][0],
+  season_end: SEASON[crop][1],
 });
 const scenarios = [
-  scen("k3", "apple", "04-01", "11-15", 130, 65),
-  scen("k1", "apple", "04-01", "11-15", 130, 65),
-  scen("k1", "kimchi_cabbage", "06-01", "09-08", 65, 29.25),
+  scen("k3", "apple", 130, 65),
+  scen("k1", "apple", 130, 65),
+  scen("k1", "kimchi_cabbage", 65, 29.25),
   // 수원(119): 예보 회차 없이 관측 물수지만 (지역 칩은 마지막 관측 판정을 쓴다)
-  scen("k3", "apple", "04-01", "11-15", 130, 65, "119"),
+  scen("k3", "apple", 130, 65, "119"),
   // 진주(192): 예보 회차가 있지만 계수는 춘천 값을 빌려 쓰는 지점 (물6)
-  scen("k3", "apple", "04-01", "11-15", 130, 65, "192"),
+  scen("k3", "apple", 130, 65, "192"),
   // 서귀포(189): 예보 없이 관측 물수지이지만 filled=true (추정 포함 E2E 검증용)
-  scen("k3", "apple", "04-01", "11-15", 130, 65, "189"),
+  scen("k3", "apple", 130, 65, "189"),
   // 전주(146): 예보 회차가 있고 출발일도 filled=true (앞으로 3일 + 전국 일부 추정 E2E 검증용)
-  scen("k3", "apple", "04-01", "11-15", 130, 65, "146"),
+  scen("k3", "apple", 130, 65, "146"),
   // 강릉(105): 대표 밖 87곳 예보 지점. 춘천 값을 빌려 써서 검증 전 안내가 뜬다 (#103)
-  scen("k3", "apple", "04-01", "11-15", 130, 65, "105"),
+  scen("k3", "apple", 130, 65, "105"),
   // 강릉(105) 배추, 서울(108) 사과·배추: 대표 밖 지점의 선택 줄·지역 목록 판정 E2E 검증용 (#138).
   // 예보 회차는 없이 관측 물수지만 있다 (사과는 기본 K3, 배추는 기본 K1).
-  scen("k1", "kimchi_cabbage", "06-01", "09-08", 65, 29.25, "105"),
-  scen("k3", "apple", "04-01", "11-15", 130, 65, "108"),
-  scen("k1", "kimchi_cabbage", "06-01", "09-08", 65, 29.25, "108"),
+  scen("k1", "kimchi_cabbage", 65, 29.25, "105"),
+  scen("k3", "apple", 130, 65, "108"),
+  scen("k1", "kimchi_cabbage", 65, 29.25, "108"),
 ];
 
 const statusOf = (dr, raw) =>
@@ -358,7 +371,8 @@ for (const cfg of SOIL_CONFIGS) {
   const lastDay = add(today, -1);
   for (let d = `${year}-01-01`, k = 0; d < today; d = add(d, 1), k++) {
     const m = Number(d.slice(5, 7));
-    const winter = m === 12 || m === 1 || m === 2;
+    // 겨울철(12~2월)은 어제만 빼고 겨울철로 둔다: 어제 값은 늘 설정값이어야 "오늘 카드" 시험이 겨울에도 같은 결과다.
+    const winter = (m === 12 || m === 1 || m === 2) && d !== add(today, -1);
     // 마지막 날(어제)은 설정값 그대로 (① 카드 테스트가 읽는다). 앞날은 그래프가 평평하지 않게 조금 흔든다.
     const last = d === lastDay;
     const dr = last
@@ -439,7 +453,8 @@ for (let d = `${year}-01-01`; d <= `${year}-12-31`; d = add(d, 1)) {
 const shape = [];
 let acc = 0;
 yearDays.forEach((_, i) => {
-  acc += Math.max(0, 7 - 15 * Math.cos((2 * Math.PI * (i - 15)) / 365));
+  // 바닥(0.5)을 둔다: 1월 초에도 어제까지 누적이 0 이 되지 않아야 (어제 누적값으로 곡선을 늘리고 줄이므로) 나누기가 안 깨진다.
+  acc += Math.max(0.5, 7 - 15 * Math.cos((2 * Math.PI * (i - 15)) / 365));
   shape.push(acc);
 });
 const yIdx = Math.max(0, yearDays.indexOf(yesterday));

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 const region = (page: Page) => page.getByRole("group", { name: "지역" });
 const crop = (page: Page) => page.getByRole("group", { name: "작물" });

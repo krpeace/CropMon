@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 const PAGES = [
   { path: "/", heading: "오늘 춘천은 어떤가요?" },
