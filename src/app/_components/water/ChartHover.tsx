@@ -146,7 +146,7 @@ export function ChartHover({
             <span className="font-bold">{info.date}</span>
             <span className="flex items-center gap-1">
               {info.filledBadge && (
-                <span className="bg-fill/14 text-12 text-gray-ink rounded-full px-2 py-0.5 font-bold whitespace-nowrap">
+                <span className="fz-cap bg-fill/14 text-12 text-gray-ink rounded-full px-2 py-0.5 font-bold whitespace-nowrap">
                   {info.filledBadge}
                 </span>
               )}
@@ -179,7 +179,7 @@ export function ChartHover({
               href={href(day.date)}
               scroll={false}
               aria-label={`${info.date} 물 화면 보기`}
-              className="text-brand-ink pointer-events-auto flex min-h-11 items-center justify-end font-bold"
+              className="text-brand-ink fh-44 pointer-events-auto flex items-center justify-end font-bold"
             >
               이 날 보기 ›
             </Link>

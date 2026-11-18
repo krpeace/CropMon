@@ -62,7 +62,7 @@ async function ResolvedWaterBoard({ searchParams }: Props) {
           aria-label="지금 토양 상태"
           className="rounded-card bg-card text-17 flex flex-wrap items-center gap-2.5 p-5"
         >
-          <span className="bg-dormant-bg text-dormant-fg text-15 rounded-full px-3 py-1.25 font-bold">
+          <span className="fz-cap bg-dormant-bg text-dormant-fg text-15 rounded-full px-3 py-1.25 font-bold">
             자료 없음
           </span>
           <span className="text-ink-2/90">
@@ -87,7 +87,7 @@ async function ResolvedWaterBoard({ searchParams }: Props) {
                 aria-label="지금 토양 상태"
                 className="rounded-card bg-card text-17 p-5"
               >
-                <span className="bg-dormant-bg text-dormant-fg text-15 mr-2 rounded-full px-3 py-1.25 font-bold">
+                <span className="fz-cap bg-dormant-bg text-dormant-fg text-15 mr-2 rounded-full px-3 py-1.25 font-bold">
                   자료 없음
                 </span>
                 이 날의 물수지 자료가 없어요.

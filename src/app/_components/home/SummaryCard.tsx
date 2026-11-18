@@ -98,7 +98,7 @@ export function SoonCard({
         />
         <span className="text-18 font-bold">{label}</span>
       </div>
-      <span className="bg-fill/14 text-14 text-gray-ink self-start rounded-full px-2.5 py-1 font-bold whitespace-nowrap">
+      <span className="fz-cap bg-fill/14 text-14 text-gray-ink self-start rounded-full px-2.5 py-1 font-bold whitespace-nowrap">
         준비 중
       </span>
       <div className="text-15 text-ink-2/85 leading-snug">{question}</div>

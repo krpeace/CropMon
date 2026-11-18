@@ -26,7 +26,7 @@ export function OutlookCard({
         <span className="text-15 text-ink-2/85 font-bold">② 앞으로 3일</span>
         <span className="flex-1" />
         {outlook?.filledBadge && (
-          <span className="bg-fill/14 text-13 text-gray-ink rounded-full px-2.5 py-1 font-bold whitespace-nowrap">
+          <span className="fz-cap bg-fill/14 text-13 text-gray-ink rounded-full px-2.5 py-1 font-bold whitespace-nowrap">
             {outlook.filledBadge}
           </span>
         )}
@@ -49,7 +49,7 @@ export function OutlookCard({
         </p>
       ) : !outlook ? (
         <p className="text-16 text-gray-ink m-0">
-          <span className="bg-dormant-bg text-dormant-fg mr-2 rounded-full px-2.5 py-1 font-bold">
+          <span className="fz-cap bg-dormant-bg text-dormant-fg mr-2 rounded-full px-2.5 py-1 font-bold">
             자료 없음
           </span>
           이 날의 전망 자료가 아직 없어요.
@@ -64,7 +64,7 @@ export function OutlookCard({
               <div
                 role="group"
                 aria-labelledby="run-label"
-                className="bg-fill/14 flex h-9.5 gap-0.5 rounded-full p-0.75"
+                className="bg-fill/14 fh-38 flex gap-0.5 rounded-full p-0.75"
               >
                 {outlook.runs.map((r) =>
                   r.available ? (
@@ -130,7 +130,7 @@ export function OutlookCard({
                   </span>
                 </div>
                 <span
-                  className={`text-15 self-start rounded-full px-2.75 py-1.25 font-bold whitespace-nowrap ${STATUS_BADGE[d.status]}`}
+                  className={`fz-cap text-15 self-start rounded-full px-2.75 py-1.25 font-bold whitespace-nowrap ${STATUS_BADGE[d.status]}`}
                 >
                   {d.statusLabel}
                 </span>

@@ -55,7 +55,7 @@ export function ComingSoon({ question, items, source, waterHref }: Props) {
             {items.map((text, i) => (
               <li
                 key={text}
-                className="border-ink-2/14 flex min-h-13 items-center gap-3 border-t-(length:--hairline)"
+                className="border-ink-2/14 fh-52 flex items-center gap-3 border-t-(length:--hairline)"
               >
                 <span
                   aria-hidden="true"
@@ -80,7 +80,7 @@ export function ComingSoon({ question, items, source, waterHref }: Props) {
           </section>
           <Link
             href={waterHref}
-            className="bg-brand text-18 flex h-14 items-center justify-center rounded-full font-bold text-white"
+            className="bg-brand text-18 fh-56 flex items-center justify-center rounded-full font-bold text-white"
           >
             그동안 물 판정 보기
           </Link>

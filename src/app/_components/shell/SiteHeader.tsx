@@ -135,7 +135,7 @@ function SiteHeaderView({
             )}
           </div>
         )}
-        <div className="desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
+        <div className="fz-fixed desktop:gap-7 mx-auto flex h-19 max-w-(--page-max) items-center gap-2.5 px-(--page-gutter)">
           <Link
             href={withSelection("/", selection)}
             className="bg-plate rounded-row flex-none dark:px-2 dark:py-0.5"
@@ -294,7 +294,7 @@ function SelectionBar({
   return (
     <div
       ref={barRef}
-      className="border-ink-2/12 bg-bg/70 border-t-(length:--hairline)"
+      className="fz-fixed border-ink-2/12 bg-bg/70 border-t-(length:--hairline)"
     >
       <div className="desktop:flex-wrap desktop:gap-3 mx-auto flex max-w-(--page-max) flex-nowrap items-center gap-2 px-(--page-gutter) py-2.5">
         <div
@@ -373,7 +373,7 @@ function SelectionBar({
             />
           </button>
           {popover === "crop" && (
-            <div className="rounded-panel bg-card shadow-popover absolute top-[calc(100%+8px)] left-0 z-30 flex w-80 flex-col overflow-hidden p-1.5">
+            <div className="fz-follow rounded-panel bg-card shadow-popover absolute top-[calc(100%+8px)] left-0 z-30 flex w-80 flex-col overflow-hidden p-1.5">
               <div className="text-13 text-ink-2/85 px-3 pt-2 pb-1 font-bold">
                 작물 고르기
               </div>
@@ -715,7 +715,7 @@ function RegionPopover({
   onClose: () => void;
 }) {
   return (
-    <div className="rounded-panel bg-card shadow-popover absolute top-[calc(100%+8px)] left-0 z-30 flex max-h-115 w-95 flex-col overflow-hidden">
+    <div className="fz-follow rounded-panel bg-card shadow-popover absolute top-[calc(100%+8px)] left-0 z-30 flex max-h-115 w-95 flex-col overflow-hidden">
       <RegionPickerBody
         pathname={pathname}
         selection={selection}
@@ -773,7 +773,7 @@ function RegionPickerBody({
   return (
     <>
       <div className="border-ink-2/12 border-b-(length:--hairline) p-3 pb-2.5">
-        <div className="rounded-input bg-fill/12 focus-within:bg-card focus-within:shadow-focus flex h-11 items-center gap-2 px-3">
+        <div className="rounded-input bg-fill/12 focus-within:bg-card focus-within:shadow-focus fh-44 flex items-center gap-2 px-3">
           <Icon name="search" size={18} className="text-ink-2/60 shrink-0" />
           <input
             ref={inputRef}
@@ -860,7 +860,7 @@ function RegionPickerBody({
                     aria-selected={selected}
                     onMouseEnter={() => setActiveIndex(itemIndex)}
                     onClick={() => selectStation(item.id)}
-                    className={`rounded-input flex min-h-11 w-full cursor-pointer items-center justify-between gap-2.5 px-2.5 py-2 text-left ${
+                    className={`rounded-input fh-44 flex w-full cursor-pointer items-center justify-between gap-2.5 px-2.5 py-2 text-left ${
                       selected
                         ? "bg-emerald/14"
                         : active
@@ -882,7 +882,7 @@ function RegionPickerBody({
                       <span className="text-16 font-semibold">{item.name}</span>
                       <span className="text-13 text-ink-2/60">{item.id}</span>
                       {item.isRepresentative && (
-                        <span className="bg-emerald/14 text-12 text-brand-ink rounded-full px-1.75 py-0.5 font-bold">
+                        <span className="fz-cap bg-emerald/14 text-12 text-brand-ink rounded-full px-1.75 py-0.5 font-bold">
                           대표
                         </span>
                       )}
@@ -973,7 +973,7 @@ function CropPickerBody({
                   </span>
                 )}
                 {info.badge && (
-                  <span className="bg-dormant-bg text-dormant-fg text-13 mt-0.5 self-start rounded-full px-2.25 py-0.5 font-bold whitespace-nowrap">
+                  <span className="fz-cap bg-dormant-bg text-dormant-fg text-13 mt-0.5 self-start rounded-full px-2.25 py-0.5 font-bold whitespace-nowrap">
                     {info.badge}
                   </span>
                 )}

@@ -67,7 +67,7 @@ export function StageCards({ view }: { view: TemperatureView }) {
               </span>
               {s.lag && (
                 <span
-                  className={`text-15 rounded-full px-2.5 py-0.5 font-bold whitespace-nowrap ${LAG_TONE[s.lag.tone]}`}
+                  className={`fz-cap text-15 rounded-full px-2.5 py-0.5 font-bold whitespace-nowrap ${LAG_TONE[s.lag.tone]}`}
                 >
                   {s.lag.text}
                 </span>

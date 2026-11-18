@@ -99,7 +99,7 @@ export function FarmScreen() {
               value={addr}
               onChange={(e) => setAddr(e.target.value)}
               placeholder="예: 홍천군 내촌면"
-              className="rounded-row bg-tile text-18 shadow-inset-hairline h-[54px] px-4 font-sans outline-none"
+              className="rounded-row bg-tile text-18 shadow-inset-hairline fh-54 px-4 font-sans outline-none"
             />
             <div
               className={`text-16 flex items-center gap-2 ${
@@ -129,14 +129,14 @@ export function FarmScreen() {
                     key={s.id}
                     type="button"
                     onClick={() => setSoil(s.id)}
-                    className={`rounded-row flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-px p-1.5 transition-colors ${
+                    className={`rounded-row fh-52 flex cursor-pointer flex-col items-center justify-center gap-px p-1.5 transition-colors ${
                       selected
                         ? "bg-brand text-white shadow-none"
                         : "bg-tile text-ink shadow-inset-thin"
                     }`}
                   >
                     <span className="text-15 font-bold">{s.ko}</span>
-                    <span className="text-11 opacity-75">{s.en}</span>
+                    <span className="text-12 opacity-75">{s.en}</span>
                   </button>
                 );
               })}
@@ -152,7 +152,7 @@ export function FarmScreen() {
               <span className="text-emerald">3</span> 작물과 정식일
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="bg-fill/14 flex h-12 gap-0.5 rounded-full p-[3px]">
+              <div className="bg-fill/14 fh-48 flex gap-0.5 rounded-full p-[3px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -186,7 +186,7 @@ export function FarmScreen() {
                 type="date"
                 value={fDate}
                 onChange={(e) => setFDate(e.target.value)}
-                className="rounded-row bg-tile text-17 shadow-inset-hairline h-12 min-w-[150px] flex-1 px-3.5 font-sans outline-none"
+                className="rounded-row bg-tile text-17 shadow-inset-hairline fh-48 min-w-[150px] flex-1 px-3.5 font-sans outline-none"
               />
             </div>
           </div>
@@ -294,7 +294,7 @@ export function FarmScreen() {
                     setFileName("스마트팜_관수기록_2026.csv (예시)");
                     setReport(true);
                   }}
-                  className="bg-brand-ink/10 text-17 text-brand-ink hover:bg-brand-ink/15 h-[50px] cursor-pointer rounded-full font-bold transition-colors"
+                  className="bg-brand-ink/10 text-17 text-brand-ink hover:bg-brand-ink/15 fh-50 cursor-pointer rounded-full font-bold transition-colors"
                 >
                   예시 파일로 보기
                 </button>

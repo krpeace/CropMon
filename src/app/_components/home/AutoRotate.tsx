@@ -77,7 +77,7 @@ export function AutoRotate({
         <button
           type="button"
           onClick={() => setAuto(!auto)}
-          className={`text-16 flex h-11 cursor-pointer items-center gap-2 rounded-full pr-4.5 pl-3.5 font-bold whitespace-nowrap ${
+          className={`text-16 fh-44 flex cursor-pointer items-center gap-2 rounded-full pr-4.5 pl-3.5 font-bold whitespace-nowrap ${
             auto ? "bg-brand text-white" : "bg-fill/14 text-ink"
           }`}
         >
