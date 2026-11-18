@@ -278,8 +278,9 @@ test.describe("데스크톱", () => {
   });
 
   // 메뉴 아이콘이 보이기 시작하는 폭 (결정 0046: 시안의 1280 을 메뉴 10개에 맞춰 올림). tokens.css 의 --breakpoint-menu-icon 과 같은 값.
-  const ICON_FROM = 1423;
-  const WIDTHS = [1024, 1100, 1280, 1366, ICON_FROM - 1, ICON_FROM, 1440];
+  // 글 폭은 글꼴에 따라 약 6px 달라진다(CI 리눅스 실측). 그래서 모든 폭에서는 "넘치지 않음"만, 여유 하한은 글꼴이 달라도 넉넉한 1024 · 1440 에서만 둔다.
+  const ICON_FROM = 1440;
+  const WIDTHS = [1024, 1100, 1280, 1366, ICON_FROM - 1, ICON_FROM, 1600];
 
   for (const width of WIDTHS) {
     test(`폭 ${width}: 메뉴 10개가 모두 보이고 넘치지 않으며, 아이콘은 ${ICON_FROM} 부터만 보인다`, async ({
