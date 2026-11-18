@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 // 누르는 곳 44px 이상 (시안 규칙). 보이는 크기가 아니라 "실제로 눌리는 영역"을 잰다:
 // 요소 가운데에서 위아래(너비가 44 미만이면 좌우도) 21px 떨어진 점을 누르면 그 요소가 눌려야 한다.

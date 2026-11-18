@@ -1,4 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { e2eNow, e2eToday, expect, test, type Page } from "./fixtures";
+
+/** 어제까지 3월 자료가 쌓였는가 (오늘이 3월 2일 이후). */
+const marchIn = () => e2eToday().slice(5) >= "03-02";
 
 // 가짜 Supabase(e2e/fake-supabase.mjs) 자료로 본다. 춘천(101) 어제까지 적산일사 3,218 / 평년 3,352 (96%),
 // 3월이 가장 적은 달. 진주(192)는 sun_daily 줄이 없고, 태백(216)만 묻는 읽기는 오류를 돌려준다.
@@ -19,7 +22,10 @@ test("햇빛: 평년 대비 %·적산일사·설명·평년 기간이 DB 값으�
   await expect(total(page)).toContainText("올해 햇빛은 평년의 96%");
   await expect(total(page)).toContainText("적산일사 3,218 / 평년 3,352 MJ/m²");
   await expect(total(page)).toContainText("평년보다 조금 적었어요.");
-  await expect(total(page)).toContainText("3월이 가장 적었어요");
+  // 가짜 자료는 3월이 가장 적다. 어제까지 3월이 안 왔으면(1~2월) 그때까지 쌓인 달 중에서 가장 적은 달이 나온다.
+  await expect(total(page)).toContainText(
+    marchIn() ? "3월이 가장 적었어요" : /\d+월이 가장 적었어요/,
+  );
   await expect(chart(page)).toContainText("평년 2016–2025");
 
   const meta = page.getByRole("region", { name: "자료 정보" });
@@ -41,9 +47,12 @@ test("햇빛: 누적 그래프(올해·평년·오늘)와 월별 막대 %(95% �
 
   await expect(months(page)).toContainText("1월");
   await expect(months(page)).toContainText(/\d+월은 \d+일까지/);
-  const march = months(page).getByTestId("pct-3");
-  await expect(march).toHaveAttribute("data-low", "true");
-  await expect(march).toHaveCSS("color", "rgb(176, 74, 0)");
+  // 월별 %는 1~2월에는 달이 1~2개뿐이라 전체 %(96%)와 같아 95% 미만(주황)이 나올 수 없다. 3월이 지난 뒤에만 본다.
+  if (marchIn()) {
+    const march = months(page).getByTestId("pct-3");
+    await expect(march).toHaveAttribute("data-low", "true");
+    await expect(march).toHaveCSS("color", "rgb(176, 74, 0)");
+  }
 });
 
 test("햇빛: 지역 비교 10줄, 자료 없는 지점은 '자료 없음', 누르면 그 지역으로", async ({
@@ -125,7 +134,7 @@ test("햇빛: 휴대폰 폭(390)에서 옆으로 넘치지 않는다", async ({ 
 test("햇빛: 지역 비교 기준일 다름(후보 3) — 상단 안내와 예외 지점(서귀포) 괄호 날짜", async ({
   page,
 }) => {
-  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const threeDaysAgo = new Date(e2eNow() + 9 * 3_600_000 - 3 * 86_400_000);
   const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
 
   await page.setViewportSize({ width: 390, height: 844 });

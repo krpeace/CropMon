@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 // 휴대폰(mobile 프로젝트 390×844)에서 작물 고르기 판만 뜨고 "CropMon 소개" 창이 같이 뜨지 않는다. 가짜 Supabase 자료를 읽는다.
 
