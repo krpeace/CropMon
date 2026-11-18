@@ -72,7 +72,7 @@ export function SummaryCard({
   );
 }
 
-/** 준비 중인 메뉴의 작은 카드 (토양·도매시장). */
+/** 준비 중인 메뉴의 작은 카드 (토양·시세). */
 export function SoonCard({
   href,
   icon,

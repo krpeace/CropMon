@@ -269,3 +269,25 @@ test("대표 밖 지점(강릉 105·서울 108)의 사과·배추 선택 줄도 
     await expect(button).not.toHaveAccessibleName(/자료 없음/);
   }
 });
+
+test("폭이 휴대폰으로 줄면 자동 전환이 멈추고, 다시 넓어지면 돌아온다", async ({
+  page,
+}) => {
+  // 실제 시간으로 기다린다. 가짜 시계는 화면 이동까지 멈춰 버린다.
+  await page.goto("/?st=101&crop=apple");
+  await expect(
+    page.getByRole("button", { name: "자동 전환 중지" }),
+  ).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: /자동 전환/ })).toHaveCount(0);
+  await expect(page.getByText("1 / 10")).toHaveCount(0);
+  await page.waitForTimeout(6_000);
+  await expect(page).toHaveURL(/\/\?st=101&crop=apple$/);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(
+    page.getByRole("button", { name: "자동 전환 중지" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/\?st=216&crop=apple$/, { timeout: 8_000 });
+});

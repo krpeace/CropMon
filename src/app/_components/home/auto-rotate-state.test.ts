@@ -11,6 +11,7 @@ describe("shouldRunRotation — 종합 화면 자동 순환 실행 조건", () =
         sheet: false,
         popover: false,
         pos: 1,
+        desktop: true,
       }),
     ).toBe(true);
   });
@@ -23,6 +24,7 @@ describe("shouldRunRotation — 종합 화면 자동 순환 실행 조건", () =
         sheet: false,
         popover: false,
         pos: 1,
+        desktop: true,
       }),
     ).toBe(false);
   });
@@ -35,6 +37,7 @@ describe("shouldRunRotation — 종합 화면 자동 순환 실행 조건", () =
         sheet: false,
         popover: false,
         pos: 1,
+        desktop: true,
       }),
     ).toBe(false);
   });
@@ -47,6 +50,7 @@ describe("shouldRunRotation — 종합 화면 자동 순환 실행 조건", () =
         sheet: true,
         popover: false,
         pos: 1,
+        desktop: true,
       }),
     ).toBe(false);
     expect(
@@ -56,6 +60,20 @@ describe("shouldRunRotation — 종합 화면 자동 순환 실행 조건", () =
         sheet: false,
         popover: true,
         pos: 1,
+        desktop: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("데스크톱 폭이 아니면(휴대폰) 다른 조건이 모두 참이어도 실행되지 않는다", () => {
+    expect(
+      shouldRunRotation({
+        auto: true,
+        visible: true,
+        sheet: false,
+        popover: false,
+        pos: 1,
+        desktop: false,
       }),
     ).toBe(false);
   });
@@ -68,6 +86,7 @@ describe("shouldRunRotation — 종합 화면 자동 순환 실행 조건", () =
         sheet: false,
         popover: false,
         pos: null,
+        desktop: true,
       }),
     ).toBe(false);
   });
