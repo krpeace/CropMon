@@ -152,7 +152,7 @@ function SiteHeaderView({
           <span className="desktop:hidden flex-1" />
           <nav
             aria-label="메뉴"
-            className="desktop:flex hidden min-w-0 flex-1 [scrollbar-width:none] justify-center-safe gap-0.5 overflow-x-auto"
+            className="desktop:flex menu-icon:gap-0.5 hidden min-w-0 flex-1 [scrollbar-width:none] justify-center-safe gap-0 overflow-x-auto"
           >
             {desktop.map((menu) => {
               const active = pathname === menu.href;
@@ -161,14 +161,14 @@ function SiteHeaderView({
                   key={menu.id}
                   href={withSelection(menu.href, selection)}
                   aria-current={active ? "page" : undefined}
-                  className={`text-17 wide:gap-1.5 wide:px-3.75 flex h-11 flex-none items-center rounded-full px-2.75 font-semibold whitespace-nowrap ${
+                  className={`text-17 menu-icon:gap-1.5 menu-icon:px-3.75 flex h-11 flex-none items-center rounded-full px-2.5 font-semibold whitespace-nowrap ${
                     active ? "bg-emerald/16 text-brand-ink" : "text-ink-2/80"
                   }`}
                 >
                   <Icon
                     name={MENU_ICON[menu.id]}
                     size={20}
-                    className="wide:block hidden"
+                    className="menu-icon:block hidden"
                   />
                   {menu.label}
                 </Link>

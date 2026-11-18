@@ -277,14 +277,52 @@ test.describe("데스크톱", () => {
     await expect(menu(page).getByRole("link").first()).toHaveText("종합");
   });
 
-  test("1280 이상은 아이콘 + 글자, 1280 미만은 글자만", async ({ page }) => {
-    await open(page, "/water?st=101&crop=apple");
-    await expect(menu(page).locator("svg:visible")).toHaveCount(10);
-    await page.setViewportSize({ width: 1100, height: 900 });
-    await expect(menu(page)).toBeVisible();
-    await expect(menu(page).locator("svg:visible")).toHaveCount(0);
-    await expect(menu(page).getByRole("link")).toHaveText(DEFAULT_LABELS);
-  });
+  // 메뉴 아이콘이 보이기 시작하는 폭 (결정 0046: 시안의 1280 을 메뉴 10개에 맞춰 올림). tokens.css 의 --breakpoint-menu-icon 과 같은 값.
+  const ICON_FROM = 1423;
+  const WIDTHS = [1024, 1100, 1280, 1366, ICON_FROM - 1, ICON_FROM, 1440];
+
+  for (const width of WIDTHS) {
+    test(`폭 ${width}: 메뉴 10개가 모두 보이고 넘치지 않으며, 아이콘은 ${ICON_FROM} 부터만 보인다`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await open(page, "/water?st=101&crop=apple");
+      const nav = menu(page);
+      await expect(nav).toBeVisible();
+      const links = nav.getByRole("link");
+      await expect(links).toHaveText(DEFAULT_LABELS);
+      await expect(nav.locator("svg:visible")).toHaveCount(
+        width >= ICON_FROM ? 10 : 0,
+      );
+
+      const box = (await nav.boundingBox())!;
+      const all = await links.all();
+      for (const link of all) {
+        await expect(link).toBeVisible();
+        const b = (await link.boundingBox())!;
+        expect(b.x).toBeGreaterThanOrEqual(box.x - 0.5);
+        expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+        expect(b.height).toBeGreaterThanOrEqual(44); // 누르는 높이 44 그대로
+      }
+      const overflow = await nav.evaluate(
+        (el) => el.scrollWidth - el.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+
+      // 여유: 글자만인 1024 는 8px 이상, 아이콘이 처음 나오는 폭은 16px 이상
+      const first = (await all[0].boundingBox())!;
+      const last = (await all[all.length - 1].boundingBox())!;
+      const slack = box.width - (last.x + last.width - first.x);
+      if (width === 1024) expect(slack).toBeGreaterThanOrEqual(8);
+      if (width === ICON_FROM) expect(slack).toBeGreaterThanOrEqual(16);
+      // 글자 크기는 17 그대로
+      expect(
+        await all[0].evaluate((el) =>
+          parseFloat(getComputedStyle(el).fontSize),
+        ),
+      ).toBe(17);
+    });
+  }
 
   test("/more 는 데스크톱에서도 열리고, 메뉴 줄에는 더보기가 없다", async ({
     page,
