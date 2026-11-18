@@ -32,7 +32,7 @@ test("지역·작물을 바꾸면 다른 메뉴에서도 유지된다", async ({
     ["온도", "/temperature"],
     ["햇빛", "/sunlight"],
     ["토양", "/soil"],
-    ["도매시장", "/market"],
+    ["시세", "/market"],
     ["물", "/water"],
   ] as const) {
     await menu(page).getByRole("link", { name: label, exact: true }).click();

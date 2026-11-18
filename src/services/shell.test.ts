@@ -249,9 +249,26 @@ describe("getPageMeta", () => {
     });
   });
 
-  it("준비 중인 토양·도매시장은 '자료 없음'이다", () => {
+  it("준비 중인 토양·시세는 '자료 없음'이다", () => {
     expect(getPageMeta("soil", chuncheon).short).toBe("자료 없음");
     expect(getPageMeta("market", chuncheon).updated).toBe("자료 없음");
+  });
+
+  it("준비 중인 새 쪽 넷(관측·농사정보·병해충·일지)도 출처 옆에 '자료 없음'이다 (시안 그대로)", () => {
+    const sources = {
+      outlook: "한국농촌경제연구원(KREI) 농업관측",
+      farminfo: "농촌진흥청 주간 농사정보",
+      pest: "농촌진흥청 국가농작물병해충관리시스템(NCPMS)",
+      diary: "내 농장 기록",
+    } as const;
+    for (const [page, source] of Object.entries(sources)) {
+      expect(getPageMeta(page as keyof typeof sources, chuncheon)).toEqual({
+        source: `${source} · 자료 없음`,
+        issue: "자료 없음",
+        updated: "자료 없음",
+        short: "자료 없음",
+      });
+    }
   });
 
   it("내 농장은 밭 주소에 매칭된 지점을 쓴다", () => {
@@ -270,7 +287,62 @@ describe("getPageMeta", () => {
   });
 });
 
-describe("getComingSoon — 토양·도매시장 '준비 중' 본문 글 (시안 그대로)", () => {
+describe("getComingSoon — 새 쪽 넷 '준비 중' 본문 글 (시안 그대로)", () => {
+  it("관측: ①②는 고른 작물 이름 (작물 공통이면 '주요 품목')", () => {
+    expect(getComingSoon("outlook", "common")).toEqual({
+      items: [
+        "이번 달 주요 품목 재배면적과 작황",
+        "출하량 전망",
+        "지난해·평년 같은 때와 비교",
+        "다음 달 가격 전망",
+      ],
+      source: "한국농촌경제연구원(KREI) 농업관측",
+    });
+    expect(getComingSoon("outlook", "apple").items[0]).toBe(
+      "이번 달 사과 재배면적과 작황",
+    );
+    expect(getComingSoon("outlook", "cabbage").items[0]).toBe(
+      "이번 달 배추 재배면적과 작황",
+    );
+  });
+
+  it("농사정보·병해충·일지는 작물을 바꿔도 같다", () => {
+    expect(getComingSoon("farminfo", "apple")).toEqual({
+      items: [
+        "이번 주 작물별 농작업",
+        "기상 특보에 따른 관리 요령",
+        "생육 단계별 재배 기술",
+        "지역 농업기술센터 소식",
+      ],
+      source: "농촌진흥청 주간 농사정보",
+    });
+    expect(getComingSoon("pest", "apple")).toEqual({
+      items: [
+        "이번 주 병해충 발생 예보",
+        "내 작물에 해당하는 병해충",
+        "방제 시기와 방법",
+        "지난해 같은 때 발생 상황",
+      ],
+      source: "농촌진흥청 국가농작물병해충관리시스템(NCPMS)",
+    });
+    expect(getComingSoon("diary", "apple")).toEqual({
+      items: [
+        "날짜별 농작업 기록",
+        "물 준 날과 양",
+        "그날의 날씨와 물 판정 함께 보기",
+        "한 해 농사 돌아보기",
+      ],
+      source: "내 농장 기록",
+    });
+    for (const page of ["farminfo", "pest", "diary"] as const) {
+      expect(getComingSoon(page, "cabbage")).toEqual(
+        getComingSoon(page, "apple"),
+      );
+    }
+  });
+});
+
+describe("getComingSoon — 토양·시세 '준비 중' 본문 글 (시안 그대로)", () => {
   it("토양: 열리면 보여 줄 것 4개와 쓸 자료", () => {
     expect(getComingSoon("soil", "apple")).toEqual({
       items: [
@@ -289,7 +361,7 @@ describe("getComingSoon — 토양·도매시장 '준비 중' 본문 글 (시안
     );
   });
 
-  it("도매시장: ①은 고른 작물 이름 (사과/배추), 작물 공통이면 '오늘 주요 작물 도매 가격'", () => {
+  it("시세: ①은 고른 작물 이름 (사과/배추), 작물 공통이면 '오늘 주요 작물 도매 가격'", () => {
     const apple = getComingSoon("market", "apple");
     const cabbage = getComingSoon("market", "cabbage");
     const common = getComingSoon("market", "common");

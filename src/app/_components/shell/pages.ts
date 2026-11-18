@@ -1,3 +1,4 @@
+import type { MenuId } from "@/domain/menus";
 import type { PageKey } from "@/services/shell";
 
 /** 아이콘 선 모양 (시안 그대로, 24×24). */
@@ -10,6 +11,13 @@ export const ICON_PATH = {
   water: "M12 3C12 3 5.5 10 5.5 14.6a6.5 6.5 0 0 0 13 0C18.5 10 12 3 12 3z",
   soil: "M3 15h18M5.5 19h13M12 15V9M12 11.5c0-3.2 2.2-5.5 6-5.5 0 3.4-2.4 5.5-6 5.5zM12 12c0-2.6-1.9-4.5-5-4.5 0 2.7 2 4.5 5 4.5z",
   market: "M4 4v16h16M8 15l3.5-4 3 2.5L20 7M16 7h4v4",
+  outlook: "M6 3h9l4 4v14H6zM14 3v5h5M9.5 17v-3M12.5 17v-6M15.5 17v-4",
+  farminfo:
+    "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6",
+  pest: "M12 8a4 4 0 0 1 4 4v3a4 4 0 0 1-8 0v-3a4 4 0 0 1 4-4zM9.5 8.5 8 6M14.5 8.5 16 6M8 12H4.5M19.5 12H16M8 15.5l-3 2M16 15.5l3 2M12 8v11",
+  diary:
+    "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7zM7 3v18M4.5 7.5H7M4.5 12H7M4.5 16.5H7M11 8h4M11 12h4",
+  more: "M4 7h16M4 12h16M4 17h16",
   pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
   play: "M8 5.5v13l10.5-6.5z",
   chevron: "M9 6l6 6-6 6",
@@ -22,21 +30,19 @@ export const ICON_PATH = {
   moon: "M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.7 6.7 0 0 0 10.7 10.7z",
 } as const;
 
-type Tab = {
-  key: PageKey & keyof typeof ICON_PATH;
-  href: string;
-  label: string;
+/** 메뉴 ID → 아이콘 이름. 메뉴의 ID·이름·주소는 src/domain/menus.ts 가 갖는다. */
+export const MENU_ICON: Record<MenuId, keyof typeof ICON_PATH> = {
+  home: "home",
+  water: "water",
+  temp: "temperature",
+  sun: "sunlight",
+  outlook: "outlook",
+  price: "market",
+  farminfo: "farminfo",
+  pest: "pest",
+  soil: "soil",
+  diary: "diary",
 };
-
-/** 위 메뉴 순서 (시안 그대로). 내 농장은 메뉴에 없고 로그인·안내에서 들어간다. */
-export const TABS: readonly Tab[] = [
-  { key: "home", href: "/", label: "종합" },
-  { key: "temperature", href: "/temperature", label: "온도" },
-  { key: "sunlight", href: "/sunlight", label: "햇빛" },
-  { key: "water", href: "/water", label: "물" },
-  { key: "soil", href: "/soil", label: "토양" },
-  { key: "market", href: "/market", label: "도매시장" },
-];
 
 type PageInfo = { title: string; question: string; chip?: string };
 
@@ -54,8 +60,28 @@ export const PAGE_INFO: Record<Exclude<PageKey, "home">, PageInfo> = {
     chip: "준비 중",
   },
   market: {
-    title: "도매시장",
+    title: "시세",
     question: "지금 얼마에 팔리고, 앞으로 값은?",
+    chip: "준비 중",
+  },
+  outlook: {
+    title: "관측",
+    question: "이번 달 재배면적과 작황, 출하는 어떤가?",
+    chip: "준비 중",
+  },
+  farminfo: {
+    title: "농사정보",
+    question: "이번 주에는 어떤 농사일을 해야 하나?",
+    chip: "준비 중",
+  },
+  pest: {
+    title: "병해충",
+    question: "지금 조심해야 할 병해충은?",
+    chip: "준비 중",
+  },
+  diary: {
+    title: "일지",
+    question: "오늘 한 농사일을 어떻게 남길까?",
     chip: "준비 중",
   },
   "my-farm": {

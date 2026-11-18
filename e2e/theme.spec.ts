@@ -8,7 +8,7 @@ const SCREENS = [
   ["온도", "/temperature?st=101&crop=apple"],
   ["햇빛", "/sunlight?st=101&crop=apple"],
   ["토양", "/soil?st=101&crop=apple"],
-  ["도매시장", "/market?st=101&crop=apple"],
+  ["시세", "/market?st=101&crop=apple"],
   ["내 농장", "/my-farm"],
 ] as const;
 

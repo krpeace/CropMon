@@ -19,7 +19,21 @@ import type { AnyWaterStatus } from "./station-status";
  */
 
 export type PageKey =
-  "home" | "water" | "temperature" | "sunlight" | "soil" | "market" | "my-farm";
+  | "home"
+  | "water"
+  | "temperature"
+  | "sunlight"
+  | "soil"
+  | "market"
+  | "outlook"
+  | "farminfo"
+  | "pest"
+  | "diary"
+  | "my-farm";
+
+/** "준비 중" 본문(ComingSoon)을 쓰는 쪽. */
+export type ComingSoonPage =
+  "soil" | "market" | "outlook" | "farminfo" | "pest" | "diary";
 
 export type Station = {
   id: number;
@@ -203,6 +217,14 @@ export function getPageMeta(
       return noData("농촌진흥청 흙토람");
     case "market":
       return noData("aT · KREI");
+    case "outlook":
+      return noData("한국농촌경제연구원(KREI) 농업관측");
+    case "farminfo":
+      return noData("농촌진흥청 주간 농사정보");
+    case "pest":
+      return noData("농촌진흥청 국가농작물병해충관리시스템(NCPMS)");
+    case "diary":
+      return noData("내 농장 기록");
     case "my-farm": {
       const farmStation = station ?? getStation(MOCK_META.farmStationId);
       return {
@@ -215,7 +237,7 @@ export function getPageMeta(
   }
 }
 
-/** 토양·도매시장 "준비 중" 본문의 글 (시안 sSoon 그대로). 질문은 쪽 정보(PAGE_INFO)에서 읽는다. */
+/** "준비 중" 본문의 글 (시안 sSoon 그대로). 질문은 쪽 정보(PAGE_INFO)에서 읽는다. */
 export type ComingSoon = {
   /** 열리면 보여 줄 것 4개 */
   items: string[];
@@ -223,7 +245,52 @@ export type ComingSoon = {
   source: string;
 };
 
-export function getComingSoon(page: "soil" | "market", crop: Crop): ComingSoon {
+export function getComingSoon(page: ComingSoonPage, crop: Crop): ComingSoon {
+  if (page === "outlook") {
+    const item = crop === "common" ? "주요 품목" : CROP_LABEL[crop];
+    return {
+      items: [
+        `이번 달 ${item} 재배면적과 작황`,
+        "출하량 전망",
+        "지난해·평년 같은 때와 비교",
+        "다음 달 가격 전망",
+      ],
+      source: "한국농촌경제연구원(KREI) 농업관측",
+    };
+  }
+  if (page === "farminfo") {
+    return {
+      items: [
+        "이번 주 작물별 농작업",
+        "기상 특보에 따른 관리 요령",
+        "생육 단계별 재배 기술",
+        "지역 농업기술센터 소식",
+      ],
+      source: "농촌진흥청 주간 농사정보",
+    };
+  }
+  if (page === "pest") {
+    return {
+      items: [
+        "이번 주 병해충 발생 예보",
+        "내 작물에 해당하는 병해충",
+        "방제 시기와 방법",
+        "지난해 같은 때 발생 상황",
+      ],
+      source: "농촌진흥청 국가농작물병해충관리시스템(NCPMS)",
+    };
+  }
+  if (page === "diary") {
+    return {
+      items: [
+        "날짜별 농작업 기록",
+        "물 준 날과 양",
+        "그날의 날씨와 물 판정 함께 보기",
+        "한 해 농사 돌아보기",
+      ],
+      source: "내 농장 기록",
+    };
+  }
   if (page === "soil") {
     return {
       items: [
