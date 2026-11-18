@@ -1,3 +1,5 @@
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 /**
@@ -8,6 +10,23 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const PORT = 3100;
 const BASE_URL = `http://localhost:${PORT}`;
+
+// "오늘" 맞추기. E2E_TODAY(YYYY-MM-DD)를 주면 그날로 돌려 본다. 안 줬는데 한국 날짜가 1월 1~3일이면
+// 올해 자료가 거의 없어(서귀포 189 의 "3일 전"이 작년 12월 31일이 됨) 그해 1월 4일로 자동으로 잡는다 (회원제 개시일 PR 이 막히지 않게).
+// 가짜 Supabase · 화면 서버는 NODE_OPTIONS 로, 시험 실행기와 브라우저는 e2e/fixtures.ts 가 같은 날로 맞춘다.
+const realToday = new Date(Date.now() + 9 * 3_600_000)
+  .toISOString()
+  .slice(0, 10);
+if (!process.env.E2E_TODAY && /^\d{4}-01-0[123]$/.test(realToday)) {
+  process.env.E2E_TODAY = `${realToday.slice(0, 4)}-01-04`;
+}
+// 서버 둘(가짜 Supabase · 화면)에만 시계 옮기기 파일을 미리 읽힌다. 시험 실행기는 e2e/fixtures.ts 의 e2eNow() 를 쓴다.
+const serverEnv: Record<string, string> = process.env.E2E_TODAY
+  ? {
+      NODE_OPTIONS:
+        `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(path.resolve("e2e/fake-clock.mjs")).href}`.trim(),
+    }
+  : {};
 
 export default defineConfig({
   testDir: "./e2e",
@@ -49,12 +68,14 @@ export default defineConfig({
   webServer: [
     {
       command: "node e2e/fake-supabase.mjs",
+      env: serverEnv,
       url: "http://127.0.0.1:54321/",
       reuseExistingServer: false,
       timeout: 20_000,
     },
     {
       command: `npm run start -- -p ${PORT}`,
+      env: serverEnv,
       url: BASE_URL,
       reuseExistingServer: false,
       timeout: 60_000,

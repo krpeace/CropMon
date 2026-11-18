@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "./fixtures";
 
 // 휴대폰(mobile 프로젝트 390×844): 작물·지역 선택 줄은 한 줄이고, 고르기 판은 선택 줄 바로 아래에 펼쳐진다.
 // 가짜 Supabase 자료를 읽는다.

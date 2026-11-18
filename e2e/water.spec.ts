@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { e2eToday, expect, test, type Page } from "./fixtures";
 
 // 가짜 Supabase(e2e/fake-supabase.mjs) 자료로 본다. 춘천(101)은 자료가 있고, 태백(216)은 오류를 돌려준다.
 
@@ -27,9 +27,12 @@ test("물: 지금 상태·앞으로 3일·작기 돌아보기·자료 상자가 
 
   const season = page.getByRole("region", { name: /작기 돌아보기/ });
   await expect(season).toContainText("월별 요약");
-  await expect(season.getByRole("row", { name: /^1월/ })).toContainText(
-    "휴면기",
-  );
+  // 사과 작기는 2월 1일부터(가짜 자료). 오늘이 2월 1일 이전이면 1월 중 작기 안인 날이 있어 1월 줄이 휴면기만이 아니다.
+  if (e2eToday().slice(5) > "02-01") {
+    await expect(season.getByRole("row", { name: /^1월/ })).toContainText(
+      "휴면기",
+    );
+  }
 
   const meta = page.getByRole("region", { name: "자료 정보" });
   await expect(meta).toContainText("02시 단기예보");
@@ -177,7 +180,10 @@ test("물(작물 공통): 토양 물 상태 카드·건조 예상일·토양 변
   ).toBeVisible();
 
   // 겨울 날짜(1월)로 가면 '겨울철' 판정이 나온다
-  await page.goto("/water?st=101&crop=common&d=2026-01-15");
+  // (올해 1월 1일: 가짜 자료는 어제만 겨울철이 아니므로 1월 1일은 늘 겨울철)
+  await page.goto(
+    `/water?st=101&crop=common&d=${e2eToday().slice(0, 4)}-01-01`,
+  );
   await expect(now(page)).toContainText("겨울철");
   await expect(now(page)).toContainText("12~2월은 판정하지 않아요.");
 

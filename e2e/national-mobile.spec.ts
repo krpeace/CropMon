@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { e2eNow, expect, test, type Page } from "./fixtures";
 
 // 휴대폰 390×844 (playwright.config 의 mobile 프로젝트). 가짜 Supabase 자료를 읽는다. 태백(216)은 일부러 오류를 돌려준다.
 
@@ -95,7 +95,7 @@ test("'주의' 배지는 투명 바탕 + 주황 테두리", async ({ page }) => 
 test("휴대폰: 전국 목록 추정 포함(안 3)·적산 기준일 예외(후보 3)가 390 폭에 들어온다", async ({
   page,
 }) => {
-  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const threeDaysAgo = new Date(e2eNow() + 9 * 3_600_000 - 3 * 86_400_000);
   const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
 
   await open(page, "?st=101&crop=apple");

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { e2eNow, expect, test, type Page } from "./fixtures";
 
 // 가짜 Supabase(e2e/fake-supabase.mjs) 자료로 본다. 춘천(101) 어제까지 적산온도 4,165 / 평년 3,973,
 // 수원(119)은 다음 단계에 아직 닿지 않았고, 태백(216)은 오류를 돌려준다.
@@ -41,8 +41,11 @@ test("온도: 단계 카드 2개 — 올해·평년 도달일, 아직이면 '아
   await expect(stages(page)).toContainText("적산온도 3,500℃");
   await expect(stages(page)).toContainText("적산온도 4,000℃");
   // 평년 도달일 (연말에는 평년 누적이 마지막 단계에 닿지 않을 수 있어 "평년에는 닿지 않아요"도 된다)
-  await expect(stages(page).getByText(/^평년/)).toHaveCount(2);
-  // 도달일 비교 꼬리표 ("N일 빠름" 또는 "N일 지연"): 올해 3,500 은 평년보다 앞서 닿는다
+  // ("평년과 같음" 꼬리표는 올해와 평년이 같은 날 닿는 1월 초에만 생기므로 세지 않는다)
+  await expect(stages(page).getByText(/^평년( \d+월 \d+일|에는)/)).toHaveCount(
+    2,
+  );
+  // 도달일 비교 꼬리표 ("N일 빠름" 또는 "N일 지연"): 올해는 평년보다 앞서 닿는다 (1월 초에는 3,500 이 평년과 같은 날이라 4,000 쪽이 첫 꼬리표)
   await expect(
     stages(page)
       .getByText(/^\d+일 (빠름|지연)$/)
@@ -122,7 +125,7 @@ test("온도: 휴대폰 폭(390)에서 옆으로 넘치지 않는다", async ({ 
 test("온도: 지역 비교 기준일 다름(후보 3) — 상단 안내와 예외 지점(서귀포) 괄호 날짜", async ({
   page,
 }) => {
-  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const threeDaysAgo = new Date(e2eNow() + 9 * 3_600_000 - 3 * 86_400_000);
   const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
 
   await page.setViewportSize({ width: 390, height: 844 });

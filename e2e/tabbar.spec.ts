@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 // 하단 탭바. 휴대폰(mobile 프로젝트 390×844)에서는 아래 유리 캡슐, 1440 데스크톱에서는 상단 메뉴만 보인다.
 // 가짜 Supabase 자료를 읽는다.

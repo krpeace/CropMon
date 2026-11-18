@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { e2eNow, expect, test, type Page } from "./fixtures";
 
 const main = (page: Page) => page.getByRole("main");
 
@@ -153,7 +153,7 @@ test("종합(작물 공통): 첫 질문·물 카드·전국 표가 토양 물 �
 test("종합: filled=true 물·토양 카드 '추정 포함'과 어제 이전 적산 기준일 안내 (서귀포 189)", async ({
   page,
 }) => {
-  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const threeDaysAgo = new Date(e2eNow() + 9 * 3_600_000 - 3 * 86_400_000);
   const expectedDateNote = `${threeDaysAgo.getUTCMonth() + 1}월 ${threeDaysAgo.getUTCDate()}일까지의 값이에요`;
 
   await openHome(page, "?st=189&crop=apple");
@@ -181,7 +181,7 @@ test("종합: filled=true 물·토양 카드 '추정 포함'과 어제 이전 �
 test("종합: 전국 표 추정 포함(안 3)·적산 기준일 예외(후보 3) 표시", async ({
   page,
 }) => {
-  const threeDaysAgo = new Date(Date.now() + 9 * 3_600_000 - 3 * 86_400_000);
+  const threeDaysAgo = new Date(e2eNow() + 9 * 3_600_000 - 3 * 86_400_000);
   const tag = `(${threeDaysAgo.getUTCMonth() + 1}/${threeDaysAgo.getUTCDate()})`;
 
   await openHome(page, "?st=101&crop=apple");
