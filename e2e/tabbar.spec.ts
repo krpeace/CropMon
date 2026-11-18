@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "./fixtures";
 
-// 하단 탭바. 휴대폰(mobile 프로젝트 390×844)에서는 아래 유리 캡슐, 1440 데스크톱에서는 상단 메뉴만 보인다.
-// 가짜 Supabase 자료를 읽는다.
+// 하단 탭바. 휴대폰(mobile 프로젝트 390×844)에서는 아래 유리 캡슐(탭 4 + 더보기), 1440 데스크톱에서는 상단 메뉴만 보인다.
+// 저장값에 따라 달라지는 탭·더보기·데스크톱 메뉴 줄은 more.spec.ts. 가짜 Supabase 자료를 읽는다.
 
-const MENU = ["종합", "온도", "햇빛", "물", "토양", "도매시장"];
+const MENU = ["종합", "물", "온도", "햇빛", "더보기"];
 const menu = (page: Page) => page.getByRole("navigation", { name: "메뉴" });
 
 async function open(page: Page, path: string) {
@@ -14,12 +14,12 @@ async function open(page: Page, path: string) {
 test.describe("휴대폰", () => {
   test.skip(({ isMobile }) => !isMobile);
 
-  test("메뉴 6개가 순서대로 보이고 현재 메뉴에만 aria-current", async ({
+  test("탭 4개 + 더보기가 순서대로 보이고 현재 메뉴에만 aria-current", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     const links = menu(page).getByRole("link");
-    await expect(links).toHaveCount(6);
+    await expect(links).toHaveCount(5);
     await expect(links).toHaveText(MENU);
     await expect(menu(page).locator('[aria-current="page"]')).toHaveText("물");
   });
@@ -30,13 +30,13 @@ test.describe("휴대폰", () => {
     await expect(page).toHaveURL(/\/temperature\?st=101&crop=apple$/);
   });
 
-  test("탭바 위치·크기: 아래에서 12px 이상, 높이 66, 탭 높이 44 이상", async ({
+  test("탭바 위치·크기: 아래에서 12px 이상, 높이 54, 탭 높이 44 이상", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     const box = await menu(page).boundingBox();
     const vh = page.viewportSize()!.height;
-    expect(box!.height).toBe(66);
+    expect(box!.height).toBe(54);
     expect(vh - (box!.y + box!.height)).toBeGreaterThanOrEqual(12);
     for (const link of await menu(page).getByRole("link").all()) {
       expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -55,9 +55,20 @@ test.describe("휴대폰", () => {
     expect(about!.y + about!.height).toBeLessThan(bar!.y);
   });
 
-  test("폭 360에서도 가로로 넘치지 않고 '도매시장'이 잘리지 않는다", async ({
+  test("폭 360에서도 가로로 넘치지 않고 가장 긴 이름 '농사정보'가 잘리지 않는다", async ({
     page,
   }) => {
+    // 농사정보·병해충이 탭으로 올라온 경우 (켠 메뉴 위에서 4개)
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        "cropmon-menus",
+        JSON.stringify({
+          v: 1,
+          order: ["farminfo", "pest", "home", "water"],
+          off: [],
+        }),
+      ),
+    );
     await page.setViewportSize({ width: 360, height: 780 });
     await open(page, "/water?st=101&crop=apple");
     const overflow = await page.evaluate(
@@ -67,9 +78,20 @@ test.describe("휴대폰", () => {
     );
     expect(overflow).toBeLessThanOrEqual(0);
     const fits = await menu(page)
-      .getByText("도매시장", { exact: true })
+      .getByText("농사정보", { exact: true })
       .evaluate((el) => el.scrollWidth <= el.clientWidth);
     expect(fits).toBe(true);
+  });
+
+  test("탭에 없는 화면(토양)을 보면 켜진 탭이 없고, 더보기는 /more 에서만 켜진다", async ({
+    page,
+  }) => {
+    await open(page, "/soil?st=101&crop=apple");
+    await expect(menu(page).locator('[aria-current="page"]')).toHaveCount(0);
+    await open(page, "/more?st=101&crop=apple");
+    await expect(menu(page).locator('[aria-current="page"]')).toHaveText(
+      "더보기",
+    );
   });
 
   test("다크에서도 보이고 선택 탭 글자색이 라이트와 다르다", async ({

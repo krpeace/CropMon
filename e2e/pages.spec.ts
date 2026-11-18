@@ -6,7 +6,12 @@ const PAGES = [
   { path: "/sunlight", heading: "햇빛" },
   { path: "/water", heading: "물" },
   { path: "/soil", heading: "토양" },
-  { path: "/market", heading: "도매시장" },
+  { path: "/market", heading: "시세" },
+  { path: "/outlook", heading: "관측" },
+  { path: "/farminfo", heading: "농사정보" },
+  { path: "/pest", heading: "병해충" },
+  { path: "/diary", heading: "일지" },
+  { path: "/more", heading: "더보기" },
   { path: "/my-farm", heading: "내 농장" },
 ];
 
@@ -32,7 +37,7 @@ test("종합이 아닌 쪽은 아래에 자료·발표·갱신을 보여 준다"
   await expect(meta).toContainText("자료 없음");
 });
 
-// 토양·도매시장 "준비 중" 본문 (이슈 #27, 시안 sSoon). 글은 시안 그대로, DB 읽기는 없다.
+// 토양·시세 "준비 중" 본문 (이슈 #27, 시안 sSoon). 글은 시안 그대로, DB 읽기는 없다.
 const soon = (page: Page) => page.getByRole("region", { name: "준비 중 안내" });
 
 test("토양: 준비 중 본문 — 말풍선·캐릭터·질문·항목 4개·쓸 자료", async ({
@@ -63,7 +68,7 @@ test("토양: 준비 중 본문 — 말풍선·캐릭터·질문·항목 4개·�
   await expect(meta).toContainText("농촌진흥청 흙토람 · 자료 없음");
 });
 
-test("도매시장: 같은 모양에 글만 다르고, 사과/배추에 따라 ①이 바뀐다", async ({
+test("시세: 같은 모양에 글만 다르고, 사과/배추에 따라 ①이 바뀐다", async ({
   page,
 }) => {
   await page.goto("/market?st=101&crop=apple");
@@ -97,6 +102,51 @@ test("도매시장: 같은 모양에 글만 다르고, 사과/배추에 따라 �
     "오늘 주요 작물 도매 가격",
   );
 });
+
+// 새 쪽 넷 (이슈 #145): 시안의 질문·항목·출처 그대로, 자료 상자에 "자료 없음"
+const NEW_SOON = [
+  {
+    path: "/outlook",
+    question: "이번 달 재배면적과 작황, 출하는 어떤가?",
+    first: "이번 달 사과 재배면적과 작황",
+    source: "한국농촌경제연구원(KREI) 농업관측",
+  },
+  {
+    path: "/farminfo",
+    question: "이번 주에는 어떤 농사일을 해야 하나?",
+    first: "이번 주 작물별 농작업",
+    source: "농촌진흥청 주간 농사정보",
+  },
+  {
+    path: "/pest",
+    question: "지금 조심해야 할 병해충은?",
+    first: "이번 주 병해충 발생 예보",
+    source: "농촌진흥청 국가농작물병해충관리시스템(NCPMS)",
+  },
+  {
+    path: "/diary",
+    question: "오늘 한 농사일을 어떻게 남길까?",
+    first: "날짜별 농작업 기록",
+    source: "내 농장 기록",
+  },
+];
+
+for (const { path, question, first, source } of NEW_SOON) {
+  test(`${path}: 준비 중 본문과 자료 상자("자료 없음")`, async ({ page }) => {
+    await page.goto(`${path}?st=101&crop=apple`);
+    await expect(
+      page.getByText("준비 중", { exact: true }).first(),
+    ).toBeVisible();
+    const body = soon(page);
+    await expect(body).toContainText(`“${question}”`);
+    await expect(body.getByRole("listitem")).toHaveCount(4);
+    await expect(body.getByRole("listitem").nth(0)).toContainText(first);
+    await expect(body).toContainText("지금은 자료 없음");
+    const meta = page.getByRole("region", { name: "자료 정보" });
+    await expect(meta).toContainText(`${source} · 자료 없음`);
+    await expect(meta).toContainText("자료 없음");
+  });
+}
 
 test("그동안 물 판정 보기: 물 화면으로 가고 지역·작물이 남는다", async ({
   page,

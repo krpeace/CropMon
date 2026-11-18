@@ -1,0 +1,246 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  DEFAULT_MENU_ORDER,
+  MENU_DEFS,
+  MENU_IDS,
+  MENU_STORAGE_KEY,
+  parseSavedMenus,
+  resolveMenus,
+  type MenuId,
+} from "./menus";
+
+const ids = (menus: readonly { id: MenuId }[]) => menus.map((m) => m.id);
+
+describe("메뉴 사전 — 고정 ID 는 저장값이 되므로 바뀌면 안 된다", () => {
+  it("ID 10개와 이름·주소·상태가 이슈 #145 표 그대로다", () => {
+    expect(MENU_IDS).toEqual([
+      "home",
+      "water",
+      "temp",
+      "sun",
+      "outlook",
+      "price",
+      "farminfo",
+      "pest",
+      "soil",
+      "diary",
+    ]);
+    const row = (id: MenuId) => {
+      const d = MENU_DEFS[id];
+      return [d.id, d.label, d.href, d.ready];
+    };
+    expect(MENU_IDS.map(row)).toEqual([
+      ["home", "종합", "/", true],
+      ["water", "물", "/water", true],
+      ["temp", "온도", "/temperature", true],
+      ["sun", "햇빛", "/sunlight", true],
+      ["outlook", "관측", "/outlook", false],
+      ["price", "시세", "/market", false],
+      ["farminfo", "농사정보", "/farminfo", false],
+      ["pest", "병해충", "/pest", false],
+      ["soil", "토양", "/soil", false],
+      ["diary", "일지", "/diary", false],
+    ]);
+  });
+
+  it("끌 수 없는 메뉴는 종합 하나뿐이다", () => {
+    expect(MENU_IDS.filter((id) => MENU_DEFS[id].alwaysOn)).toEqual(["home"]);
+  });
+
+  it("기본 순서: 종합·물·온도·햇빛·관측·시세·농사정보·병해충·토양·일지", () => {
+    expect(DEFAULT_MENU_ORDER.map((id) => MENU_DEFS[id].label)).toEqual([
+      "종합",
+      "물",
+      "온도",
+      "햇빛",
+      "관측",
+      "시세",
+      "농사정보",
+      "병해충",
+      "토양",
+      "일지",
+    ]);
+  });
+
+  it("저장 키는 cropmon-menus", () => {
+    expect(MENU_STORAGE_KEY).toBe("cropmon-menus");
+  });
+});
+
+describe("resolveMenus — 기본값", () => {
+  it("저장값이 없으면 기본 순서로, 탭 4개는 종합·물·온도·햇빛", () => {
+    const r = resolveMenus(null);
+    expect(ids(r.tabs)).toEqual(["home", "water", "temp", "sun"]);
+    expect(ids(r.more)).toEqual([...DEFAULT_MENU_ORDER]);
+    expect(ids(r.desktop)).toEqual([...DEFAULT_MENU_ORDER]);
+    expect(r.hiddenCount).toBe(0);
+  });
+});
+
+describe("resolveMenus — 끄기", () => {
+  it("온도를 끄면 탭·더보기·데스크톱에서 빠지고 관측이 탭 4번이 된다 (준비 중 메뉴도 규칙대로 올라온다)", () => {
+    const r = resolveMenus({
+      v: 1,
+      order: [...DEFAULT_MENU_ORDER],
+      off: ["temp"],
+    });
+    expect(ids(r.tabs)).toEqual(["home", "water", "sun", "outlook"]);
+    expect(ids(r.more)).not.toContain("temp");
+    expect(ids(r.desktop)).not.toContain("temp");
+    expect(r.hiddenCount).toBe(1);
+  });
+
+  it("종합이 꺼짐으로 저장돼 있어도 켠 것으로 본다 (숨긴 개수에도 안 센다)", () => {
+    const r = resolveMenus({
+      v: 1,
+      order: [...DEFAULT_MENU_ORDER],
+      off: ["home"],
+    });
+    expect(ids(r.tabs)[0]).toBe("home");
+    expect(ids(r.more)[0]).toBe("home");
+    expect(ids(r.desktop)[0]).toBe("home");
+    expect(r.hiddenCount).toBe(0);
+  });
+
+  it("켠 메뉴가 4개보다 적으면 탭도 그만큼이다", () => {
+    const off = MENU_IDS.filter((id) => id !== "home" && id !== "water");
+    const r = resolveMenus({ v: 1, order: [...DEFAULT_MENU_ORDER], off });
+    expect(ids(r.tabs)).toEqual(["home", "water"]);
+    expect(r.hiddenCount).toBe(8);
+  });
+
+  it("종합만 남기면 탭은 종합 하나", () => {
+    const off = MENU_IDS.filter((id) => id !== "home");
+    const r = resolveMenus({ v: 1, order: [...DEFAULT_MENU_ORDER], off });
+    expect(ids(r.tabs)).toEqual(["home"]);
+    expect(ids(r.more)).toEqual(["home"]);
+    expect(r.hiddenCount).toBe(9);
+  });
+
+  it("같은 ID 를 두 번 꺼도 한 번만 센다", () => {
+    const r = resolveMenus({
+      v: 1,
+      order: [...DEFAULT_MENU_ORDER],
+      off: ["temp", "temp"],
+    });
+    expect(r.hiddenCount).toBe(1);
+  });
+});
+
+describe("resolveMenus — 순서 바꾸기", () => {
+  const order: MenuId[] = [
+    "water",
+    "sun",
+    "home",
+    "outlook",
+    "temp",
+    "price",
+    "farminfo",
+    "pest",
+    "soil",
+    "diary",
+  ];
+
+  it("휴대폰 탭은 저장된 순서를 따른다 (켠 것 가운데 위에서 4개)", () => {
+    const r = resolveMenus({ v: 1, order, off: [] });
+    expect(ids(r.tabs)).toEqual(["water", "sun", "home", "outlook"]);
+  });
+
+  it("더보기는 저장된 순서를 따르되 종합이 맨 위다", () => {
+    const r = resolveMenus({ v: 1, order, off: [] });
+    expect(ids(r.more)).toEqual([
+      "home",
+      "water",
+      "sun",
+      "outlook",
+      "temp",
+      "price",
+      "farminfo",
+      "pest",
+      "soil",
+      "diary",
+    ]);
+  });
+
+  it("데스크톱 메뉴 줄은 순서를 바꿔도 기본 순서 그대로, 끈 메뉴만 빠진다", () => {
+    const r = resolveMenus({ v: 1, order, off: ["pest"] });
+    expect(ids(r.desktop)).toEqual(
+      DEFAULT_MENU_ORDER.filter((id) => id !== "pest"),
+    );
+  });
+});
+
+describe("resolveMenus — 사전이 바뀐 경우", () => {
+  it("저장값에 없는 새 ID 는 끝에 켠 채로 붙는다", () => {
+    const order = DEFAULT_MENU_ORDER.filter((id) => id !== "diary");
+    const r = resolveMenus({ v: 1, order, off: [] });
+    expect(ids(r.more).at(-1)).toBe("diary");
+    expect(ids(r.desktop)).toContain("diary");
+    expect(r.hiddenCount).toBe(0);
+  });
+
+  it("순서엔 없고 끈 목록에만 있는 ID 는 꺼진 채로 둔다", () => {
+    const order = DEFAULT_MENU_ORDER.filter((id) => id !== "diary");
+    const r = resolveMenus({ v: 1, order, off: ["diary"] });
+    expect(ids(r.more)).not.toContain("diary");
+    expect(r.hiddenCount).toBe(1);
+  });
+
+  it("사전에서 사라진 ID 는 무시한다 (순서·끈 목록 모두, 개수에도 안 센다)", () => {
+    const r = resolveMenus({
+      v: 1,
+      order: ["gone", ...DEFAULT_MENU_ORDER, "gone2"],
+      off: ["gone", "gone3"],
+    });
+    expect(ids(r.more)).toEqual([...DEFAULT_MENU_ORDER]);
+    expect(r.hiddenCount).toBe(0);
+  });
+
+  it("순서에 같은 ID 가 두 번 있으면 처음 것만 쓴다", () => {
+    const r = resolveMenus({
+      v: 1,
+      order: ["water", "water", ...DEFAULT_MENU_ORDER],
+      off: [],
+    });
+    expect(ids(r.more)).toEqual([
+      "home",
+      "water",
+      ...DEFAULT_MENU_ORDER.filter((id) => id !== "home" && id !== "water"),
+    ]);
+  });
+});
+
+describe("parseSavedMenus — 기기 저장값 읽기", () => {
+  it("올바른 값은 그대로 읽는다", () => {
+    expect(
+      parseSavedMenus('{"v":1,"order":["home","water"],"off":["temp"]}'),
+    ).toEqual({ v: 1, order: ["home", "water"], off: ["temp"] });
+  });
+
+  it("값이 없으면 null", () => {
+    expect(parseSavedMenus(null)).toBeNull();
+    expect(parseSavedMenus("")).toBeNull();
+  });
+
+  it("JSON 이 아니거나 모양이 틀리면 null (기본값으로 동작)", () => {
+    for (const raw of [
+      "not json",
+      "[]",
+      "null",
+      "1",
+      '{"v":1}',
+      '{"v":1,"order":"home","off":[]}',
+      '{"v":1,"order":[],"off":"temp"}',
+      '{"v":1,"order":[1,2],"off":[]}',
+      '{"v":1,"order":[],"off":[null]}',
+    ]) {
+      expect(parseSavedMenus(raw), raw).toBeNull();
+    }
+  });
+
+  it("모르는 판 번호는 null — 읽기만 하고 덮어쓰지 않는다", () => {
+    expect(parseSavedMenus('{"v":2,"order":[],"off":[]}')).toBeNull();
+    expect(parseSavedMenus('{"order":[],"off":[]}')).toBeNull();
+  });
+});

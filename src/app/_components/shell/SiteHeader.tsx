@@ -14,6 +14,7 @@ import {
   type Crop,
   type Selection,
 } from "@/domain/selection";
+import { MORE_HREF } from "@/domain/menus";
 import {
   SOIL_WATER_LABEL,
   soilLegendStatuses,
@@ -35,7 +36,8 @@ import type {
 
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
-import { TABS } from "./pages";
+import { useMenus } from "./menu-store";
+import { MENU_ICON } from "./pages";
 import { SelectionPanel } from "./SelectionPanel";
 import { TabBar } from "./TabBar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -113,6 +115,7 @@ function SiteHeaderView({
 }) {
   const pathname = usePathname();
   const { open } = useSheet();
+  const { desktop } = useMenus();
   const isFailed = Boolean(statuses?.failed);
 
   return (
@@ -149,21 +152,25 @@ function SiteHeaderView({
           <span className="desktop:hidden flex-1" />
           <nav
             aria-label="메뉴"
-            className="desktop:flex hidden min-w-0 flex-1 [scrollbar-width:none] justify-center-safe gap-1 overflow-x-auto"
+            className="desktop:flex hidden min-w-0 flex-1 [scrollbar-width:none] justify-center-safe gap-0.5 overflow-x-auto"
           >
-            {TABS.map((tab) => {
-              const active = pathname === tab.href;
+            {desktop.map((menu) => {
+              const active = pathname === menu.href;
               return (
                 <Link
-                  key={tab.key}
-                  href={withSelection(tab.href, selection)}
+                  key={menu.id}
+                  href={withSelection(menu.href, selection)}
                   aria-current={active ? "page" : undefined}
-                  className={`text-17 flex h-11 items-center gap-1.75 rounded-full px-4.5 font-semibold whitespace-nowrap ${
+                  className={`text-17 wide:gap-1.5 wide:px-3.75 flex h-11 flex-none items-center rounded-full px-2.75 font-semibold whitespace-nowrap ${
                     active ? "bg-emerald/16 text-brand-ink" : "text-ink-2/80"
                   }`}
                 >
-                  <Icon name={tab.key} size={20} />
-                  {tab.label}
+                  <Icon
+                    name={MENU_ICON[menu.id]}
+                    size={20}
+                    className="wide:block hidden"
+                  />
+                  {menu.label}
                 </Link>
               );
             })}
@@ -180,11 +187,13 @@ function SiteHeaderView({
             </span>
           </button>
         </div>
-        <SelectionBar
-          pathname={pathname}
-          selection={selection}
-          statuses={statuses}
-        />
+        {pathname !== MORE_HREF && (
+          <SelectionBar
+            pathname={pathname}
+            selection={selection}
+            statuses={statuses}
+          />
+        )}
       </header>
       <TabBar pathname={pathname} selection={selection} />
     </>
