@@ -37,7 +37,7 @@ export function TabBar({
   return (
     <nav
       aria-label="메뉴"
-      className="glass-strong bg-card/80 shadow-tabbar rounded-tabbar desktop:hidden dark:bg-tile/82 fixed right-[calc(10px+env(safe-area-inset-right))] bottom-[calc(12px+env(safe-area-inset-bottom))] left-[calc(10px+env(safe-area-inset-left))] z-30 flex h-(--tabbar-h) gap-0 p-1"
+      className="fz-cap glass-strong bg-card/80 shadow-tabbar rounded-tabbar desktop:hidden dark:bg-tile/82 fixed right-[calc(10px+env(safe-area-inset-right))] bottom-[calc(12px+env(safe-area-inset-bottom))] left-[calc(10px+env(safe-area-inset-left))] z-30 flex h-(--tabbar-h) gap-0 p-1"
     >
       {items.map((item) => {
         const active = pathname === item.href;
@@ -46,7 +46,7 @@ export function TabBar({
             key={item.key}
             href={withSelection(item.href, selection)}
             aria-current={active ? "page" : undefined}
-            className={`text-12 rounded-tab flex min-w-0 flex-1 flex-col items-center justify-center gap-px leading-3.5 font-bold whitespace-nowrap ${
+            className={`text-12 rounded-tab leading-title flex min-w-0 flex-1 flex-col items-center justify-center gap-px font-bold whitespace-nowrap ${
               active ? "bg-emerald/16 text-brand-ink" : "text-ink-2/80"
             }`}
           >

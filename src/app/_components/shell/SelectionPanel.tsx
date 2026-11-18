@@ -131,7 +131,7 @@ export function SelectionPanel({
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="text-16 text-brand-ink min-h-11 cursor-pointer px-2 font-semibold"
+            className="text-16 text-brand-ink fh-44 cursor-pointer px-2 font-semibold"
           >
             닫기
           </button>

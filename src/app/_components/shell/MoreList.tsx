@@ -10,7 +10,7 @@ import { useMenus } from "./menu-store";
 import { MENU_ICON } from "./pages";
 
 const ROW =
-  "text-17 border-ink-2/14 flex min-h-13.5 items-center gap-3 border-t-(length:--hairline) font-semibold first:border-t-0";
+  "text-17 border-ink-2/14 flex fh-54 items-center gap-3 border-t-(length:--hairline) font-semibold first:border-t-0";
 
 /**
  * 더보기 화면의 서비스 메뉴 (시안 v0.4.6 더보기 1단계). 맨 위 종합, 그 아래 켠 메뉴(준비 중은 꼬리표),
@@ -55,7 +55,7 @@ export function MoreList({ selection }: { selection: Selection | null }) {
         <button
           type="button"
           aria-disabled="true"
-          className="text-15 text-ink-2/85 rounded-box flex min-h-12 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-3 py-1 font-semibold"
+          className="text-15 text-ink-2/85 rounded-box fh-48 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-3 py-1 font-semibold"
         >
           <span>숨긴 메뉴 {hiddenCount}개</span>
           <span aria-hidden="true">·</span>

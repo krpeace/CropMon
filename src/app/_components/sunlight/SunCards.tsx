@@ -142,7 +142,7 @@ export function SunCompareCard({
             href={withSelection("/sunlight", { stationId: r.id, crop })}
             scroll={false}
             aria-current={r.selected ? "true" : undefined}
-            className="text-ink hit-44 grid min-h-9 grid-cols-(--compare-cols) items-center gap-2.5"
+            className="text-ink hit-44 fh-36 grid grid-cols-(--compare-cols) items-center gap-2.5"
           >
             <span
               className={`text-15 ${r.selected ? "font-extrabold" : "font-medium"}`}
@@ -226,7 +226,7 @@ export function NotMeasuredCard({
             <div key={s.id} className="flex flex-col items-center gap-1">
               <Link
                 href={withSelection("/sunlight", { stationId: s.id, crop })}
-                className={`text-17 flex h-12.5 items-center rounded-full px-5.5 font-bold ${
+                className={`text-17 fh-50 flex items-center rounded-full px-5.5 font-bold ${
                   i === 0
                     ? "bg-brand text-white"
                     : "bg-brand-ink/10 text-brand-ink"

@@ -140,7 +140,7 @@ export function NationalList({
             aria-selected={tab === t}
             aria-controls="national-panel"
             onClick={() => choose(t)}
-            className={`text-15 h-11 cursor-pointer rounded-full font-bold ${
+            className={`text-15 fh-44 cursor-pointer rounded-full font-bold ${
               tab === t ? "bg-seg text-ink shadow-segment" : "text-ink-2/80"
             }`}
           >
@@ -173,7 +173,7 @@ export function NationalList({
             href={withSelection("/", { stationId: row.id, crop, soil })}
             scroll={false}
             aria-current={row.selected ? "true" : undefined}
-            className={`${COLS} rounded-row border-ink-2/10 text-ink min-h-13 border-b-(length:--hairline) px-2 py-1.5 ${
+            className={`${COLS} rounded-row border-ink-2/10 text-ink fh-52 border-b-(length:--hairline) px-2 py-1.5 ${
               row.selected ? "bg-emerald/14" : ""
             }`}
           >
@@ -189,7 +189,7 @@ export function NationalList({
               <span className="flex flex-col items-start gap-0.5 justify-self-start">
                 <StatusBadge badge={row.badge} compact />
                 {waterFilledScope === "some" && row.waterFilled && (
-                  <span className="bg-fill/14 text-12 text-gray-ink rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap">
+                  <span className="fz-cap bg-fill/14 text-12 text-gray-ink rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap">
                     {FILLED_COPY.rowTag}
                   </span>
                 )}

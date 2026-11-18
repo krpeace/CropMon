@@ -71,26 +71,6 @@
     -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif;
 
-  /* ── 글자 크기 (시안 px 그대로). 하한 12 ── */
-  --text-*: initial;
-  --text-12: 12px;
-  --text-13: 13px;
-  --text-14: 14px;
-  --text-15: 15px;
-  --text-16: 16px;
-  --text-17: 17px;
-  --text-18: 18px;
-  --text-19: 19px;
-  --text-20: 20px;
-  --text-22: 22px;
-  --text-23: 23px;
-  --text-24: 24px; /* 온도 단계 카드 도달일 */
-  --text-title: clamp(32px, 2.6vw, 40px); /* 쪽 제목 */
-  --text-hero: clamp(30px, 2.6vw, 40px); /* 종합 첫 줄 */
-  --text-card-verdict: clamp(25px, 2vw, 28px); /* 종합 카드 판정 문구 */
-  --text-verdict: clamp(26px, 2.3vw, 32px); /* 물 화면 판정 문구 */
-  --text-soon-question: clamp(25px, 2.2vw, 30px); /* 준비 중 본문의 질문 */
-
   --leading-title: 1.15;
   --leading-hero: 1.2;
   --leading-card: 1.3;
@@ -163,12 +143,59 @@
   }
 }
 
+/*
+ * ── 글자 크기 (시안 px 그대로 × 글씨 크기 단계). 하한 12 ──
+ * 일부러 `@theme inline`: 값을 변수로 내보내지 않고 유틸리티(text-17 등)에 그대로 적어, `--fz` 를 "쓰는 자리에서" 계산한다.
+ * 일반 `@theme` 에 두면 `:root` 에서 이미 계산된 값이 아래로 내려와서, 고정·상한 구역에서 `--fz` 를 되돌려도 글자가 안 바뀐다 (결정 0047).
+ * 14 이상은 --fz, 12·13 은 --fz2(115% 상한)에 하한 12px, clamp 로 폭에 따라 크는 큰 글자도 --fz 를 곱한다.
+ */
+@theme inline {
+  --text-*: initial;
+  --text-12: max(12px, calc(12px * var(--fz2)));
+  --text-13: max(12px, calc(13px * var(--fz2)));
+  --text-14: calc(14px * var(--fz));
+  --text-15: calc(15px * var(--fz));
+  --text-16: calc(16px * var(--fz));
+  --text-17: calc(17px * var(--fz));
+  --text-18: calc(18px * var(--fz));
+  --text-19: calc(19px * var(--fz));
+  --text-20: calc(20px * var(--fz));
+  --text-22: calc(22px * var(--fz));
+  --text-23: calc(23px * var(--fz));
+  --text-24: calc(24px * var(--fz)); /* 온도 단계 카드 도달일 */
+  --text-title: calc(clamp(32px, 2.6vw, 40px) * var(--fz)); /* 쪽 제목 */
+  --text-hero: calc(clamp(30px, 2.6vw, 40px) * var(--fz)); /* 종합 첫 줄 */
+  --text-card-verdict: calc(
+    clamp(25px, 2vw, 28px) * var(--fz)
+  ); /* 종합 카드 판정 문구 */
+  --text-verdict: calc(
+    clamp(26px, 2.3vw, 32px) * var(--fz)
+  ); /* 물 화면 판정 문구 */
+  --text-soon-question: calc(
+    clamp(25px, 2.2vw, 30px) * var(--fz)
+  ); /* 준비 중 본문의 질문 */
+}
+
 :root {
   --page-max: 1440px; /* 내용 최대 폭 */
   /* 화면 가장자리 16 (모바일) · 48 (데스크톱) */
   --page-gutter: clamp(16px, 3.4vw, 48px);
   --hairline: 0.5px; /* 가는 선 */
   --tabbar-h: 54px; /* 휴대폰 하단 탭바 높이 (시안 v0.4) */
+
+  /*
+   * 글씨 크기 단계 (이슈 #151, 결정 0047). 화면에서 고르는 값은 --fz 하나이고(작게 0.9 ~ 아주 크게 1.5, 기본 1), 나머지는 거기서 나온다.
+   * --fzc: 배지·탭 글자 (130% 상한) / --fz2: 13 이하 글자 (115% 상한, 하한 12px 는 --text-12·13 에) / --fh: 버튼·입력칸·목록 줄 높이 (130% 상한, 줄이지 않음)
+   */
+  --fz: 1;
+  --fzc: min(var(--fz), 1.3);
+  --fz2: min(var(--fz), 1.15);
+  --fh: max(1, min(var(--fz), 1.3));
+  /* 위 넷의 "화면 전체 값" 복사본. 구역이 덮어쓰지 않으므로 .fz-follow 가 구역 안에서 되돌릴 때 쓴다 */
+  --fz-page: var(--fz);
+  --fzc-page: var(--fzc);
+  --fz2-page: var(--fz2);
+  --fh-page: var(--fh);
 
   /* 카드 격자: 칸이 이 폭보다 좁아지면 한 줄에 놓는 칸 수를 줄인다 (시안 그대로) */
   --grid-card: 340px; /* 물·온도·햇빛 카드 */
@@ -265,4 +292,38 @@
 @utility glass {
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   backdrop-filter: blur(20px) saturate(1.6);
+}
+
+/*
+ * 글씨 크기 구역 (시안 data-fzfix · data-fztab). 구역 안에서는 쓰는 변수 넷을 모두 다시 정의한다
+ * (파생 변수 --fzc·--fz2·--fh 는 :root 에서만 계산돼 내려오므로, --fz 만 바꾸면 따라오지 않는다).
+ * .fz-fixed: 100% 고정 (휴대폰 머리 줄·데스크톱 메뉴 줄·선택 바). 390 폭에서 작물·지역 칩이 이미 꽉 차 있다.
+ * .fz-cap: 130% 상한 (하단 탭·배지). 안의 12·13 글자도 115% 가 아니라 130% 상한이다.
+ */
+.fz-fixed,
+[data-fzfix] {
+  --fz: 1;
+  --fzc: 1;
+  --fz2: 1;
+  --fh: 1;
+}
+
+.fz-cap,
+[data-fztab] {
+  --fz: var(--fzc);
+  --fz2: var(--fzc);
+  --fh: 1;
+}
+
+/* 고정 구역 안의 팝오버·판처럼 글씨 크기를 따라야 하는 곳. 화면 전체 값으로 되돌린다 */
+.fz-follow {
+  --fz: var(--fz-page);
+  --fzc: var(--fzc-page);
+  --fz2: var(--fz2-page);
+  --fh: var(--fh-page);
+}
+
+/* 높이: 기준 px × --fh. 글자가 커져 잘리지 않도록 height 가 아니라 min-height. 보통(--fh 1)에서는 기존 h-N 과 같다 */
+@utility fh-* {
+  min-height: calc(--value(integer) * 1px * var(--fh));
 }

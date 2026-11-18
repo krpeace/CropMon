@@ -16,7 +16,7 @@ export function AboutButton() {
     <button
       type="button"
       onClick={() => open("about")}
-      className="text-brand-ink inline-flex min-h-11 cursor-pointer items-center font-bold"
+      className="text-brand-ink fh-44 inline-flex cursor-pointer items-center font-bold"
     >
       CropMon 소개
     </button>
@@ -65,7 +65,7 @@ function CloseButton() {
     <button
       type="button"
       onClick={close}
-      className="bg-fill/12 text-17 text-ink h-12.5 w-full cursor-pointer rounded-full font-semibold"
+      className="bg-fill/12 text-17 text-ink fh-50 w-full cursor-pointer rounded-full font-semibold"
     >
       닫기
     </button>
@@ -94,7 +94,7 @@ function LoginSheet() {
       <Link
         href={withSelection("/my-farm", selection)}
         onClick={close}
-        className="bg-brand text-18 mt-1.5 flex h-13.5 w-full items-center justify-center rounded-full font-bold text-white"
+        className="bg-brand text-18 fh-54 mt-1.5 flex w-full items-center justify-center rounded-full font-bold text-white"
       >
         내 농장 미리보기
       </Link>

@@ -106,7 +106,7 @@ export function NationalTable({
             <span className="flex flex-wrap items-center gap-1.5 justify-self-start">
               <StatusBadge badge={row.badge} />
               {waterFilledScope === "some" && row.waterFilled && (
-                <span className="bg-fill/14 text-12 text-gray-ink rounded-full px-2 py-0.5 font-bold whitespace-nowrap">
+                <span className="fz-cap bg-fill/14 text-12 text-gray-ink rounded-full px-2 py-0.5 font-bold whitespace-nowrap">
                   {FILLED_COPY.rowTag}
                 </span>
               )}

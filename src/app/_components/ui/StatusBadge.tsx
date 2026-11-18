@@ -13,7 +13,7 @@ export function StatusBadge({
 }) {
   return (
     <span
-      className={`rounded-full font-bold whitespace-nowrap ${
+      className={`fz-cap rounded-full font-bold whitespace-nowrap ${
         compact ? "text-13 px-2 py-1" : "text-14 px-2.75 py-1.25"
       } ${STATUS_BADGE[badge.status]} ${className}`}
     >
