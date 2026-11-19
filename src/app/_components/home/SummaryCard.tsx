@@ -8,7 +8,8 @@ import { Icon } from "../ui/Icon";
 import { StatusBadge } from "../ui/StatusBadge";
 
 type Props = {
-  href: string;
+  /** 없으면 누를 수 없는 카드(링크 대신 div, 화살표 없음) — 글씨 크기 화면의 미리보기가 쓴다. */
+  href?: string;
   icon: "water" | "temperature" | "sunlight";
   label: string;
   verdict: string;
@@ -22,7 +23,7 @@ type Props = {
   gauge?: GaugeValue | null;
 };
 
-/** 종합 화면의 큰 카드 (물·온도·햇빛). 카드 전체를 누르면 그 메뉴로 간다. */
+/** 종합 화면의 큰 카드 (물·온도·햇빛). 카드 전체를 누르면 그 메뉴로 간다(`href` 가 없으면 보이기만 하는 카드). */
 export function SummaryCard({
   href,
   icon,
@@ -36,13 +37,11 @@ export function SummaryCard({
   gauge,
 }: Props) {
   const isWater = icon === "water";
-  return (
-    <Link
-      href={href}
-      className={`rounded-card text-ink flex h-full flex-col gap-3 p-5 active:opacity-85 ${background} ${
-        isWater ? "shadow-edge" : ""
-      }`}
-    >
+  const className = `rounded-card text-ink flex h-full flex-col gap-3 p-5 ${
+    href ? "active:opacity-85" : ""
+  } ${background} ${isWater ? "shadow-edge" : ""}`;
+  const body = (
+    <>
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
         <span
           className={`text-brand-ink flex size-9 items-center justify-center rounded-full ${
@@ -55,12 +54,14 @@ export function SummaryCard({
         <span className="flex-1" />
         {badge && <StatusBadge badge={badge} />}
         {grayBadge && <GrayBadge>{grayBadge}</GrayBadge>}
-        <Icon
-          name="chevron"
-          size={18}
-          strokeWidth={2.4}
-          className="text-ink-2/50"
-        />
+        {href && (
+          <Icon
+            name="chevron"
+            size={18}
+            strokeWidth={2.4}
+            className="text-ink-2/50"
+          />
+        )}
       </div>
       <div className="text-card-verdict leading-card tracking-verdict font-bold text-pretty">
         {verdict}
@@ -68,7 +69,14 @@ export function SummaryCard({
       <div className="text-18 text-ink-2/90">{numbers}</div>
       {note && <p className="text-14 text-ink-2/80 m-0 leading-snug">{note}</p>}
       {gauge && <Gauge gauge={gauge} size="card" />}
+    </>
+  );
+  return href ? (
+    <Link href={href} className={className}>
+      {body}
     </Link>
+  ) : (
+    <div className={className}>{body}</div>
   );
 }
 

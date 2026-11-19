@@ -17,6 +17,7 @@ import { AutoRotate } from "./AutoRotate";
 import { shouldRefreshData } from "./auto-rotate-state";
 import { FarmPromo } from "./FarmPromo";
 import { FlipItem } from "./FlipItem";
+import { HomeNotice } from "./HomeNotice";
 import { NationalList } from "./NationalList";
 import { NationalTable } from "./NationalTable";
 import { SoonCard, SummaryCard } from "./SummaryCard";
@@ -101,6 +102,8 @@ export function HomeBoardClient({
 
   return (
     <>
+      <HomeNotice fontSizeHref={href("/font-size")} />
+
       <div className="flex flex-wrap items-end gap-4 pt-1.5 pb-0.5">
         <FlipItem
           flipKey={flipKey}

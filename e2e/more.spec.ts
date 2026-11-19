@@ -95,7 +95,11 @@ test.describe("휴대폰", () => {
 
     await menu(page).getByRole("link", { name: "더보기" }).click();
     await expect(page).toHaveURL(/\/more\?st=101&crop=apple$/);
-    const list = page.getByRole("main").getByRole("link");
+    // 서비스 메뉴 줄만 — 아래 "글씨 크기" 줄(#168 에서 링크가 됨)은 more-bottom.spec.ts 가 본다
+    const list = page
+      .getByRole("main")
+      .getByRole("link")
+      .filter({ hasNotText: /^글씨 크기/ });
     await expect(list).toHaveText(
       DEFAULT_LABELS.filter((l) => l !== "온도").map(
         (l) => new RegExp(`^${l}`),
@@ -165,7 +169,11 @@ test.describe("휴대폰", () => {
   }) => {
     await open(page, "/more?st=136&crop=cabbage");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("더보기");
-    const rows = page.getByRole("main").getByRole("link");
+    // 서비스 메뉴 줄만 — 아래 "글씨 크기" 줄(#168 에서 링크가 됨)은 more-bottom.spec.ts 가 본다
+    const rows = page
+      .getByRole("main")
+      .getByRole("link")
+      .filter({ hasNotText: /^글씨 크기/ });
     await expect(rows).toHaveText(
       DEFAULT_LABELS.map((l) => new RegExp(`^${l}`)),
     );

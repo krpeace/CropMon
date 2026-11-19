@@ -204,10 +204,11 @@ export function resolveMenus(saved: SavedMenus | null): ResolvedMenus {
 export type ScreenContext =
   { kind: "selection" } | { kind: "title"; title: string; back: boolean };
 
-/** 탭 · 메뉴 사전에 없는 화면: 더보기, 그리고 한 번 더 들어간 2단계 화면(내 농장 미리보기). */
+/** 탭 · 메뉴 사전에 없는 화면: 더보기, 그리고 한 번 더 들어간 2단계 화면(내 농장 미리보기 · 글씨 크기). */
 const EXTRA_SCREENS: Record<string, ScreenContext> = {
   [MORE_HREF]: { kind: "title", title: "더보기", back: false },
   "/my-farm": { kind: "title", title: "내 농장", back: true },
+  "/font-size": { kind: "title", title: "글씨 크기", back: true },
 };
 
 /**
