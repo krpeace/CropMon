@@ -8,6 +8,7 @@ import {
   FONT_SCALE_KEY,
   type FontScalePref,
   IOS_BODY_PX,
+  isBigStep,
   MEDIUM_PX,
   parseFontScalePref,
   phoneRatio,
@@ -62,13 +63,17 @@ export function measurePhoneRatio(): number | null {
   }
 }
 
-/** 선택을 화면에 적용한다: `<html>` 의 `--fz` 를 단계 값(다섯 가운데 하나)으로. */
+/**
+ * 선택을 화면에 적용한다: `<html>` 의 `--fz` 를 단계 값(다섯 가운데 하나)으로, 큰 글씨(130% 이상, 더 크게 이상)이면
+ * `data-fz-big` 도 함께 단다(아니면 뗀다). 머리 스크립트(`buildFontScaleScript`)와 같은 규칙이다 (이슈 #172, 결정 0056).
+ */
 export function applyFontScale(pref: FontScalePref) {
   const ratio = pref.follow ? measurePhoneRatio() : null;
-  document.documentElement.style.setProperty(
-    "--fz",
-    String(effectiveStep(pref, ratio).value),
-  );
+  const step = effectiveStep(pref, ratio);
+  const root = document.documentElement;
+  root.style.setProperty("--fz", String(step.value));
+  if (isBigStep(step)) root.setAttribute("data-fz-big", "");
+  else root.removeAttribute("data-fz-big");
 }
 
 /** 고르는 즉시 저장하고 화면 전체에 적용한다 (저장 버튼 없음). */

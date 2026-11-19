@@ -121,7 +121,8 @@ export function FarmScreen() {
               <span className="text-emerald">2</span> 흙의 종류{" "}
               <span className="text-ink-2/60 font-normal">토성 12종</span>
             </span>
-            <div className="grid grid-cols-3 gap-1.5">
+            {/* 큰 글씨(130% 이상)에서는 두 칸으로 — 긴 이름("미사질식양토")이 칸 테두리에 닿지 않게 (결정 0056) */}
+            <div className="big:grid-cols-2 grid grid-cols-3 gap-1.5">
               {SOILS.map((s) => {
                 const selected = s.id === soil;
                 return (

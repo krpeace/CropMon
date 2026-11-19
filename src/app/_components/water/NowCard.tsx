@@ -118,7 +118,8 @@ export function NowCard({ now, dayLabel }: { now: Now; dayLabel: string }) {
       {now.obs && now.active && (
         <div className="border-ink-2/18 flex flex-col gap-2 border-t-(length:--hairline) pt-3">
           <span className="text-13 text-ink-2/75">{now.obs.label}</span>
-          <div className="grid grid-cols-3 gap-2">
+          {/* 130% 이상에서는 세로 한 줄씩 (결정 0056, 시안 큰 글씨 물 화면) */}
+          <div className="big:grid-cols-1 grid grid-cols-3 gap-2">
             <Num
               label="기준 증발산"
               abbr="ETo"

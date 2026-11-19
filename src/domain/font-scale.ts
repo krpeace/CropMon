@@ -68,6 +68,17 @@ export function percentOf(value: number): number {
   return Math.round(value * 100);
 }
 
+/**
+ * "큰 글씨"(130% 이상)는 이 단계부터다: 더 크게(1.3) · 아주 크게(1.5). **값(부동소수)이 아니라 단계 순서로 판정**하므로
+ * 1.3 이 정확히 걸린다. 화면은 이 판정을 `<html data-fz-big>` 하나로 받아 CSS 변형(`big:`, tokens.css)으로 쓴다 (이슈 #172, 결정 0056).
+ */
+export const BIG_STEP_ID: FontStepId = "xlarge";
+const BIG_INDEX = STEP_IDS.indexOf(BIG_STEP_ID);
+
+export function isBigStep(step: FontStep): boolean {
+  return STEP_IDS.indexOf(step.id) >= BIG_INDEX;
+}
+
 /** 휴대폰 글자 배율에 가장 가까운 단계. 범위 밖이면 끝 단계. 같은 거리면 작은 쪽. */
 export function nearestStep(ratio: number): FontStep {
   let best = FONT_STEPS[0];
@@ -101,6 +112,7 @@ export function effectiveStep(
  * 처음 그리기 전에 `<html>` 의 `--fz` 를 정하는 머리 스크립트 글자 (THEME_SCRIPT 와 같은 방식).
  * 단계 값 · 키는 위 상수에서 끼워 넣고, 허용 목록 밖의 값은 만들지 않는다. 저장소가 막히거나 측정이 실패하면
  * 저장한 단계(없으면 보통)로 둔다. 머리 안에서는 body 가 아직 없으므로 시험 요소는 documentElement 에 달았다가 바로 뗀다.
+ * `--fz` 와 함께 큰 글씨(단계 순서가 `BIG_STEP_ID` 이상)일 때만 `<html data-fz-big>` 을 달고, 아니면 뗀다.
  * 시험(font-scale.test.ts)이 이 글자와 위 순수 함수가 같은 결과를 내는지 같은 표로 확인한다.
  */
 export function buildFontScaleScript(): string {
@@ -109,11 +121,12 @@ export function buildFontScaleScript(): string {
   return (
     `(function(){try{var K=${JSON.stringify(FONT_SCALE_KEY)},I=${ids},V=${values},i=${DEFAULT_INDEX},f=false;` +
     `try{var p=JSON.parse(localStorage.getItem(K));if(p&&typeof p==="object"&&p.v===1){var j=I.indexOf(p.step);if(j>=0)i=j;f=p.follow===true}}catch(e){}` +
-    `var v=V[i];` +
+    `var c=i;` +
     `if(f){try{var d=document.createElement("div"),b=${MEDIUM_PX};d.style.cssText="position:absolute;visibility:hidden;pointer-events:none";` +
     `if(CSS.supports("font","-apple-system-body")){d.style.font="-apple-system-body";b=${IOS_BODY_PX}}else{d.style.fontSize="medium"}` +
     `document.documentElement.appendChild(d);var x=parseFloat(getComputedStyle(d).fontSize);d.remove();` +
-    `if(isFinite(x)&&x>0){var r=x/b,n=0;for(var k=1;k<V.length;k++){if(Math.abs(V[k]-r)<Math.abs(V[n]-r))n=k}v=V[n]}}catch(e){}}` +
-    `document.documentElement.style.setProperty("--fz",String(v))}catch(e){}})()`
+    `if(isFinite(x)&&x>0){var r=x/b,n=0;for(var k=1;k<V.length;k++){if(Math.abs(V[k]-r)<Math.abs(V[n]-r))n=k}c=n}}catch(e){}}` +
+    `var h=document.documentElement;h.style.setProperty("--fz",String(V[c]));` +
+    `if(c>=${BIG_INDEX})h.setAttribute("data-fz-big","");else h.removeAttribute("data-fz-big")}catch(e){}})()`
   );
 }

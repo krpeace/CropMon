@@ -250,6 +250,31 @@ describe("관측 기준 문구와 예상일 날 수", () => {
     );
   });
 
+  it("splitDayLabel: 오늘이면 ' 오늘' 꼬리를 떼어 날짜와 꼬리표로 나눈다", async () => {
+    const { splitDayLabel } = await import("./water-outlook");
+    expect(splitDayLabel("11월 19일 (목) 오늘", true)).toEqual({
+      date: "11월 19일 (목)",
+      tag: "오늘",
+    });
+    // 오늘이 아니면 글자 그대로
+    expect(splitDayLabel("11월 18일 (수)", false)).toEqual({
+      date: "11월 18일 (수)",
+      tag: null,
+    });
+    // isToday 인데 꼬리가 없으면(글자 형식이 바뀐 경우) 그대로 두고 꼬리표 없음
+    expect(splitDayLabel("11월 19일 (목)", true)).toEqual({
+      date: "11월 19일 (목)",
+      tag: null,
+    });
+    // dayLabel 과 이어 붙인 값이 되돌려진다
+    const { dayLabel } = await import("./water-outlook");
+    const label = `${dayLabel("2026-10-25")} 오늘`;
+    expect(splitDayLabel(label, true)).toEqual({
+      date: dayLabel("2026-10-25"),
+      tag: "오늘",
+    });
+  });
+
   it("needInDays: 요약의 몇 번째 날 → 오늘부터 며칠", async () => {
     const { needInDays } = await import("./water-outlook");
     // 아침 회차: 첫날 = 오늘

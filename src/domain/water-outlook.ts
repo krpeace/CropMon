@@ -168,6 +168,22 @@ export function dayLabel(iso: string): string {
   return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${WEEKDAY[d.getUTCDay()]})`;
 }
 
+/**
+ * 기준 날짜 줄의 글자("11월 19일 (목) 오늘")를 날짜와 꼬리표로 나눈다. 큰 글씨에서 날짜는 한 줄로 두고
+ * "오늘" 꼬리표만 아래 줄로 내릴 수 있게 하려는 것이다 (이슈 #172). 서비스의 `label` 글자 형식이 바뀌어도 여기 한 곳에서 잡는다.
+ * 오늘이 아니거나 꼬리가 없으면 글자 그대로(꼬리표 없음).
+ */
+export function splitDayLabel(
+  label: string,
+  isToday: boolean,
+): { date: string; tag: string | null } {
+  const tail = " 오늘";
+  if (isToday && label.endsWith(tail)) {
+    return { date: label.slice(0, -tail.length), tag: "오늘" };
+  }
+  return { date: label, tag: null };
+}
+
 /** 오늘과 가까운 날의 이름. 그 밖은 null. */
 export function relDay(iso: string, today: string): string | null {
   const n = (Date.parse(iso) - Date.parse(today)) / DAY;

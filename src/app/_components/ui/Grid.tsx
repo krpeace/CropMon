@@ -11,14 +11,19 @@ const MIN = {
 
 export function Grid({
   min,
+  stackOnBig,
   children,
 }: {
   min: keyof typeof MIN;
+  /** 큰 글씨(130% 이상, `big:` 변형)에서는 칸 수와 상관없이 한 장씩 세로로 쌓는다 (결정 0056). */
+  stackOnBig?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div
-      className={`grid ${min === "wide" ? "items-start gap-4" : "gap-3"} ${MIN[min]}`}
+      className={`grid ${min === "wide" ? "items-start gap-4" : "gap-3"} ${MIN[min]} ${
+        stackOnBig ? "big:grid-cols-1" : ""
+      }`}
     >
       {children}
     </div>

@@ -6,6 +6,7 @@ import {
   effectiveStep,
   FONT_SCALE_KEY,
   FONT_STEPS,
+  isBigStep,
   nearestStep,
   parseFontScalePref,
   percentOf,
@@ -42,6 +43,29 @@ describe("단계 다섯 개", () => {
   it("값으로 단계 찾기 — 모르는 값은 null", () => {
     expect(stepByValue(1.3)?.label).toBe("더 크게");
     expect(stepByValue(1.2)).toBeNull();
+  });
+});
+
+describe("큰 글씨(130% 이상) 판정 — 값이 아니라 단계 순서(더 크게 이상)", () => {
+  it("더 크게 · 아주 크게만 큰 글씨 (1.3 포함)", () => {
+    expect(FONT_STEPS.map((s) => [s.id, isBigStep(s)])).toEqual([
+      ["small", false],
+      ["normal", false],
+      ["large", false],
+      ["xlarge", true],
+      ["xxlarge", true],
+    ]);
+  });
+
+  it("휴대폰 설정 따르기로 1.3 이상이 된 단계도 큰 글씨", () => {
+    const follow = { step: "normal", follow: true } as const;
+    expect(isBigStep(effectiveStep(follow, 1.3))).toBe(true);
+    expect(isBigStep(effectiveStep(follow, 1.2))).toBe(false); // 크게(1.15)
+    expect(isBigStep(effectiveStep(follow, 2))).toBe(true);
+    // 측정 실패면 저장한 단계
+    expect(isBigStep(effectiveStep({ ...follow, step: "xlarge" }, null))).toBe(
+      true,
+    );
   });
 });
 
@@ -110,7 +134,7 @@ describe("휴대폰 글자 배율 → 가장 가까운 단계", () => {
  * 머리 스크립트(첫 그리기 전)와 순수 함수가 같은 결과를 내는지 같은 표로 확인한다.
  * 스크립트는 문서 · 저장소 · CSS · getComputedStyle 만 쓰므로 가짜를 넣어 돌린다.
  */
-function runScript(
+function run(
   raw: string | null,
   opts: {
     measuredPx?: number | "throw";
@@ -119,11 +143,18 @@ function runScript(
   } = {},
 ) {
   const style: Record<string, string> = {};
+  const attrs: Record<string, string> = {};
   const root = {
     style: {
       setProperty: (k: string, v: string) => {
         style[k] = v;
       },
+    },
+    setAttribute: (k: string, v: string) => {
+      attrs[k] = v;
+    },
+    removeAttribute: (k: string) => {
+      delete attrs[k];
     },
     appendChild: () => {},
   };
@@ -153,8 +184,10 @@ function runScript(
     "getComputedStyle",
     buildFontScaleScript(),
   )(document, localStorage, CSS, getComputedStyle);
-  return style["--fz"];
+  return { fz: style["--fz"], big: "data-fz-big" in attrs };
 }
+
+const runScript = (...args: Parameters<typeof run>) => run(...args).fz;
 
 describe("머리 스크립트 ↔ 순수 함수 일치", () => {
   it("저장 값이 없거나 망가졌으면 --fz 는 1(보통)", () => {
@@ -207,5 +240,35 @@ describe("머리 스크립트 ↔ 순수 함수 일치", () => {
 
   it("저장소가 막혀도 오류 없이 넘어간다(--fz 를 건드리지 않음)", () => {
     expect(() => runScript(null, { storageThrows: true })).not.toThrow();
+  });
+
+  it("data-fz-big: 더 크게(1.3) · 아주 크게(1.5)에서만 달고, 작게 · 보통 · 크게에서는 안 단다 (순수 함수와 같은 표)", () => {
+    for (const s of FONT_STEPS) {
+      const raw = serializeFontScalePref({ step: s.id, follow: false });
+      expect(run(raw).big, s.id).toBe(isBigStep(s));
+    }
+    expect(run(null).big).toBe(false);
+    expect(run("{step:").big).toBe(false);
+    // 허용 목록 밖은 보통 → 큰 글씨 아님
+    expect(run('{"v":1,"step":"huge"}').big).toBe(false);
+  });
+
+  it("data-fz-big: 따르기로 1.3 이상이 된 경우도 달고, 측정 실패면 저장한 단계 기준", () => {
+    const follow = (step: "normal" | "xlarge") =>
+      serializeFontScalePref({ step, follow: true });
+    // 안드로이드 기준 16px: 20.8px → 1.3(더 크게), 24px → 1.5, 18.4px → 1.15(크게)
+    expect(run(follow("normal"), { measuredPx: 20.8 }).big).toBe(true);
+    expect(run(follow("normal"), { measuredPx: 24 }).big).toBe(true);
+    expect(run(follow("normal"), { measuredPx: 18.4 }).big).toBe(false);
+    // 아이폰 기준 17px: 22.1px → 1.3
+    expect(run(follow("normal"), { measuredPx: 22.1, ios: true }).big).toBe(
+      true,
+    );
+    expect(run(follow("normal"), { measuredPx: 17, ios: true }).big).toBe(
+      false,
+    );
+    // 측정 실패(예외 · 0px)면 저장한 단계로
+    expect(run(follow("xlarge"), { measuredPx: "throw" }).big).toBe(true);
+    expect(run(follow("normal"), { measuredPx: 0 }).big).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { dayLabel, FILLED_COPY } from "@/domain/water-outlook";
 import type { MonthRow } from "@/domain/water-verdict";
 import type { SeasonDay } from "@/services/water";
 
+import { MonthLabel } from "../ui/MonthLabel";
 import { ChartHover } from "./ChartHover";
 import { seasonChart } from "./season-chart";
 
@@ -273,13 +274,14 @@ export function SeasonCard({
           </span>
         </div>
         <div className="relative h-4.5">
-          {ch.months.map((m) => (
+          {ch.months.map((m, i) => (
             <span
               key={m.label}
+              data-testid="season-month"
               className="text-12 text-ink-2/80 border-ink-2/20 absolute top-0 border-l pl-0.5 whitespace-nowrap"
               style={{ left: m.left }}
             >
-              {m.label}
+              <MonthLabel label={m.label} first={i === 0} />
             </span>
           ))}
         </div>
