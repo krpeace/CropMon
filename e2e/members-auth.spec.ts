@@ -4,7 +4,9 @@ import { expect, test, type Page } from "./fixtures";
 
 // 회원제 스위치 "켬" — 로그인 → 누르기 전에 보던 화면으로 돌아옴 → 로그아웃 (이슈 #182, 결정 0061).
 // 이 서버(3101)는 MEMBERS_ENABLED=true 이고, 로그인은 가짜 Supabase(e2e/fake-supabase.mjs)의 흉내다.
-// 가짜의 시나리오 · 호출 횟수는 전역 값이라 이 파일은 차례로(serial) 돈다. 화면(로그인 시트)은 L3 이므로 길 자체만 본다.
+// 가짜의 시나리오 · 호출 횟수는 전역 값이라 이 파일은 차례로(serial) 돈다. 여기서는 길 자체를 본다(화면 시트는 members-sheet.spec.ts).
+// 이슈 #189(결정 0064)부터 로그인 성공은 돌아온 주소에 login=ok 를 붙이고, 화면이 알림을 띄운 뒤 주소에서 지운다 —
+// 그래서 "돌아온 주소"는 지워진 뒤(here 를 poll)에 본다.
 
 test.describe.configure({ mode: "serial" });
 
@@ -30,6 +32,18 @@ const loginUrl = (provider: string, next?: string) =>
 const here = (page: Page) => {
   const u = new URL(page.url());
   return `${u.pathname}${u.search}`;
+};
+/** 돌아온 주소(login=ok 가 지워진 뒤) */
+const settled = (page: Page) => expect.poll(() => here(page));
+/** 콜백이 돌려보낸 곳(Location). 화면이 login 표시를 지우기 전의 값을 본다. */
+const callbackLocations = (page: Page) => {
+  const seen: string[] = [];
+  page.on("response", (res) => {
+    if (new URL(res.url()).pathname === "/auth/callback") {
+      seen.push(res.headers()["location"] ?? "");
+    }
+  });
+  return seen;
 };
 
 test.beforeEach(async ({ request }) => {
@@ -57,25 +71,37 @@ test.describe("로그인 시작 · 콜백", () => {
   }) => {
     await page.goto(loginUrl("kakao", "/water?st=105&crop=apple"));
     await page.waitForURL(/\/water\?/);
-    expect(here(page)).toBe("/water?st=105&crop=apple");
+    // 성공 표시(login=ok)가 붙어 돌아오고, 화면이 알림을 띄운 뒤 주소에서 지운다
+    await settled(page).toBe("/water?st=105&crop=apple");
     expect((await authCookies(page)).length).toBeGreaterThan(0);
     expect((await fakeCalls(request)).ensure).toBe(1);
     // 돌아온 화면은 로그인 시트를 여는 표시가 없다
     expect(page.url()).not.toContain("login=");
   });
 
-  test("구글 · 네이버(custom:naver)도 같은 길로 돌아온다", async ({
+  test("구글도 같은 길로 돌아온다 (네이버는 NAVER_LOGIN_ENABLED 를 켠 3102 서버에서 — members-naver.spec.ts)", async ({
     page,
     request,
   }) => {
-    for (const provider of ["google", "custom:naver"]) {
+    for (const provider of ["google"]) {
       await page.context().clearCookies();
       await request.post(`${FAKE}/reset`);
       await page.goto(loginUrl(provider, "/temperature?st=108&crop=apple"));
       await page.waitForURL(/\/temperature\?/);
-      expect(here(page), provider).toBe("/temperature?st=108&crop=apple");
+      await settled(page).toBe("/temperature?st=108&crop=apple");
       expect((await authCookies(page)).length, provider).toBeGreaterThan(0);
     }
+  });
+
+  test("네이버는 NAVER_LOGIN_ENABLED 가 꺼져 있으면 400 — 모르는 공급자와 같고 쿠키도 안 심는다", async ({
+    request,
+  }) => {
+    const res = await request.get(loginUrl("custom:naver", "/"), {
+      maxRedirects: 0,
+    });
+    expect(res.status()).toBe(400);
+    // 로그인 시작 쿠키(PKCE 검증값)는 안 심는다. 표시 쿠키(cm_m)만 프록시가 단다.
+    expect(res.headers()["set-cookie"] ?? "").not.toContain("code-verifier");
   });
 
   test("ensure_my_member 가 실패해도 로그인은 계속된다 (돌아오고 세션 쿠키가 있음)", async ({
@@ -85,7 +111,7 @@ test.describe("로그인 시작 · 콜백", () => {
     await setScenario(request, { ensure: "fail" });
     await page.goto(loginUrl("google", "/water?st=105"));
     await page.waitForURL(/\/water\?/);
-    expect(here(page)).toBe("/water?st=105"); // login=failed 가 붙지 않는다
+    await settled(page).toBe("/water?st=105"); // login=failed 가 붙지 않는다
     expect((await authCookies(page)).length).toBeGreaterThan(0);
     expect((await fakeCalls(request)).ensure).toBe(1);
   });
@@ -95,9 +121,12 @@ test.describe("로그인 시작 · 콜백", () => {
     request,
   }) => {
     await setScenario(request, { scenario: "cancel" });
+    const seen = callbackLocations(page);
     await page.goto(loginUrl("kakao", "/water?st=105&crop=apple"));
-    await page.waitForURL(/login=cancelled/);
-    expect(here(page)).toBe("/water?st=105&crop=apple&login=cancelled");
+    await page.waitForURL(/\/water\?/);
+    expect(seen).toEqual([`${BASE}/water?st=105&crop=apple&login=cancelled`]);
+    // 알림을 읽은 화면이 주소에서 login 표시를 지운다(취소는 아무 말 없이)
+    await settled(page).toBe("/water?st=105&crop=apple");
     expect(await authCookies(page)).toHaveLength(0);
     expect((await fakeCalls(request)).ensure).toBe(0);
   });
@@ -109,9 +138,11 @@ test.describe("로그인 시작 · 콜백", () => {
     for (const scenario of ["provider-error", "no-code", "exchange-fail"]) {
       await page.context().clearCookies();
       await setScenario(request, { scenario });
+      const seen = callbackLocations(page);
       await page.goto(loginUrl("google", "/water?st=105"));
-      await page.waitForURL(/login=failed/);
-      expect(here(page), scenario).toBe("/water?st=105&login=failed");
+      await page.waitForURL(/\/water\?/);
+      expect(seen, scenario).toEqual([`${BASE}/water?st=105&login=failed`]);
+      await settled(page).toBe("/water?st=105");
       expect(await authCookies(page), scenario).toHaveLength(0);
     }
     expect((await fakeCalls(request)).ensure).toBe(0);
@@ -131,17 +162,19 @@ test.describe("로그인 시작 · 콜백", () => {
       await page.goto(loginUrl("kakao", next));
       await page.waitForURL(`${BASE}/`);
       expect(new URL(page.url()).origin, next).toBe(BASE);
-      expect(here(page), next).toBe("/");
+      await settled(page).toBe("/");
     }
   });
 
   test("모르는 공급자는 400 이고 쿠키를 심지 않는다", async ({ request }) => {
-    for (const provider of ["github", "KAKAO", "naver", ""]) {
+    for (const provider of ["github", "KAKAO", "naver", "custom:other", ""]) {
       const res = await request.get(loginUrl(provider, "/"), {
         maxRedirects: 0,
       });
       expect(res.status(), provider).toBe(400);
-      expect(res.headers()["set-cookie"], provider).toBeUndefined();
+      expect(res.headers()["set-cookie"] ?? "", provider).not.toContain(
+        "code-verifier",
+      );
     }
   });
 });
@@ -156,7 +189,7 @@ test.describe("로그인 필요 주소", () => {
     await page.goto(loginUrl("kakao", "/farm/settings?st=105"));
     await page.waitForURL(/\/farm\/settings/);
     // 아직 화면이 없어 404 쪽이 열리지만(F1 이 만든다), 로그인 창으로 되돌려 보내지는 않는다
-    expect(here(page)).toBe("/farm/settings?st=105");
+    await settled(page).toBe("/farm/settings?st=105");
     await page.goto("/account");
     expect(new URL(page.url()).pathname).toBe("/account");
     expect(page.url()).not.toContain("login=1");

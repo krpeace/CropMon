@@ -60,8 +60,9 @@ describe("GET /auth/callback — 스위치를 켜면", () => {
       { "user-agent": "Mozilla/5.0 (phone)" },
     );
     expect(res.status).toBe(302);
+    // 성공은 login=ok 를 붙인다 — 화면이 "로그인했어요" 알림을 한 번 띄우고 주소에서 지운다 (결정 0064)
     expect(res.headers.get("location")).toBe(
-      `${ORIGIN}/water?st=105&crop=apple`,
+      `${ORIGIN}/water?st=105&crop=apple&login=ok`,
     );
     expect(exchangeCodeForSession).toHaveBeenCalledWith("abc");
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -82,7 +83,7 @@ describe("GET /auth/callback — 스위치를 켜면", () => {
       },
     });
     let res = await call(`?code=abc&next=${encodeURIComponent("/water?st=1")}`);
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/water?st=1`);
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/water?st=1&login=ok`);
     expect(logged()).toContain("42501");
     expect(logged()).not.toContain("someone@example.com");
     expect(logged()).not.toContain("permission denied");
@@ -91,7 +92,7 @@ describe("GET /auth/callback — 스위치를 켜면", () => {
       new Error("socket hang up for someone@example.com"),
     );
     res = await call("?code=abc&next=%2F");
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/`);
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/?login=ok`);
     expect(res.status).toBe(302);
     expect(logged()).not.toContain("someone@example.com");
     expect(logged()).not.toContain("hang up");
@@ -112,8 +113,19 @@ describe("GET /auth/callback — 스위치를 켜면", () => {
           ? "?code=abc"
           : `?code=abc&next=${encodeURIComponent(next)}`;
       const res = await call(qs);
-      expect(res.headers.get("location"), String(next)).toBe(`${ORIGIN}/`);
+      expect(res.headers.get("location"), String(next)).toBe(
+        `${ORIGIN}/?login=ok`,
+      );
     }
+  });
+
+  it("성공의 next 에 # 가 있으면 살린다", async () => {
+    const res = await call(
+      `?code=abc&next=${encodeURIComponent("/water?st=105#top")}`,
+    );
+    expect(res.headers.get("location")).toBe(
+      `${ORIGIN}/water?st=105&login=ok#top`,
+    );
   });
 
   it("사용자가 취소하면 돌아갈 화면에 login=cancelled (교환 · ensure 호출 없음, 오류 문장은 기록하지 않음)", async () => {

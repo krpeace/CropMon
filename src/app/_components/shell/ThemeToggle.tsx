@@ -88,6 +88,7 @@ export function ThemeToggle() {
       type="button"
       aria-label={label}
       onClick={toggle}
+      data-members-hide="in"
       className="bg-fill/12 text-ink flex size-11 flex-none cursor-pointer items-center justify-center rounded-full"
     >
       <Icon name={dark ? "sun" : "moon"} size={22} />

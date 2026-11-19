@@ -50,8 +50,8 @@ describe("GET /auth/login — 스위치를 끄면", () => {
 describe("GET /auth/login — 스위치를 켜면", () => {
   beforeEach(() => vi.stubEnv("MEMBERS_ENABLED", "true"));
 
-  it("허용한 공급자(카카오 · 구글 · 네이버)로 공급자 화면으로 보낸다", async () => {
-    for (const provider of ["kakao", "google", "custom:naver"]) {
+  it("카카오 · 구글은 공급자 화면으로 보낸다 (네이버 스위치와 상관없이)", async () => {
+    for (const provider of ["kakao", "google"]) {
       signInWithOAuth.mockClear();
       const res = await call(`?provider=${encodeURIComponent(provider)}`);
       expect(res.status, provider).toBe(302);
@@ -59,6 +59,24 @@ describe("GET /auth/login — 스위치를 켜면", () => {
       expect(signInWithOAuth).toHaveBeenCalledTimes(1);
       expect(signInWithOAuth.mock.calls[0][0].provider).toBe(provider);
     }
+  });
+
+  it("네이버는 NAVER_LOGIN_ENABLED 가 꺼져 있으면 모르는 공급자와 같이 400 (Supabase 를 부르지 않음)", async () => {
+    for (const v of [undefined, "", "false", "1", "True"]) {
+      if (v !== undefined) vi.stubEnv("NAVER_LOGIN_ENABLED", v);
+      const res = await call("?provider=custom%3Anaver&next=%2F");
+      expect(res.status, String(v)).toBe(400);
+    }
+    expect(makeClient).not.toHaveBeenCalled();
+    expect(signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it("네이버는 NAVER_LOGIN_ENABLED=true 이면 공급자 화면으로 보낸다", async () => {
+    vi.stubEnv("NAVER_LOGIN_ENABLED", "true");
+    const res = await call("?provider=custom%3Anaver&next=%2Fwater");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(PROVIDER_URL);
+    expect(signInWithOAuth.mock.calls[0][0].provider).toBe("custom:naver");
   });
 
   it("누르기 전에 보던 화면(검색어 포함)을 콜백 주소에 실어 보낸다", async () => {

@@ -169,36 +169,42 @@ describe("classifyOAuthCallbackError — 취소 / 실패 가르기", () => {
   });
 });
 
-describe("isAllowedProvider — 공급자 허용 목록", () => {
-  it("카카오 · 구글 · 네이버만 참", () => {
-    expect(isAllowedProvider("kakao")).toBe(true);
-    expect(isAllowedProvider("google")).toBe(true);
-    expect(isAllowedProvider("custom:naver")).toBe(true);
+describe("isAllowedProvider — 공급자 허용 목록 (두 번째 인자: 네이버 스위치)", () => {
+  it("카카오 · 구글은 네이버 스위치와 상관없이 참", () => {
+    for (const naver of [true, false]) {
+      expect(isAllowedProvider("kakao", naver)).toBe(true);
+      expect(isAllowedProvider("google", naver)).toBe(true);
+    }
   });
 
-  it("그 밖은 모두 거짓 (대소문자 · 공백 · 다른 공급자 · 빈 값)", () => {
-    for (const bad of [
-      "",
-      " kakao",
-      "kakao ",
-      "Kakao",
-      "GOOGLE",
-      "naver",
-      "custom:",
-      "custom:other",
-      "custom:naver2",
-      "github",
-      "apple",
-      "email",
-      "phone",
-      "kakao,google",
-      "../kakao",
-    ]) {
-      expect(isAllowedProvider(bad), bad).toBe(false);
+  it("네이버(custom:naver)는 스위치를 켠 때만 참 — 끄면 모르는 공급자와 같다", () => {
+    expect(isAllowedProvider("custom:naver", true)).toBe(true);
+    expect(isAllowedProvider("custom:naver", false)).toBe(false);
+  });
+
+  it("그 밖은 스위치와 상관없이 모두 거짓 (대소문자 · 공백 · 다른 공급자 · 빈 값)", () => {
+    for (const naver of [true, false]) {
+      for (const bad of [
+        "",
+        " kakao",
+        "kakao ",
+        "Kakao",
+        "GOOGLE",
+        "naver",
+        "custom:",
+        "custom:other",
+        "custom:naver2",
+        "github",
+        "kakao,google",
+        "kakao&next=https://evil.example",
+        "../kakao",
+      ]) {
+        expect(isAllowedProvider(bad, naver), bad).toBe(false);
+      }
+      expect(isAllowedProvider(null, naver)).toBe(false);
+      expect(isAllowedProvider(undefined, naver)).toBe(false);
+      expect(isAllowedProvider(1 as unknown as string, naver)).toBe(false);
     }
-    expect(isAllowedProvider(null)).toBe(false);
-    expect(isAllowedProvider(undefined)).toBe(false);
-    expect(isAllowedProvider(1 as unknown as string)).toBe(false);
   });
 });
 
@@ -291,7 +297,15 @@ describe("hasAuthCookie — 로그인 쿠키가 있는지 (이름 모양으로)"
   });
 });
 
-describe("withLoginNotice — 돌아갈 주소에 취소 · 실패 표시 하나", () => {
+describe("withLoginNotice — 돌아갈 주소에 성공 · 취소 · 실패 표시 하나", () => {
+  it("성공은 login=ok (검색어 · # 를 살린다)", () => {
+    expect(withLoginNotice("/water?st=105&crop=apple#top", "ok")).toBe(
+      "/water?st=105&crop=apple&login=ok#top",
+    );
+    expect(withLoginNotice("/", "ok")).toBe("/?login=ok");
+    expect(withLoginNotice("/?login=1&next=%2Fwater", "ok")).toBe("/?login=ok");
+  });
+
   it("검색어를 살리고 login 표시를 붙인다", () => {
     expect(withLoginNotice("/water?st=105&crop=apple", "cancelled")).toBe(
       "/water?st=105&crop=apple&login=cancelled",

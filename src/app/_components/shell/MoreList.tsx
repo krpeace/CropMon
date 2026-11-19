@@ -13,7 +13,7 @@ import { useMenus } from "./menu-store";
 import { ICON_PATH, MENU_ICON } from "./pages";
 import { useThemeToggle } from "./ThemeToggle";
 
-const ROW =
+export const ROW =
   "text-17 border-ink-2/14 flex fh-54 items-center gap-3 border-t-(length:--hairline) font-semibold first:border-t-0";
 
 const GROUP = "rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5";
@@ -122,7 +122,7 @@ export function MoreList({ selection }: { selection: Selection | null }) {
 }
 
 /** 아직 화면이 없는 줄: 버튼처럼 보이되 aria-disabled, 회색 "준비 중" 꼬리표, 눌러도 이동 없음. */
-function SoonRow({
+export function SoonRow({
   icon,
   label,
 }: {
@@ -148,7 +148,7 @@ function SoonRow({
  * "다크 모드" 스위치 줄. 휴대폰 맥락 바에는 해/달 버튼이 없어서(비회원은 더보기 맨 아래) 여기서 바꾼다.
  * 동작은 데스크톱 해/달 버튼과 같다(useThemeToggle). 버튼 이름("다크 모드로 보기" / "라이트 모드로 보기")은 기존 시험이 쓴다.
  */
-function ThemeRow() {
+export function ThemeRow() {
   const { dark, label, toggle } = useThemeToggle();
   return (
     <li className="contents">

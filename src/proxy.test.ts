@@ -199,3 +199,132 @@ describe("proxy — 스위치를 켜면", () => {
     }
   });
 });
+
+// ── 표시 쿠키 cm_m (이슈 #189, 결정 0064): 헤더가 "스위치 켬/끔 · 로그인함"을 알게 하는 값. 개인 값은 없다. ──
+const STATE = "cm_m";
+const withState = (value: string, extra = "") =>
+  `${STATE}=${value}${extra ? `; ${extra}` : ""}`;
+
+describe("proxy — 표시 쿠키 (스위치 끔: 지금 알파와 같다)", () => {
+  it("쿠키 없는 방문자에게는 아무 쿠키도 안 심고 Supabase 를 안 부른다", async () => {
+    for (const path of ["/", "/water?st=105", "/auth/login?provider=kakao"]) {
+      const res = await proxy(get(path));
+      expect(res.headers.get("set-cookie"), path).toBeNull();
+    }
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it("켰다가 끈 뒤: 남아 있는 cm_m 은 첫 요청에서 지운다 (그 밖의 쿠키는 안 건드림)", async () => {
+    for (const value of ["a", "i", "in", "an", "zzz"]) {
+      const res = await proxy(get("/", withState(value, COOKIE)));
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie, value).toContain(`${STATE}=;`);
+      expect(setCookie.toLowerCase(), value).toMatch(/max-age=0|expires=/);
+      expect(setCookie).not.toContain("sb-abcdefgh");
+    }
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it("로그인 필요 주소도 안 막고, 로그인 쿠키가 있어도 Supabase 를 안 부른다", async () => {
+    const res = await proxy(get("/account", withState("i", COOKIE)));
+    expect(res.headers.get("location")).toBeNull();
+    expect(session).not.toHaveBeenCalled();
+  });
+});
+
+describe("proxy — 표시 쿠키 (스위치 켬)", () => {
+  beforeEach(() => vi.stubEnv("MEMBERS_ENABLED", "true"));
+  const valueOf = (res: Response) => {
+    const raw = res.headers.get("set-cookie") ?? "";
+    return new RegExp(`${STATE}=([^;]*)`).exec(raw)?.[1] ?? null;
+  };
+
+  it("쿠키 없는 방문자: a 를 심는다 — Supabase 호출 0", async () => {
+    const res = await proxy(get("/water?st=105"));
+    expect(valueOf(res)).toBe("a");
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it("심는 쿠키는 자바스크립트가 읽을 수 있고(HttpOnly 없음) 경로 / · SameSite=Lax · 만료 없음", async () => {
+    const raw = (await proxy(get("/"))).headers.get("set-cookie") ?? "";
+    expect(raw.toLowerCase()).not.toContain("httponly");
+    expect(raw).toMatch(/Path=\//i);
+    expect(raw).toMatch(/SameSite=lax/i);
+    expect(raw.toLowerCase()).not.toContain("max-age");
+    expect(raw.toLowerCase()).not.toContain("expires");
+  });
+
+  it("https 로 오면 Secure, http(로컬)에서는 Secure 없음", async () => {
+    const https = await proxy(new NextRequest("https://cropmon.example/water"));
+    expect(https.headers.get("set-cookie")).toMatch(/Secure/i);
+    const http = await proxy(get("/water"));
+    expect(http.headers.get("set-cookie")).not.toMatch(/Secure/i);
+  });
+
+  it("이미 같은 값이면 다시 쓰지 않는다", async () => {
+    const res = await proxy(get("/water", withState("a")));
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it("로그인 쿠키가 없는데 cm_m=i 가 남아 있으면(로그아웃 뒤) a 로 고친다 — 호출 0", async () => {
+    const res = await proxy(get("/", withState("i")));
+    expect(valueOf(res)).toBe("a");
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it("로그인함: 세션 확인 결과로 i 를 심는다 (확인은 지금처럼 한 번)", async () => {
+    session.mockResolvedValue({
+      response: NextResponse.next(),
+      signedIn: true,
+    });
+    const res = await proxy(get("/water", withState("a", COOKIE)));
+    expect(valueOf(res)).toBe("i");
+    expect(session).toHaveBeenCalledTimes(1);
+  });
+
+  it("로그인함 + 이미 i 이면 다시 쓰지 않는다", async () => {
+    session.mockResolvedValue({
+      response: NextResponse.next(),
+      signedIn: true,
+    });
+    const res = await proxy(get("/water", withState("i", COOKIE)));
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("로그인이 풀려 있으면(만료) i 를 a 로 고친다 — 갱신된 세션 쿠키도 같이 간다", async () => {
+    const refreshed = NextResponse.next();
+    refreshed.cookies.set("sb-abcdefgh-auth-token", "", { maxAge: 0 });
+    session.mockResolvedValue({ response: refreshed, signedIn: false });
+    const res = await proxy(get("/water", withState("i", COOKIE)));
+    expect(valueOf(res)).toBe("a");
+    expect(res.headers.get("set-cookie")).toContain("sb-abcdefgh-auth-token");
+  });
+
+  it("로그인 필요 주소를 비로그인으로 열어 보내는 응답에도 쿠키를 싣는다", async () => {
+    const res = await proxy(get("/farm/settings?st=105"));
+    expect(res.status).toBe(307);
+    expect(valueOf(res)).toBe("a");
+  });
+
+  it("네이버 스위치를 켜면 뒤에 n (an · in)", async () => {
+    vi.stubEnv("NAVER_LOGIN_ENABLED", "true");
+    expect(valueOf(await proxy(get("/")))).toBe("an");
+    session.mockResolvedValue({
+      response: NextResponse.next(),
+      signedIn: true,
+    });
+    expect(valueOf(await proxy(get("/", COOKIE)))).toBe("in");
+  });
+
+  it("네이버 스위치를 끄면 n 이 붙은 쿠키를 n 없는 값으로 고친다", async () => {
+    const res = await proxy(get("/", withState("an")));
+    expect(valueOf(res)).toBe("a");
+  });
+
+  it("폐지 지점 돌려보내기 응답은 쿠키를 만지지 않는다 (돌아간 요청에서 심는다)", async () => {
+    const res = await proxy(get("/water?st=116"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+});

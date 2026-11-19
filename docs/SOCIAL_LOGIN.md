@@ -1,6 +1,6 @@
 # SNS 로그인 설정 · 코드 흐름 (카카오 · 네이버 · 구글)
 
-2027-01-01 회원제의 로그인을 붙일 때 읽는 문서입니다. 이슈 #182(결정 0061)에서 **코드 배관**을 깔았고, 화면(로그인 시트 · 버튼)과 실제 공급자 연결은 L3에서 합니다. 공개 가입 서비스에 맞춰 새로 썼으며, 사내 프로젝트에서 먼저 다듬은 방식(참고: 사내 프로젝트)을 바탕으로 했습니다.
+2027-01-01 회원제의 로그인을 붙일 때 읽는 문서입니다. 이슈 #182(결정 0061)에서 **코드 배관**을, 이슈 #189(결정 0064)에서 **화면(로그인 시트 · 버튼 · 알림 · 헤더 · 내 계정 시트)** 를 깔았고, **실제 공급자 연결 · 확인은 사용자가 아래 순서로 합니다**(8장 확인 목록). 공개 가입 서비스에 맞춰 새로 썼으며, 사내 프로젝트에서 먼저 다듬은 방식(참고: 사내 프로젝트)을 바탕으로 했습니다.
 
 - **읽는 사람**: 사용자(설정 순서 2장 · 6장)와 개발 도구(코드 흐름 4장 · 함정 5장).
 - 각 공급자 · Supabase 화면 이름과 설정은 바뀔 수 있습니다. 2026-11 기준이며, 막히면 공식 문서를 먼저 확인합니다.
@@ -8,14 +8,16 @@
 
 ## 1. 정한 것
 
-| 정한 것       | 내용                                                                                                                                                                                           |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 가입 방식     | **공개 가입** — 누구나 SNS로 로그인하면 계정이 생긴다(Supabase "Allow new users to sign up" **켬**). 아이디 · 비밀번호 · 이메일 · 전화 가입은 없다.                                            |
-| 로그인 = 가입 | 처음 로그인하면 `auth.users` 줄이 생기고, 가입 트리거가 `members` 줄을 만든다(결정 0059). 트리거가 오류를 삼켜 줄이 빠지면 로그인 직후 `ensure_my_member()`가 만든다(`/auth/callback`이 부름). |
-| 공급자        | `kakao` · `google` · `custom:naver`(네이버는 Supabase 기본 공급자가 아니라 **사용자 지정 OIDC**).                                                                                              |
-| 돌아가는 곳   | 로그인 직후 **누르기 전에 보던 화면**(`?st=&crop=` 포함).                                                                                                                                      |
-| 공개가 기본   | 로그인이 필요한 주소만 목록(`LOGIN_REQUIRED_PATHS`)으로 막는다.                                                                                                                                |
-| 기능 스위치   | 환경변수 `MEMBERS_ENABLED=true`일 때만 켠다. 끄면 알파와 똑같다(`/auth/*` 404).                                                                                                                |
+| 정한 것       | 내용                                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 가입 방식     | **공개 가입** — 누구나 SNS로 로그인하면 계정이 생긴다(Supabase "Allow new users to sign up" **켬**). 아이디 · 비밀번호 · 이메일 · 전화 가입은 없다.                                              |
+| 로그인 = 가입 | 처음 로그인하면 `auth.users` 줄이 생기고, 가입 트리거가 `members` 줄을 만든다(결정 0059). 트리거가 오류를 삼켜 줄이 빠지면 로그인 직후 `ensure_my_member()`가 만든다(`/auth/callback`이 부름).   |
+| 공급자        | `kakao` · `google` · `custom:naver`(네이버는 Supabase 기본 공급자가 아니라 **사용자 지정 OIDC**).                                                                                                |
+| 돌아가는 곳   | 로그인 직후 **누르기 전에 보던 화면**(`?st=&crop=` 포함).                                                                                                                                        |
+| 공개가 기본   | 로그인이 필요한 주소만 목록(`LOGIN_REQUIRED_PATHS`)으로 막는다.                                                                                                                                  |
+| 기능 스위치   | 환경변수 `MEMBERS_ENABLED=true`일 때만 켠다. 끄면 알파와 똑같다(`/auth/*` 404).                                                                                                                  |
+| 네이버 스위치 | 환경변수 `NAVER_LOGIN_ENABLED=true`일 때만 네이버를 켠다(결정 0064). 꺼져 있으면 시트의 네이버 버튼은 "준비 중"이고 서버도 `custom:naver` 시작을 400으로 막는다. 대시보드 설정을 마친 뒤에 켠다. |
+| 표시 쿠키     | 켬일 때 프록시가 `cm_m`(`a` · `i`, 네이버 켬이면 `n`)을 심는다. 헤더 모양만 고르는 값이고 개인 값이 없다. 끔이면 쿠키가 있을 때만 지운다(결정 0064 1절).                                         |
 
 ## 2. 설정 순서 (사용자)
 
@@ -26,11 +28,25 @@
 3. **게시 상태**: "테스트"인 동안은 **테스트 사용자로 등록한 구글 계정만** 로그인된다. 운영 전에 "프로덕션"으로 게시한다(앱 이름 · 로고를 보이게 하려면 구글 브랜드 확인이 필요하고 며칠 걸릴 수 있다).
 4. **사용자 인증 정보 → OAuth 클라이언트 ID → 웹 애플리케이션**. 승인된 리디렉션 URI에는 **우리 사이트가 아니라 Supabase 주소**를 넣는다: `https://<프로젝트 ref>.supabase.co/auth/v1/callback`(Supabase 대시보드의 Google 설정 화면에 나온다).
 
-### 2-2. 카카오 · 네이버 (L3에서 채움)
+### 2-2. 카카오 · 네이버
 
-- **카카오**: Supabase 기본 공급자(Kakao)다. 카카오 개발자 앱의 **동의 항목에서 이메일을 받을 수 있는지** 먼저 확인한다 — 이메일 없이 오는 계정이 생겨도 가입이 막히지 않아야 한다(`members`의 이름 · 공급자 채우기는 모르면 비워 둔다, 결정 0059).
-- **네이버**: Supabase 기본 공급자에 없다. 사용자 지정(Custom OIDC) 공급자 `custom:naver`로 붙일 수 있는지 **L3 시험 과제**로 조사한다. 코드의 허용 목록에는 이미 `custom:naver`가 들어 있다.
-- 이 칸은 L3에서 실제 설정을 해 보며 채운다.
+> 각 회사 화면 이름은 바뀔 수 있습니다(2026-11 기준 작성). 막히면 공식 문서를 먼저 봅니다. 비밀값은 어디에도 적지 않습니다.
+
+**카카오** (Supabase 기본 공급자 `kakao`)
+
+1. 카카오 개발자(developers.kakao.com) → 내 애플리케이션 → 앱 만들기.
+2. 제품 설정 → **카카오 로그인**을 켠다. **Redirect URI**에는 우리 사이트가 아니라 **Supabase 주소**를 넣는다: `https://<프로젝트 ref>.supabase.co/auth/v1/callback`(Supabase 대시보드의 Kakao 설정 화면에 나온다).
+3. **동의 항목**: 닉네임 · 프로필 사진만 받아도 된다. **이메일은 비즈 앱 등록이 있어야 받을 수 있다** — 이메일 없이 오는 계정이 생겨도 가입이 막히지 않아야 한다(`members`의 이름 · 공급자 채우기는 모르면 비워 둔다, 결정 0059). Supabase Kakao 설정에 **"이메일 없는 사용자 허용"(Allow users without an email)** 이 켜져 있어야 이메일이 없는 계정이 로그인된다 — 켠다.
+4. 앱 키 → **REST API 키**가 클라이언트 ID, 보안 → **Client Secret**이 비밀값이다. 둘 다 **Supabase 대시보드에만** 넣는다.
+5. 카카오 로그인 **심사**(비즈 앱 · 로고 · 약관 주소)는 서비스를 공개하기 전에 필요하다. 개발 중에는 앱 **팀원**으로 등록한 계정만 로그인된다. **카카오 로그인 버튼은 공식 심볼이 있어야 한다**(9장 — 아직 못 받음).
+
+**네이버** (Supabase 기본 공급자가 아니라 **사용자 지정(Custom) 공급자 `custom:naver`** — 시험 과제, 12/15까지 안 되면 1월)
+
+1. 네이버 개발자(developers.naver.com) → Application 등록 → 사용 API **네이버 로그인**. **Callback URL**에는 Supabase 주소(`https://<프로젝트 ref>.supabase.co/auth/v1/callback`).
+2. 네이버는 표준 OIDC와 응답 모양이 다르다(사용자 정보가 `response` 안에 한 겹 더 들어 있음). **Supabase 사용자 지정 공급자로 바로 붙는지는 이 PR에서 확인하지 않았다** — 안 붙으면 응답 모양을 바꿔 주는 작은 중계가 필요할 수 있다(별도 이슈로 올린다).
+3. 대시보드(Authentication → Sign In / Providers → 사용자 지정 공급자 추가)에서 만든 공급자의 **식별자가 코드의 `custom:naver`와 일치해야** 한다. 화면이 `custom:` 접두를 알아서 붙이면 `naver`만 입력한다 — 만든 뒤 로그인 주소(`/auth/v1/authorize?provider=custom:naver`)가 열리는지로 확인한다.
+4. 개발 중(검수 전)에는 네이버 개발자 **멤버 관리**에 넣은 계정만 로그인된다.
+5. **다 되면** 서버 변수 `NAVER_LOGIN_ENABLED=true`를 넣고 다시 배포한다 → 로그인 시트의 네이버 버튼이 켜진다(다시 빌드 안 함). 그 전에는 버튼이 "준비 중"이고 서버도 막는다.
 
 ### 2-3. Supabase 대시보드
 
@@ -47,6 +63,7 @@
 ### 2-4. 환경변수
 
 - `.env.local` · Vercel에는 `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY`가 있어야 한다(이미 있음). 공급자의 클라이언트 비밀값은 Supabase가 가지고 있으므로 우리 앱에는 넣지 않는다.
+- **`NAVER_LOGIN_ENABLED`**: 네이버 로그인 스위치(결정 0064). `true`일 때만 켠다. 서버 변수이고 요청 때 읽으므로 값을 바꾸고 다시 배포하면 된다(다시 빌드 안 함). 네이버 설정(2-2)을 마치기 전에는 비워 둔다.
 - **`MEMBERS_ENABLED`**: 회원제를 켜는 스위치. `true`일 때만 켠다. 서버 변수이고 요청 때 읽으므로 **값을 바꾸면 빌드를 다시 하지 않아도 된다**(서버 재배포 · 재시작은 필요). 켜기 전에는 비워 두거나 `false`.
 
 ## 3. 시험 방식 (코드보다 먼저)
@@ -61,13 +78,14 @@
 ## 4. 코드 흐름 (PKCE)
 
 ```
-[버튼]  <a href="/auth/login?provider=kakao&next=/water?st=105&crop=apple">   ← <Link> 말고 <a>
+[버튼]  <a href="/auth/login?provider=kakao&next=%2Fwater%3Fst%3D105%26crop%3Dapple">   ← <Link> 말고 <a>
   → GET /auth/login            서버가 PKCE 시작: 코드 검증값 쿠키를 심고 공급자 화면으로 302
   → 공급자 화면 → Supabase(/auth/v1/callback)
   → GET /auth/callback?code=…&next=…      (취소 · 실패면 ?error=…&error_code=…)
        · 코드를 세션으로 교환 (세션 쿠키가 생김)
        · public.ensure_my_member() 한 번 (실패해도 로그인은 계속)
-       · 검사한 next 로 302          (실패 · 취소: next 에 login=failed | login=cancelled 를 붙여 302)
+       · 검사한 next 로 302          (성공: next 에 login=ok, 실패 · 취소: login=failed | login=cancelled 를 붙여 302)
+  → 화면이 login 표시를 읽어 알림("로그인했어요" 등)을 띄우고 주소에서 login 만 지운다 (취소는 말없이)
   → 누르기 전에 보던 화면
 로그아웃:  <form method="post" action="/auth/signout?next=/…">  → 세션 쿠키 삭제 → 303
 ```
@@ -76,7 +94,7 @@
 
 1. **`next`는 우리 사이트 안 경로만.** 로그인을 시작할 때와 콜백에서 **두 번** 검사한다(`validateRedirectPath`). 인코딩으로 숨긴 것 · 제어 문자 · `/auth/*` 자신은 `/`로 바꾼다. 검색어는 그대로 살린다.
 2. **로그인 버튼은 `<a>`로 걸고 `<Link>`는 쓰지 않는다.** 로그인 시작은 쿠키를 심는 요청이라 미리 불러오기가 먼저 보내면 안 된다. 로그아웃은 `POST`만(링크 미리 불러오기로 로그아웃되지 않게).
-3. **취소와 실패를 가른다**: `access_denied`(공급자 화면에서 취소)는 `login=cancelled`, 그 밖은 `login=failed`. L3의 로그인 시트가 이 표시와 `login=1`(로그인 필요 주소를 비로그인으로 열었을 때, `next`와 함께)을 읽는다. 원문 오류는 화면 · 주소 · 서버 기록에 싣지 않는다.
+3. **성공 · 취소 · 실패를 가른다**: 성공은 `login=ok`, `access_denied`(공급자 화면에서 취소)는 `login=cancelled`, 그 밖은 `login=failed`. 화면의 알림(`LoginNotice`)이 이 표시를 읽어 한 번 띄우고 지운다. 로그인 시트는 `login=1`(로그인 필요 주소를 비로그인으로 열었을 때, `next`와 함께)을 읽어 열린다. 원문 오류는 화면 · 주소 · 서버 기록에 싣지 않는다.
 4. **오류가 주소의 `#` 뒤로 오는 경우가 있다.** 서버는 `#` 뒤를 볼 수 없다. 코드도 오류도 없이 돌아오면 "실패"로 본다.
 5. **세션 갱신은 로그인 쿠키가 있는 요청에서만** 한다(`src/proxy.ts`). 쿠키가 없는 방문자는 Supabase를 부르지 않는다. 쿠키 이름은 `sb-<프로젝트>-auth-token`(길면 `.0 .1`)이고 `…-code-verifier`는 로그인 도중에만 있는 것이라 로그인 쿠키로 세지 않는다.
 6. **Next.js 16 `cacheComponents`**: 서버에서 쿠키 클라이언트를 만들기 전에 `await connection()`을 부른다(안 그러면 개발 서버에 "Blocking Route" 오류). 요청 정보를 안 쓰는 `GET` 경로 처리기는 **빌드 때 미리 만들어지므로**(정적) 스위치처럼 요청 때 읽어야 하는 값은 `await connection()` 뒤에 읽는다(`membersEnabledNow()`). 빌드 결과에서 `/auth/*`가 `ƒ`(요청 때)인지 확인한다.
@@ -105,13 +123,41 @@
 
 ## 7. 이 저장소의 파일
 
-| 무엇                                                                                     | 파일                                                                                                                        |
-| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 스위치 판단                                                                              | `src/domain/members-switch.ts` · 요청 때 읽기 `src/app/_lib/members.ts`                                                     |
-| `next` 검사 · 실패 가르기 · 공급자 허용 · 로그인 필요 목록 · 쿠키 모양 · 돌려보내기 주소 | `src/domain/auth.ts`                                                                                                        |
-| 프록시(폐지 지점 돌려보내기 + 세션 갱신 + 로그인 필요 주소)                              | `src/proxy.ts` · `src/app/_lib/supabase/proxy-client.ts`                                                                    |
-| 쿠키 세션 클라이언트                                                                     | `src/infra/supabase/cookie-client.ts`(Next.js를 모름) · `src/app/_lib/supabase/server-client.ts`(경로 처리기용)             |
-| 토큰에서 로그인한 사람(id만) · 서버 기록                                                 | `src/infra/supabase/current-user.ts` · `src/infra/supabase/auth-log.ts`                                                     |
-| 로그인 시작 · 콜백 · 로그아웃                                                            | `src/app/auth/login/route.ts` · `src/app/auth/callback/route.ts` · `src/app/auth/signout/route.ts`                          |
-| 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101) |
-| 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md`                                                                                     |
+| 무엇                                                                                     | 파일                                                                                                                                    |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 스위치 판단                                                                              | `src/domain/members-switch.ts` · 요청 때 읽기 `src/app/_lib/members.ts`                                                                 |
+| `next` 검사 · 실패 가르기 · 공급자 허용 · 로그인 필요 목록 · 쿠키 모양 · 돌려보내기 주소 | `src/domain/auth.ts`                                                                                                                    |
+| 프록시(폐지 지점 돌려보내기 + 세션 갱신 + 로그인 필요 주소)                              | `src/proxy.ts` · `src/app/_lib/supabase/proxy-client.ts`                                                                                |
+| 쿠키 세션 클라이언트                                                                     | `src/infra/supabase/cookie-client.ts`(Next.js를 모름) · `src/app/_lib/supabase/server-client.ts`(경로 처리기용)                         |
+| 토큰에서 로그인한 사람(id만) · 서버 기록                                                 | `src/infra/supabase/current-user.ts` · `src/infra/supabase/auth-log.ts`                                                                 |
+| 로그인 시작 · 콜백 · 로그아웃                                                            | `src/app/auth/login/route.ts` · `src/app/auth/callback/route.ts` · `src/app/auth/signout/route.ts`                                      |
+| 로그인 시트 · 내 계정 시트 · 헤더 자리 · 알림                                            | `src/app/_components/shell/Sheets.tsx` · `LoginSlot.tsx` · `LoginNotice.tsx` · `members-state.tsx` · `src/app/_components/ui/Toast.tsx` |
+| 표시 쿠키 `cm_m` · 시트 주소 · 알림 문구 (순수 함수)                                     | `src/domain/members-state.ts` · `src/domain/login-sheet.ts` · `src/domain/toast.ts`                                                     |
+| 공식 심볼                                                                                | `public/brand/login/` (9장)                                                                                                             |
+| 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101)             |
+| 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md` · `docs/decisions/0064-login-sheet.md`                                                          |
+
+## 8. 미리보기에서 확인할 것 (사용자 · 병합 뒤)
+
+1. Vercel **Preview** 환경에만 `MEMBERS_ENABLED=true`를 넣고 다시 배포한다(운영에는 넣지 않는다 — O3에서). 카카오 · 구글 앱과 Supabase 공급자 · Redirect URLs(2장)를 먼저 마친다. 미리보기도 운영 DB를 쓰므로 시험 계정은 O3에서 지운다.
+2. 브라우저(휴대폰도) 개발자 도구 → Application(저장소) → Cookies에서 `cm_m`을 본다:
+   - ① 미리보기 주소를 **쿠키 없이 처음 열면** 첫 응답에 `cm_m=a`가 붙는다(정적인 화면에도 붙는지 — 로컬에서는 못 보는 부분).
+   - ② **로그인 뒤** `i`로 바뀌고 헤더가 프로필로 바뀐다("로그인했어요" 알림, 주소에서 `login`이 사라짐).
+   - ③ **로그아웃 뒤** `a`로 바뀌고 헤더가 "로그인"으로 돌아온다.
+   - ④ Preview의 `MEMBERS_ENABLED`를 **지우고 다시 배포**한 뒤 새로고침하면 첫 요청에서 `cm_m`이 지워지고 헤더가 지금 알파("로그인 곧 열려요")로 돌아온다.
+3. 취소(공급자 화면에서 뒤로/취소)는 아무 말 없이 돌아오고, 일부러 실패시키면(예: 잘못된 Redirect URL) "로그인을 마치지 못했어요" 알림이 뜬다.
+4. 이 확인 결과(특히 ①이 안 되면 설계를 고쳐야 한다)를 이슈 #189 또는 다음 이슈에 남긴다.
+5. 쿠키 안내: 켬일 때 방문자 모두가 기능 쿠키(`cm_m`) 1개를 받는다. 방침 문구는 약관 채팅이 정리한다(이번 PR은 `/privacy`를 안 건드림).
+
+## 9. 공식 심볼 · 가이드 (2026-11-20 받음)
+
+심볼은 각 회사 **공식 배포 파일 그대로**이며 직접 그리거나 바꾸지 않는다. 문구 · 색 · 모서리 · 글자 크기는 공식 가이드와 대조했다(카카오 · 네이버 · 구글 심사에서 본다).
+
+| 회사   | 받은 곳                                                                                                                                         | 이 저장소의 파일                                          | 원본 파일                                                                                                         | sha256 앞 12자                                 |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 구글   | `https://developers.google.com/static/identity/images/signin-assets.zip` (가이드: `https://developers.google.com/identity/branding-guidelines`) | `public/brand/login/google-light.svg` · `google-dark.svg` | `Android + Web/SVG/Light` · `Dark` 폴더의 `Theme=…, Show text=No, Shape=Square, Platform=Android+Web.svg` (40×40) | `6587b1802039` (light) · `f7ecc307b1db` (dark) |
+| 네이버 | `https://developers.naver.com/inc/devcenter/downloads/bi/NAVER_login_KR.zip` (가이드: `https://developers.naver.com/docs/login/bi/bi.md`)       | `public/brand/login/naver-icon.png`                       | `NAVER_login_Light_KR_white_icon_H56.png`                                                                         | `01430fa1063d`                                 |
+| 카카오 | 가이드: `https://developers.kakao.com/docs/latest/ko/kakaologin/design-guide` · 리소스: `https://developers.kakao.com/tool/resource/login`      | **없음 — 못 받음**                                        | 리소스 다운로드가 카카오 개발자 로그인을 요구함                                                                   | —                                              |
+
+- **카카오 심볼 남음 — O3 전 필수(심사 조건).** 카카오 가이드는 "심볼 없이 카카오 로그인 버튼을 구성할 수 없다"고 한다. 사용자가 위 리소스 페이지에서 받아(말풍선 심볼 파일) 주면 `src/app/_components/shell/Sheets.tsx`의 `PROVIDER_STYLE.kakao.symbol`에 넣는다(구글 · 네이버와 같은 방식).
+- **가이드와 시안이 다른 곳은 가이드를 따랐다**: 카카오 컨테이너 `#FEE500` · 레이블 `#000` 85% · 모서리 12 · 레이블 "카카오 로그인"(완성형)은 시안과 같다. 구글은 라이트 `#FFFFFF`/`#747775`/`#1F1F1F`, 다크 `#131314`/`#8E918F`/`#E3E3E3`이고 문구 현지화("Google 계정으로 로그인")가 허용된다. 구글 자산은 G가 든 40×40 칸(자체 테두리 포함)이라 시안의 "20px G"와 달리 단추 왼쪽에 이 칸을 그대로 놓았다. 네이버는 공식 "녹색 배경 완성형 버튼"(높이 48/56 고정 이미지)을 권하지만 시안(52)과 맞지 않아 공식 N 동그라미 아이콘을 초록 칸에 넣었다 — 심사에서 지적되면 공식 완성형 버튼 이미지로 바꾼다.

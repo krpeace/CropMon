@@ -23,13 +23,13 @@ import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { useCanGoBack } from "./nav-history";
 import { BottomSheet } from "./BottomSheet";
+import { LoginSlot } from "./LoginSlot";
 import {
   anyStatusLabel,
   CropPickerBody,
   cropInfo,
   RegionPickerBody,
 } from "./pickers";
-import { useSheet } from "./sheet-context";
 
 /**
  * 휴대폰(폭 1024 미만) 상단 맥락 바 (이슈 #155, 결정 0049, 디자인 규칙 v0.4.6 12절).
@@ -61,8 +61,6 @@ export function MobileContextBar({
   const context = screenContext(pathname);
   const router = useRouter();
   const canGoBack = useCanGoBack();
-  const { sheet, open } = useSheet();
-  const loginOpen = sheet === "login";
 
   // 작물·지역 고르기 판 (이번에는 지금처럼 바 아래로 펼쳐진다). 경로나 선택이 바뀌면(urlKey 가 달라지면) 닫힌 것으로 본다.
   const urlKey = [
@@ -291,17 +289,7 @@ export function MobileContextBar({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => open("login")}
-            aria-hidden={loginOpen || undefined}
-            tabIndex={loginOpen ? -1 : undefined}
-            className={`bg-fill/12 text-15 text-ink h-11 flex-none cursor-pointer rounded-full px-3.25 font-semibold whitespace-nowrap ${
-              loginOpen ? "invisible" : ""
-            }`}
-          >
-            로그인
-          </button>
+          <LoginSlot variant="mobile" />
         </div>
 
         {/* 접힌 줄 (높이 32)의 보이는 글자: 작물 · ● 지역 번호, 제목 화면은 제목. 읽는 이름은 아래 버튼이 갖는다. */}

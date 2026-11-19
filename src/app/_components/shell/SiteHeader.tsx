@@ -30,6 +30,7 @@ import type {
 import { Icon } from "../ui/Icon";
 import { STATUS_DOT } from "../ui/status";
 import { useMenus } from "./menu-store";
+import { LoginSlot } from "./LoginSlot";
 import { MobileContextBar } from "./MobileContextBar";
 import { MENU_ICON } from "./pages";
 import { TabBar } from "./TabBar";
@@ -74,7 +75,7 @@ function SiteHeaderView({
   notice: string | null;
 }) {
   const pathname = usePathname();
-  const { open, sheet, holds } = useSheet();
+  const { sheet, holds } = useSheet();
   const { desktop } = useMenus();
   const isFailed = Boolean(statuses?.failed);
   // 휴대폰 오토 하이드 (이슈 #159): 시트(가운데 창 · 아래 시트)가 열려 있는 동안은 상태를 안 바꾼다.
@@ -148,16 +149,7 @@ function SiteHeaderView({
             })}
           </nav>
           <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => open("login")}
-            className="bg-fill/12 text-16 text-ink-2/90 desktop:pr-2.5 flex h-11 flex-none cursor-pointer items-center gap-2 rounded-full px-4 font-semibold"
-          >
-            로그인
-            <span className="bg-lime/50 text-13 text-brand-ink desktop:inline hidden rounded-full px-2.25 py-1 font-bold">
-              곧 열려요
-            </span>
-          </button>
+          <LoginSlot variant="desktop" />
         </div>
         {pathname !== MORE_HREF && (
           <div className="max-desktop:hidden">
