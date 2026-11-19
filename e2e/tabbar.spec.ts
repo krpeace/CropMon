@@ -30,14 +30,14 @@ test.describe("휴대폰", () => {
     await expect(page).toHaveURL(/\/temperature\?st=101&crop=apple$/);
   });
 
-  test("탭바 위치·크기: 아래에서 12px 이상, 높이 54, 탭 높이 44 이상", async ({
+  test("탭바 위치·크기: 아래 끝에 붙음(차이 0), 높이 54, 탭 높이 44 이상", async ({
     page,
   }) => {
     await open(page, "/water?st=101&crop=apple");
     const box = await menu(page).boundingBox();
     const vh = page.viewportSize()!.height;
     expect(box!.height).toBe(54);
-    expect(vh - (box!.y + box!.height)).toBeGreaterThanOrEqual(12);
+    expect(Math.round(vh - (box!.y + box!.height))).toBe(0);
     for (const link of await menu(page).getByRole("link").all()) {
       expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
