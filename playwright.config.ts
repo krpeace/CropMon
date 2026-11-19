@@ -48,7 +48,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
       testIgnore:
-        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile)\.spec\.ts/,
+        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile)\.spec\.ts/,
     },
     // 휴대폰 크기 전용 화면 테스트 (testMatch 의 spec 만 돈다)
     {
@@ -60,7 +60,7 @@ export default defineConfig({
         hasTouch: true,
       },
       testMatch:
-        /(theme|national-mobile|tabbar|more|font-scale|context-bar-mobile|bottom-sheet-mobile|auto-hide-mobile|more-bottom|footer|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile)\.spec\.ts/,
+        /(theme|national-mobile|tabbar|more|font-scale|context-bar-mobile|bottom-sheet-mobile|auto-hide-mobile|more-bottom|footer|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile)\.spec\.ts/,
     },
   ],
   // 가짜 Supabase(e2e/fake-supabase.mjs)를 먼저 띄운다. 화면은 build 때 NEXT_PUBLIC_SUPABASE_URL 을
