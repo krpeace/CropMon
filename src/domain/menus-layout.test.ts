@@ -4,6 +4,9 @@ import {
   announceMoved,
   announceToggled,
   layoutModel,
+  LONG_PRESS_MS,
+  LONG_PRESS_SLOP_PX,
+  longPressDecision,
   moveBy,
   moveMenu,
   nearestIndex,
@@ -258,5 +261,38 @@ describe("알림 문구 (aria-live) — 짧게", () => {
     expect(announceToggled("병해충", true)).toBe("병해충을 켰어요");
     expect(announceToggled("토양", true)).toBe("토양을 켰어요");
     expect(announceMoved("햇빛", 4)).toBe("햇빛을 4번째로 옮겼어요");
+  });
+});
+
+describe("longPressDecision — 길게 눌러 옮기기 시작 판단 (결정 0060)", () => {
+  // 기다리는 동안에만 쓴다. 시작한 뒤의 움직임은 끌기라서 이 함수로 취소하지 않는다.
+  it("상수: 0.45초 · 8px", () => {
+    expect(LONG_PRESS_MS).toBe(450);
+    expect(LONG_PRESS_SLOP_PX).toBe(8);
+  });
+
+  it("막 눌렀거나 0.45초 전이고 거의 안 움직였으면 기다린다 (그 전에 떼면 아무 일 없음)", () => {
+    expect(longPressDecision(0, 0)).toBe("wait");
+    expect(longPressDecision(200, 3)).toBe("wait");
+    expect(longPressDecision(449, 0)).toBe("wait");
+  });
+
+  it("0.45초 딱부터 시작한다 (8px 안에서)", () => {
+    expect(longPressDecision(450, 0)).toBe("start");
+    expect(longPressDecision(450, 8)).toBe("start"); // 8px 딱은 아직 안 넘음
+    expect(longPressDecision(900, 5)).toBe("start");
+  });
+
+  it("0.45초 전에 8px 을 넘게 움직였으면 취소 (그냥 화면 스크롤)", () => {
+    expect(longPressDecision(449, 8)).toBe("wait"); // 경계: 8px 딱은 취소 아님
+    expect(longPressDecision(449, 8.01)).toBe("cancel");
+    expect(longPressDecision(100, 9)).toBe("cancel");
+    expect(longPressDecision(0, 50)).toBe("cancel");
+  });
+
+  it("타이머가 확인하는 순간(0.45초 이후)에 이미 8px 을 넘었으면 시작하지 않고 취소", () => {
+    expect(longPressDecision(450, 8.01)).toBe("cancel");
+    expect(longPressDecision(450, 9)).toBe("cancel");
+    expect(longPressDecision(2000, 30)).toBe("cancel");
   });
 });
