@@ -34,3 +34,14 @@
     color: var(--color-emerald);
   }
 }
+
+/*
+ * 닫은 알리기 카드는 첫 그리기부터 숨긴다 (이슈 #168, 결정 0055). 머리 스크립트가 처음 그리기 전에
+ * <html data-notice-closed="fontSize farmPromo"> 를 달고, 카드(서버가 그려 둠)는 data-notice 로 이 표시와 짝이 된다.
+ * 그래서 이미 닫은 사람에게 "보였다 사라짐"도 처음 사람에게 "밀림"도 없다.
+ */
+html[data-notice-closed~="farmPromo"] [data-notice="farmPromo"],
+html[data-notice-closed~="heatingStart"] [data-notice="heatingStart"],
+html[data-notice-closed~="fontSize"] [data-notice="fontSize"] {
+  display: none;
+}

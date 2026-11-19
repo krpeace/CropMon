@@ -2,8 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 
+import { buildFontScaleScript } from "@/domain/font-scale";
+import { buildNoticeScript } from "@/domain/notice";
 import { THEME_COLOR, THEME_STORAGE_KEY } from "@/domain/theme";
 
+import { FontScaleSync } from "./_components/shell/FontScaleSync";
 import { NavHistory } from "./_components/shell/nav-history";
 import { Sheets } from "./_components/shell/Sheets";
 import { SheetProvider } from "./_components/shell/sheet-context";
@@ -36,16 +39,26 @@ const PRETENDARD_CSS =
  */
 const THEME_SCRIPT = `(function(){var t=null;try{var v=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(v==="light"||v==="dark")t=v}catch(e){}if(!t)t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement("meta");m.name="theme-color";document.head.appendChild(m)}m.setAttribute("content",t==="dark"?${JSON.stringify(THEME_COLOR.dark)}:${JSON.stringify(THEME_COLOR.light)})})()`;
 
+/**
+ * 처음 그리기 전에 글씨 크기(`--fz`)와 닫은 알리기 카드 표시를 정한다 (이슈 #168, 결정 0055). 둘 다 THEME_SCRIPT 와 같은 방식:
+ * 저장 값을 읽어 `<html>` 에 달고, 저장소가 막히거나 오류가 나도 화면을 막지 않는다. 글자는 domain 에서 만든다.
+ */
+const FONT_SCALE_SCRIPT = buildFontScaleScript();
+const NOTICE_SCRIPT = buildNoticeScript();
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: NOTICE_SCRIPT }} />
         <link rel="stylesheet" href={PRETENDARD_CSS} crossOrigin="anonymous" />
       </head>
       <body>
         <SheetProvider>
           <NavHistory />
+          <FontScaleSync />
           <Suspense fallback={<SiteHeaderFallback />}>
             <SiteHeaderWithStatus />
           </Suspense>

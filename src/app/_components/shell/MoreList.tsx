@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 
+import { stepById } from "@/domain/font-scale";
 import { withSelection, type Selection } from "@/domain/selection";
 
 import { Badge } from "../ui/Badge";
 import { Icon } from "../ui/Icon";
+import { useFontScalePref } from "./font-scale-store";
 import { useMenus } from "./menu-store";
 import { ICON_PATH, MENU_ICON } from "./pages";
 import { useThemeToggle } from "./ThemeToggle";
@@ -20,11 +22,12 @@ const GROUP = "rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5";
  * ① 서비스 메뉴 — 맨 위 종합, 켠 메뉴(준비 중은 꼬리표, 설정값 순서)
  * ② 구분선
  * ③ 공지 · 문의 · FAQ · 약관 — 아직 화면이 없어 "준비 중" (약관은 L1 에서 /terms 링크로)
- * ④ (비회원) 화면 구성 · 글씨 크기("준비 중", S5 · S7) · 다크 모드(스위치 — 휴대폰 맥락 바에는 해/달 버튼이 없다)
+ * ④ (비회원) 화면 구성("준비 중", S5) · 글씨 크기(/font-size 로 가는 줄, 지금 단계 이름) · 다크 모드(스위치 — 휴대폰 맥락 바에는 해/달 버튼이 없다)
  * ⑤ 끈 메뉴가 있으면 맨 아래 "숨긴 메뉴 n개" 한 줄
  * 준비 중 줄은 버튼처럼 보이되 aria-disabled 이고 눌러도 이동하지 않는다.
  */
 export function MoreList({ selection }: { selection: Selection | null }) {
+  const fontPref = useFontScalePref();
   const { more, hiddenCount } = useMenus();
   const [home, ...rest] = more;
   const groups = [[home], rest].filter((rows) => rows.length > 0);
@@ -66,7 +69,18 @@ export function MoreList({ selection }: { selection: Selection | null }) {
 
       <ul className={GROUP}>
         <SoonRow icon="layout" label="화면 구성" />
-        <SoonRow icon="text" label="글씨 크기" />
+        <li className="contents">
+          <Link href={withSelection("/font-size", selection)} className={ROW}>
+            <Icon name="text" size={24} className="text-brand-ink flex-none" />
+            <span className="flex-1">글씨 크기</span>
+            <span className="text-15 text-ink-2/75 font-medium">
+              {fontPref.follow ? "휴대폰 설정" : stepById(fontPref.step).label}
+            </span>
+            <span aria-hidden="true" className="text-20 text-ink-2/60">
+              ›
+            </span>
+          </Link>
+        </li>
         <ThemeRow />
       </ul>
 

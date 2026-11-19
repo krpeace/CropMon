@@ -323,6 +323,19 @@ describe("screenContext(pathname)", () => {
     });
   });
 
+  it("/font-size 는 제목 '글씨 크기' + 뒤로 화살표 (더보기에서 한 번 더 들어간 화면)", () => {
+    expect(screenContext("/font-size")).toEqual({
+      kind: "title",
+      title: "글씨 크기",
+      back: true,
+    });
+    expect(screenContext("/font-size?st=101&crop=apple")).toEqual({
+      kind: "title",
+      title: "글씨 크기",
+      back: true,
+    });
+  });
+
   it("끝의 슬래시나 쿼리 문자열이 붙어도 같다", () => {
     expect(screenContext("/water/")).toEqual({ kind: "selection" });
     expect(screenContext("/my-farm/")).toEqual({
