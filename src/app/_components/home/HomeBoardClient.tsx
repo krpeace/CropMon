@@ -169,7 +169,7 @@ export function HomeBoardClient({
           <SoonCard
             href={href("/market")}
             icon="market"
-            label="도매시장"
+            label="시세"
             question="지금 얼마에 팔리고, 앞으로 값은?"
           />
         </FlipItem>

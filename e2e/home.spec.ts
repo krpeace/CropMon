@@ -28,9 +28,9 @@ test("종합: 물·온도·햇빛 카드는 DB 값, 준비 중 카드", async ({
   await expect(main(page).getByRole("link", { name: /^토양/ })).toContainText(
     "준비 중",
   );
-  await expect(
-    main(page).getByRole("link", { name: /^도매시장/ }),
-  ).toContainText("지금 얼마에 팔리고, 앞으로 값은?");
+  await expect(main(page).getByRole("link", { name: /^시세/ })).toContainText(
+    "지금 얼마에 팔리고, 앞으로 값은?",
+  );
 });
 
 test("종합: 카드를 누르면 고른 지역·작물 그대로 그 메뉴로 간다", async ({

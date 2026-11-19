@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { DESKTOP_MIN_WIDTH } from "@/domain/autohide";
 import {
   nextInRotation,
   rotationPosition,
@@ -15,10 +16,21 @@ import { Icon } from "../ui/Icon";
 import { shouldRunRotation } from "./auto-rotate-state";
 
 const INTERVAL_MS = 5000;
+const DESKTOP_QUERY = `(min-width: ${DESKTOP_MIN_WIDTH}px)`;
+
+/** 데스크톱 폭(1024 이상)인가. 서버와 첫 그리기는 false, 브라우저에서 폭을 확인한 뒤 따라간다. */
+function subscribeDesktop(onChange: () => void) {
+  const media = window.matchMedia(DESKTOP_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+const getDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
+const getServerDesktop = () => false;
 
 /**
  * 종합 화면 자동 전환: 고른 작물은 그대로 두고 5초마다 다음 대표 지역(10곳)으로 바꾼다.
  * 이미 받은 자료 안에서 화면만 전환(서버 요청 0회)하며, 창이 열리거나 탭이 숨겨지면 쉰다.
+ * 데스크톱 폭(1024 이상)에서만 돈다. 휴대폰에서는 타이머도 돌지 않고 아무것도 그리지 않는다 (결정 0053).
  */
 export function AutoRotate({
   selection,
@@ -33,8 +45,15 @@ export function AutoRotate({
     typeof document !== "undefined" ? !document.hidden : true,
   );
 
+  const desktop = useSyncExternalStore(
+    subscribeDesktop,
+    getDesktop,
+    getServerDesktop,
+  );
+
   const pos = rotationPosition(selection, STATION_IDS);
   const running = shouldRunRotation({
+    desktop,
     auto,
     visible,
     sheet: !!sheet,
@@ -65,6 +84,9 @@ export function AutoRotate({
     }, INTERVAL_MS);
     return () => clearTimeout(timer);
   }, [running, stationId, crop, soil, kc, onRotate]);
+
+  // 훅을 모두 부른 뒤에 비운다 — 부품이 붙어 있어야 폭이 바뀌어도 "중지" 선택이 남는다.
+  if (!desktop) return null;
 
   const total = STATION_IDS.length;
 
