@@ -10,11 +10,12 @@ import { useMenus } from "./menu-store";
 import { MENU_ICON } from "./pages";
 
 /**
- * 휴대폰(폭 1024 미만) 하단 메뉴. 화면 아래 떠 있는 유리 캡슐 (시안 v0.4).
+ * 휴대폰(폭 1024 미만) 하단 메뉴. 화면 아래 끝에 붙은 전체 폭 유리 막대 (결정 0054, 사용자 실기 확인 — 시안 v0.4.6의 떠 있는 캡슐과 다름).
  * 켠 메뉴 가운데 위에서 4개 + 더보기(맨 오른쪽 고정). 어떤 메뉴가 탭이 되는지는 domain/menus.ts 가 정한다.
  * 탭에 없는 화면을 보고 있으면 켜진 탭이 없고, 더보기는 /more 에서만 켜진다.
  * 위 머리말의 메뉴와 같은 aria-label 을 쓰며 둘 중 하나만 보인다 (결정 0026).
- * 아이폰 안전 영역(홈 인디케이터)은 env(safe-area-inset-*) 로 피한다 (layout.tsx 의 viewportFit: cover).
+ * 아래 안전 영역(홈 인디케이터)은 tokens.css 의 --tabbar-safe-bottom 하나를 안쪽 여백으로 더해 탭이 그 위에 오고 막대 바탕은 화면 끝까지 칠해진다.
+ * 좌우 안전 영역도 안쪽 여백이다 (layout.tsx 의 viewportFit: cover).
  */
 export function TabBar({
   pathname,
@@ -46,10 +47,8 @@ export function TabBar({
       onFocus={() => {
         if (folded) onReveal();
       }}
-      className={`fz-cap glass-strong bg-card/80 shadow-tabbar rounded-tabbar desktop:hidden dark:bg-tile/82 fixed right-[calc(10px+env(safe-area-inset-right))] bottom-[calc(12px+env(safe-area-inset-bottom))] left-[calc(10px+env(safe-area-inset-left))] z-30 flex h-(--tabbar-h) gap-0 p-1 motion-safe:transition-transform motion-safe:duration-(--fold-duration) ${
-        folded
-          ? "translate-y-[calc(100%+52px+env(safe-area-inset-bottom))]"
-          : ""
+      className={`fz-cap glass-strong bg-card/80 border-ink-2/20 desktop:hidden dark:bg-tile/82 fixed right-0 bottom-0 left-0 z-30 flex h-[calc(var(--tabbar-h)+var(--tabbar-safe-bottom))] gap-0 border-t-(length:--hairline) pt-1 pr-[calc(4px+env(safe-area-inset-right))] pb-[calc(4px+var(--tabbar-safe-bottom))] pl-[calc(4px+env(safe-area-inset-left))] motion-safe:transition-transform motion-safe:duration-(--fold-duration) ${
+        folded ? "translate-y-full" : ""
       }`}
     >
       {items.map((item) => {

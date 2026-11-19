@@ -142,15 +142,13 @@ export function MobileContextBar({
               aria-label="종합 (첫 화면)"
               className="flex h-11.5 w-11 flex-none items-center justify-center"
             >
-              <span className="bg-plate flex rounded-full">
-                <Image
-                  src="/brand/logo-emblem.png"
-                  alt=""
-                  width={412}
-                  height={383}
-                  className="h-11 w-auto max-w-none"
-                />
-              </span>
+              <Image
+                src="/brand/mon.png"
+                alt=""
+                width={330}
+                height={392}
+                className="h-11 w-auto max-w-none"
+              />
             </Link>
           )}
 
@@ -378,6 +376,7 @@ export function MobileContextBar({
             selection={selection}
             statuses={statuses}
             onClose={closePanel}
+            placement="sheet"
           />
         </BottomSheet>
       )}

@@ -66,16 +66,26 @@ export function cropInfo(
   };
 }
 
+/** 지역 고르기 아래 안내 줄 글자 — 위치만 placement 로 갈린다 (이슈 #165). */
+const REGION_NOTE = "기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중";
+
 export function RegionPickerBody({
   pathname,
   selection,
   statuses,
   onClose,
+  placement = "popover",
 }: {
   pathname: string;
   selection: Selection | null;
   statuses: StationStatuses | null;
   onClose: () => void;
+  /**
+   * "sheet" = 휴대폰 아래 시트: 안내 줄을 스크롤 목록 맨 끝 한 줄로 둔다(키보드를 올려도 결과 칸을 안 줄임).
+   * "popover" = 데스크톱 팝오버: 안내 줄이 목록 아래에 고정.
+   * 안내 줄은 옵션이 아니다 — 위·아래 키 이동 · Enter · 검색 결과 수(flatItems)에 들어가지 않는다.
+   */
+  placement?: "sheet" | "popover";
 }) {
   const isPending = statuses === null;
   const isFailed = Boolean(statuses?.failed);
@@ -254,11 +264,21 @@ export function RegionPickerBody({
             </div>
           ))
         )}
+        {placement === "sheet" && (
+          <div
+            role="presentation"
+            className="border-ink-2/12 bg-tile/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2"
+          >
+            {REGION_NOTE}
+          </div>
+        )}
       </div>
 
-      <div className="border-ink-2/12 bg-tile/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2">
-        기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중
-      </div>
+      {placement === "popover" && (
+        <div className="border-ink-2/12 bg-tile/80 text-12 text-ink-2/75 border-t-(length:--hairline) px-3.5 py-2">
+          {REGION_NOTE}
+        </div>
+      )}
     </>
   );
 }

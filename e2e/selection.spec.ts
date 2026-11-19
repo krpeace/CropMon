@@ -291,3 +291,26 @@ test("폭이 휴대폰으로 줄면 자동 전환이 멈추고, 다시 넓어지
   ).toBeVisible();
   await expect(page).toHaveURL(/\/\?st=216&crop=apple$/, { timeout: 8_000 });
 });
+
+test("데스크톱 지역 팝오버는 안내 줄이 목록 밖 아래에 그대로 붙어 있다 (#165)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto("/?st=101&crop=apple");
+  await region(page)
+    .getByRole("button", { name: /지역 · 춘천 101/ })
+    .click();
+  const listbox = page.getByRole("listbox", { name: "관측 지점 목록" });
+  await expect(listbox).toBeVisible();
+  const note = page.getByText(
+    "기상청 ASOS 지점 · 대표 10곳 밖은 물 계산 준비 중",
+  );
+  await expect(note).toBeVisible();
+  await expect(listbox.getByText("대표 10곳 밖은 물 계산 준비 중")).toHaveCount(
+    0,
+  );
+  // 목록을 끝까지 내리지 않아도 늘 보인다(아래 고정)
+  const nb = (await note.boundingBox())!;
+  const lb = (await listbox.boundingBox())!;
+  expect(nb.y).toBeGreaterThanOrEqual(lb.y + lb.height - 0.5);
+});
