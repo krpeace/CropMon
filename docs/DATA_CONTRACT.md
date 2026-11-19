@@ -488,7 +488,7 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 둘 다 보안 정의 함수이며 인자를 받지 않습니다(남의 번호를 넘길 길이 없음). 회원(`authenticated`)만 실행하고 비회원(`anon`)은 못 합니다.
 
 - **`public.delete_my_account()`:** 회원 본인이 탈퇴합니다. ① `ops.withdrawn_accounts`에 위 해시 한 줄(이미 있으면 시각만 갱신) ② `auth.users`의 자기 줄 삭제 → `members`가 연쇄로 지워집니다(v2.1의 농장 표들도 같은 연쇄). 비회원이 부르면 오류. 카카오·네이버·구글 연결 끊기는 서버 키가 필요해 따로 서버 쪽 함수(L6)가 합니다.
-- **`public.ensure_my_member()`:** 줄이 빠진 회원이 자기 줄을 만듭니다. 가입 트리거와 같은 식(`member_seed()`)으로 자기 `auth.users` 줄에서 이름·공급자를 읽어 `members`에 넣고, 이미 있으면 아무것도 하지 않습니다(두 번 불러도 오류 없음). 로그인 직후 한 번 부르는 것이 약속입니다(L2).
+- **`public.ensure_my_member()`:** 줄이 빠진 회원이 자기 줄을 만듭니다. 가입 트리거와 같은 식(`member_seed()`)으로 자기 `auth.users` 줄에서 이름·공급자를 읽어 `members`에 넣고, 이미 있으면 아무것도 하지 않습니다(두 번 불러도 오류 없음). 로그인 직후 한 번 부르는 것이 약속입니다(L2). **로그인 콜백(`/auth/callback`, 이슈 #182, 결정 0061)이 로그인 직후 한 번 부릅니다 — 실패해도 로그인은 계속됩니다.** (계약 판 번호는 올리지 않습니다: 함수는 그대로이고 부르는 곳만 생겼습니다.)
 - **확인 SQL:** `supabase/checks/d1_1_members_check.sql`(실행하면 아무것도 남지 않음, 맨 끝 `all_ok = true`). 되돌리기 SQL은 `supabase/checks/d1_1_members_rollback.sql`(실행하지 않음).
 
 ### `public.app_health`
