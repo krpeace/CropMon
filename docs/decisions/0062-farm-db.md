@@ -33,6 +33,7 @@
 - 시작 월-일 S(미정이면 `01-01`, 그 줄은 `start_unset = true`), 작기 일수 L = 작형의 단계 일수 합. 오늘(한국 날짜)이 [작년 S, S + L) 또는 [올해 S, S + L) 안이면 그 작기, 아니면 **다음에 올 S**. 끝 = 시작 + L − 1. 날짜 계산이지 물수지 계산이 아니다.
 - 예) 포도 시설가온 S = 12-01, L = 190 → 2026-11-17은 "다음 작기 2026-12-01 ~ 2027-06-08", 2027-02-10은 "2026-12-01 시작 작기 중(끝 2027-06-08)".
 - **`sync_farm_seasons(farm_id)`** (바깥, 서버 키만) / **`sync_farm_seasons_at(farm_id, 오늘)`** (안쪽, 아무도 못 부르고 확인 SQL이 "오늘"을 바꿔 부름). 하는 일: 지금 줄이 있으면 **고쳐 쓰고**(시작일을 바꿔도 새 줄을 만들지 않음), 없으면 규칙의 작기를 **만들고**(마지막 줄이 오늘 전에 끝난 경우 포함), **지난 줄은 고치지 않는다**(지난 작기 돌아보기 · "작기 끝" 판정에 씀). 작물 공통이면 줄을 만들지 않고 끝이 오늘 이후인 줄(지금 · 앞으로)은 지우며 지난 줄은 남긴다. 단계 일수가 빈 작형이면 저장을 거절한다.
+- **`public.sync_all_farm_seasons()`**(검토 채팅 승인 보충): 모든 농장에 대해 안쪽 `sync_farm_seasons_at(farm_id, 한국 오늘)`을 부르고 **처리한 농장 수(int)**를 돌려준다. `security definer` · `search_path = ''` · **`service_role`만 실행**(`sync_farm_seasons`와 같음). croplib-dp가 정기 계산 **전에 한 번** 부르면 된다. 한 농장이 실패해도(예: 단계 일수가 비게 바뀐 작형) 전체가 멈추지 않도록 농장마다 따로 처리하고 실패한 농장은 세지 않는다(경고에는 오류 번호 sqlstate만).
 - **`season_end_mmdd`는 열만 두고 끝 계산에 쓰지 않는다**(무시). 1/1에는 화면이 받지 않고, 값이 있을 때의 규칙은 나중 판에 정한다.
 - **"지금 줄"의 정의는 한 곳** `public.farm_current_season`: 끝이 오늘 이후(`end_date >= 오늘`, **끝나는 날 당일은 아직 작기 중**)인 줄 가운데 시작이 가장 이른 줄. 작기 줄 만들기와 관수 기록 날짜 규칙이 같이 쓴다.
 - **지난 줄과 겹칠 때: 지난 줄의 끝을 자르고, 통째로 겹치면 지운다.** 새 지금 줄의 시작 W가 지난 줄과 겹치면 지난 줄의 끝을 `W − 1일`로 줄이고, 지난 줄이 통째로 새 줄 안에 들어가면 지운다. 순서는 **자르기 → 지금 줄 쓰기**(배제 제약에 안 걸림).
@@ -60,6 +61,17 @@
   - ② 보충 예약(`pg_cron` 작업 **`croplib-farm-calc-sweep`**, 매분 `ops.farm_calc_sweep()`): **마지막 깨우기 뒤에 들어온 기다리는 요청**이 있고 마지막 깨우기가 2분 지났으면 한 번 더 깨운다. 기다리는 요청이 없으면 색인 한 번 조회(`farm_calc_status_pending_idx`)로 끝난다. "마지막 깨우기 뒤에 들어온"이 조건이라 작업 파일이 없어 계속 404가 나도 **같은 요청으로 반복해서 부르지 않는다**(02시 정기 회차가 따라잡음).
   - 깨우는 함수가 **던지는** 드문 실패는 마지막 깨우기 시각도 함께 되돌려져(같은 블록) 다음 시도가 막히지 않는다.
   - 되돌리기 SQL은 `cron.unschedule('croplib-farm-calc-sweep')`와 짝이다.
+- **깨우기 스위치 — 기본은 꺼짐**(croplib-dp 요청, 검토 채팅 승인 보충). croplib-dp에 `farm_calc.yml`이 아직 없는 동안 부르면 `net.http_post` 404가 조용히 묻히므로 그 파일이 병합된 뒤에 켠다. `ops.farm_calc_wake`에 `enabled boolean not null default false`(이미 있는 표에도 `add column if not exists`로 들어간다).
+  - **꺼져 있으면** 저장 트리거(`farm_calc_try_wake(false)`)도 매분 보충 예약(`farm_calc_sweep` → `farm_calc_try_wake(true)`)도 **`ops.dispatch_workflow`를 부르지 않고 `last_wake_at`도 바꾸지 않는다.** 스위치를 읽고 꺼짐이면 부르기 앞에서 끝내므로 보충 예약은 한 줄 읽기뿐이다. 다만 **`farm_calc_status`의 `requested_at` · `recalc_from` 기록은 스위치와 상관없이 늘 한다**(croplib-dp 정기 계산이 따라잡는다).
+  - 판단 함수 `ops.farm_calc_wake_due`에 스위치 인자(`p_enabled`)를 더했다(꺼짐 → 늘 거짓). 확인 SQL 판단표에 "꺼짐 → 안 부름" 항목이 있다(8c).
+  - **켜는 SQL**(사용자가 croplib-dp의 `farm_calc.yml`이 병합된 뒤 SQL Editor에서 실행):
+
+    ```sql
+    update ops.farm_calc_wake set enabled = true;
+    ```
+
+    끄려면 `enabled = false`. 되돌리기 SQL은 표를 통째로 지우므로 따로 고칠 것이 없다.
+- **정기(02시 · 17시) 농장 계산은 CropMon 예약이 아니다.** croplib-dp가 `collect.yml`이 끝난 뒤 이어서 부른다(그 전에 `sync_all_farm_seasons()`를 한 번). 이 PR이 만드는 예약은 `croplib-farm-calc-sweep`(매분) 하나이고, 이것은 **회원 저장 깨우기를 보충**할 뿐 정기 계산을 대신하지 않는다.
 - **확인 SQL이 진짜 작업을 깨우지 않도록 이중으로 막는다**: ① `set_config('cropmon.skip_wake', 'on', true)`(그 트랜잭션에서만) — 깨우는 함수가 이 값을 보고 건너뛴다(마지막 깨우기 시각도 안 바꿈) ② `net.http_request_queue`가 일반 표라 같은 트랜잭션의 요청은 일부러 낸 오류로 같이 취소된다(끝에서 줄 수가 그대로인지 항목으로 본다). 깨우기 **판단**은 시각을 인자로 받는 `ops.farm_calc_wake_due`의 판단표로만 시험하고, 실제로 부르는 함수는 확인 SQL이 부르지 않는다. 설정 값은 SQL Editor 같은 직접 연결에서만 바꿀 수 있고 PostgREST로는 못 바꾼다.
 
 ### 4. 관수 기록 날짜 규칙 (DB가 지킨다)
@@ -93,23 +105,25 @@
 
 ## croplib-dp와의 약속 (검토 채팅이 사용자를 통해 croplib-dp에 그대로 전함)
 
-1. **작업 파일 이름은 `farm_calc.yml`**. 그 작업은 대기 중인 농장(`requested_at > done_at` 또는 `done_at` 없음)을 모두 처리한다.
+1. **작업 파일 이름은 `farm_calc.yml`**. 그 작업은 대기 중인 농장(`requested_at > done_at` 또는 `done_at` 없음)을 모두 처리한다. **그 파일이 병합되기 전에는 깨우기가 꺼져 있고**(`ops.farm_calc_wake.enabled` 기본 `false`), 병합된 뒤 사용자가 `update ops.farm_calc_wake set enabled = true;`를 SQL Editor에서 실행해 켠다. 꺼져 있는 동안에도 요청 기록(`requested_at` · `recalc_from`)은 남으므로 croplib-dp 정기 계산이 따라잡는다.
 2. **`done_at`에는 "읽기 시작한 시각"을 쓴다.** 끝난 시각을 쓰면 그 사이에 들어온 요청의 `requested_at`이 `done_at`보다 이르게 보여 "끝남"으로 묻힌다.
-3. **02시 정기 회차에 모든 농장에 대해 `public.sync_farm_seasons(farm_id)`를 서버 키로 부른다**(끝난 작기 다음 줄을 만들고, 지난 줄을 자르는 규칙이 이 한 곳이다). 안쪽 함수 `sync_farm_seasons_at`은 서버 키도 못 부른다.
+3. **정기(02시 · 17시) 농장 계산은 croplib-dp가 `collect.yml` 뒤에 이어서 부른다 — CropMon cron이 아니다.** 그 계산 전에 서버 키로 **`public.sync_all_farm_seasons()`를 한 번** 부른다(모든 농장에 대해 끝난 작기의 다음 줄을 만들고 지난 줄을 자르는 규칙이 이 한 곳이다 — 한 농장씩 `public.sync_farm_seasons(farm_id)`를 부르는 것도 같은 규칙이다). 안쪽 함수 `sync_farm_seasons_at`은 서버 키도 못 부른다. CropMon의 `croplib-farm-calc-sweep`은 회원 저장 깨우기의 보충일 뿐이다.
 4. `crop_seasons.is_protected`인 작형은 **비를 0으로 계산**하고, 쓰는 물인 날은 `status = 'etc_only'`로 올린다(Dr · Ks · 판정 열은 비움, `etc_sum_mm`은 채움). `farm_water_*`는 **최신 회차만** 남긴다(키에 회차가 없음).
 5. `crop_seasons.cum_start_mmdd`가 비어 있으면 적산온도를 내지 않는다(적산 계열 만들기는 D1-3).
 6. 지난 줄과 겹칠 때 지난 줄의 끝이 줄어들 수 있다(위 2). 잘린 기간의 결과는 새 작기로 다시 계산된다.
 7. 배추 `t_base_c`가 5로 바뀌었다 — 소급 작업 없이 다음 아침에 새 기준으로 다시 쓴다.
 8. 포도 계산 조건 194줄이 들어가면 2027-01-01부터 시설가온이 수집 대상이 된다. 시설 재배(비 0) · `etc_only`를 반영하기 전의 값은 틀릴 수 있으므로 반영 뒤 다시 쓴다.
 9. `farm_calc_status.error`에는 사람이 읽는 말만 쓴다(개인 값 · 위치 · 키 없음).
+10. **`farm_calc_status`에서 croplib-dp가 쓰는 열은 `done_at` · `result` · `error` · `calc_version`**이고, 트리거가 쓰는 열은 `requested_at` · `recalc_from`이다. 서버 키는 RLS를 건너뛰므로 croplib-dp의 쓰기에는 따로 권한 설정이 필요 없다.
 
 ## 하지 않은 것
 
 - 화면 전부(F1 · F2 · W1 · W2 · W3 · G1), `heat_daily` · `sun_daily` 키 바꾸기와 온도 · 햇빛 화면 읽기(D1-3), 포도 `gdd_stages` 숫자(다음 작은 시드 이슈), `crop_overrides`(보정값), 작물 23종 · `crops.category` · `sort_order`(1/1 뒤).
 - croplib-dp의 농장 계산 작업 · 시설 비 0 · `etc_only` 계산(croplib-dp 이슈).
+- **정기(02시 · 17시) 농장 계산 예약은 만들지 않았다**(croplib-dp가 `collect.yml` 뒤에 부름). 만든 예약은 매분 보충 `croplib-farm-calc-sweep` 하나.
 - 가짜 Supabase(`e2e/fake-supabase.mjs`)는 화면이 새 표를 읽지 않으므로 손대지 않았다.
 
 ## 시험 · 확인
 
-- **시험용 DB가 없다** — 운영 DB에서 확인 SQL로 본다(D1-1과 같은 방식). `supabase/checks/d1_2_farms_check.sql`: 가짜 회원 · 농장을 만들어 시험하고 끝에서 되돌림, 항목마다 true/false, 마지막 `all_ok`(항목 113개). **회원 DB(D1-1)가 운영에 아직 없어도 돌아간다** — 있으면 `delete_my_account()` · `members`도 함께 시험하고, 없으면 그 항목(9b · 9c)만 "건너뜀"으로 참 처리한다(탈퇴가 하는 일인 `auth.users` 한 줄 삭제의 연쇄는 D1-1 없이도 시험한다). D1-1을 나중에 실행했다면 확인 SQL을 다시 Run 한다. (작업 중 읽기 전용 MCP로 본 운영 DB에는 D1-1의 `members` · 가입 트리거 · `delete_my_account()` · `ops.withdrawn_accounts`가 아직 없었다 — 이 이슈의 마이그레이션은 이것에 기대지 않는다.) 회원 시험은 `set role authenticated` + `request.jwt.claims`로 해 RLS가 실제로 걸린다. 연도 규칙은 안쪽 함수에 "오늘"을 넣어 시험하고, 트리거를 거치는 시험은 진짜 오늘 기준 상대 날짜로 써서 어느 날 돌려도 같다. 되돌리기 SQL `supabase/checks/d1_2_farms_rollback.sql`(실행 안 함)은 **`farms` 줄이 0인지 · `etc_only` 줄이 0인지 · 포도에 딸린 결과 줄이 0인지 먼저 확인**하고 하나라도 걸리면 아무것도 지우지 않고 멈춘다.
-- 저장소 쪽 자동 시험: `contract.test.ts`(표 목록 21개 · 버전 v2.1 · 새 표마다 RLS · 정책 · 열 단위 권한 · 합성 외래키 · 배제 제약 · 함수 권한 · `search_path` · 깨우기 · `etc_only` · 확인 · 되돌리기 SQL), `seed.test.ts`(포도 사전 · 194줄 · TAW · RAW · 날짜 · 기본 조건 · 배추 기준온도), `status-source.test.ts` · `water-outlook.test.ts`(작물 걸러 읽기 · 단일 출처). 기준은 낮추지 않았고 고친 것은 "표 개수 · 버전" 숫자뿐이다.
+- **시험용 DB가 없다** — 운영 DB에서 확인 SQL로 본다(D1-1과 같은 방식). `supabase/checks/d1_2_farms_check.sql`: 가짜 회원 · 농장을 만들어 시험하고 끝에서 되돌림, 항목마다 true/false, 마지막 `all_ok`(항목 118개). **회원 DB(D1-1)가 운영에 아직 없어도 돌아간다** — 있으면 `delete_my_account()` · `members`도 함께 시험하고, 없으면 그 항목(9b · 9c)만 "건너뜀"으로 참 처리한다(탈퇴가 하는 일인 `auth.users` 한 줄 삭제의 연쇄는 D1-1 없이도 시험한다). D1-1을 나중에 실행했다면 확인 SQL을 다시 Run 한다. (작업 중 읽기 전용 MCP로 본 운영 DB에는 D1-1의 `members` · 가입 트리거 · `delete_my_account()` · `ops.withdrawn_accounts`가 아직 없었다 — 이 이슈의 마이그레이션은 이것에 기대지 않는다.) 회원 시험은 `set role authenticated` + `request.jwt.claims`로 해 RLS가 실제로 걸린다. 연도 규칙은 안쪽 함수에 "오늘"을 넣어 시험하고, 트리거를 거치는 시험은 진짜 오늘 기준 상대 날짜로 써서 어느 날 돌려도 같다. 되돌리기 SQL `supabase/checks/d1_2_farms_rollback.sql`(실행 안 함)은 **`farms` 줄이 0인지 · `etc_only` 줄이 0인지 · 포도에 딸린 결과 줄이 0인지 먼저 확인**하고 하나라도 걸리면 아무것도 지우지 않고 멈춘다.
+- 저장소 쪽 자동 시험: `contract.test.ts`(깨우기 스위치 · `sync_all_farm_seasons` 권한 문자열 · 켜는 SQL이 문서에 있음, 표 목록 21개 · 버전 v2.1 · 새 표마다 RLS · 정책 · 열 단위 권한 · 합성 외래키 · 배제 제약 · 함수 권한 · `search_path` · 깨우기 · `etc_only` · 확인 · 되돌리기 SQL), `seed.test.ts`(포도 사전 · 194줄 · TAW · RAW · 날짜 · 기본 조건 · 배추 기준온도), `status-source.test.ts` · `water-outlook.test.ts`(작물 걸러 읽기 · 단일 출처). 기준은 낮추지 않았고 고친 것은 "표 개수 · 버전" 숫자뿐이다.

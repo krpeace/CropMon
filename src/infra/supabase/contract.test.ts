@@ -1261,3 +1261,108 @@ describe("농장 표 (v2.1, 결정 0062)", () => {
     expect(rollback).not.toMatch(/delete from auth\.users/);
   });
 });
+
+describe("깨우기 스위치 · sync_all_farm_seasons (v2.1 보충, 결정 0062)", () => {
+  const rollback = readFileSync(
+    join(ROOT, "supabase/checks/d1_2_farms_rollback.sql"),
+    "utf8",
+  );
+  const decision = readFileSync(
+    join(ROOT, "docs/decisions/0062-farm-db.md"),
+    "utf8",
+  );
+  const ENABLE_SQL = "update ops.farm_calc_wake set enabled = true;";
+
+  it("깨우기 스위치 enabled 는 기본이 꺼짐이고 이미 있는 표에도 열이 들어간다", () => {
+    expect(FARMS_SQL).toMatch(
+      /create table if not exists ops\.farm_calc_wake \([\s\S]*?enabled\s+boolean not null default false/,
+    );
+    expect(FARMS_SQL).toContain(
+      "alter table ops.farm_calc_wake add column if not exists enabled boolean not null default false;",
+    );
+  });
+
+  it("꺼져 있으면 깨우는 함수가 부르지도 마지막 깨우기 시각을 바꾸지도 않고(부르기 앞에서 끝), 요청 기록은 스위치와 무관하다", () => {
+    const wake = FARMS_SQL.match(
+      /create or replace function ops\.farm_calc_try_wake[\s\S]*?\$\$;/,
+    )![0];
+    // 스위치를 읽고 꺼짐이면 부르기(dispatch)와 시각 바꾸기(update) 앞에서 끝낸다
+    const gate = wake.indexOf("if not coalesce(v_enabled, false) then");
+    expect(gate).toBeGreaterThan(0);
+    expect(gate).toBeLessThan(wake.indexOf("ops.dispatch_workflow"));
+    expect(gate).toBeLessThan(wake.indexOf("update ops.farm_calc_wake"));
+    // 요청 기록(touch_farm_calc)은 스위치를 보지 않는다
+    const touch = FARMS_SQL.match(
+      /create or replace function public\.touch_farm_calc[\s\S]*?\$\$;/,
+    )![0];
+    expect(touch).not.toMatch(/enabled/);
+    expect(touch).toContain("insert into public.farm_calc_status");
+  });
+
+  it("판단 함수 farm_calc_wake_due 가 스위치 인자를 받고 꺼짐이면 늘 거짓이다 (판단표)", () => {
+    expect(FARMS_SQL).toMatch(
+      /function ops\.farm_calc_wake_due\(\s*p_now timestamptz,\s*p_last timestamptz,\s*p_has_newer_pending boolean,\s*p_require_pending boolean,\s*p_enabled boolean\s*\)/,
+    );
+    expect(FARMS_SQL).toContain("select coalesce(p_enabled, false)");
+    expect(FARMS_SQL).toContain(
+      "revoke all on function ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean, boolean) from public, anon, authenticated;",
+    );
+  });
+
+  it("sync_all_farm_seasons(): 모든 농장에 안쪽 함수를 부르고 처리한 수를 돌려주며, 서버 키만 실행한다", () => {
+    const fn = FARMS_SQL.match(
+      /create or replace function public\.sync_all_farm_seasons\(\)[\s\S]*?\$\$;/,
+    )![0];
+    expect(fn).toMatch(/returns int/);
+    expect(fn).toContain("security definer");
+    expect(fn).toContain("set search_path = ''");
+    expect(fn).toContain("public.sync_farm_seasons_at(v_farm, v_today)");
+    expect(fn).toContain("public.kst_today()");
+    // 한 농장이 실패해도 전체가 멈추지 않고, 실패한 농장은 세지 않는다 (경고에는 sqlstate 만)
+    expect(fn).toMatch(
+      /exception\s+when others then\s+raise warning '[^']*\(sqlstate %\)'/,
+    );
+    expect(FARMS_SQL).toContain(
+      "revoke all on function public.sync_all_farm_seasons() from public, anon, authenticated;",
+    );
+    expect(FARMS_SQL).toContain(
+      "grant execute on function public.sync_all_farm_seasons() to service_role;",
+    );
+  });
+
+  it("되돌리기 SQL 이 새 함수(sync_all_farm_seasons · 5인자 farm_calc_wake_due)를 지운다", () => {
+    expect(rollback).toContain(
+      "drop function if exists public.sync_all_farm_seasons();",
+    );
+    expect(rollback).toContain(
+      "drop function if exists ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean, boolean);",
+    );
+  });
+
+  it("계약서와 결정 0062 에 켜는 SQL · croplib-dp 약속 · 쓰는 열이 적혀 있다", () => {
+    expect(CONTRACT).toContain(ENABLE_SQL);
+    expect(decision).toContain(ENABLE_SQL);
+    // 정기 계산은 croplib-dp 가 collect.yml 뒤에 부른다 — CropMon cron 이 아니다
+    expect(decision).toMatch(/collect\.yml/);
+    expect(decision).toMatch(/CropMon cron ?이 아니/);
+    expect(decision).toContain("sync_all_farm_seasons()");
+    expect(CONTRACT).toContain("sync_all_farm_seasons()");
+    // farm_calc_status: 누가 쓰는 열인지
+    expect(CONTRACT).toMatch(
+      /croplib-dp 가 쓰는 열[^\n]*`done_at`[^\n]*`result`[^\n]*`error`[^\n]*`calc_version`/,
+    );
+    expect(CONTRACT).toMatch(
+      /트리거가 쓰는 열[^\n]*`requested_at`[^\n]*`recalc_from`/,
+    );
+  });
+
+  it("확인 SQL 이 스위치 꺼짐 판단표 · 꺼짐 동작 · sync_all 항목을 가진다", () => {
+    const check = readFileSync(
+      join(ROOT, "supabase/checks/d1_2_farms_check.sql"),
+      "utf8",
+    );
+    expect(check).toMatch(/'8c 깨우기 판단\(스위치 꺼짐\)/);
+    expect(check).toMatch(/'8e 스위치가 꺼져 있으면/);
+    expect(check).toMatch(/'4p sync_all_farm_seasons\(\)/);
+  });
+});

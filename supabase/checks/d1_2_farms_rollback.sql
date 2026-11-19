@@ -79,10 +79,12 @@ drop function if exists public.irrigation_logs_check_date();
 drop function if exists public.irrigation_logs_touch();
 drop function if exists public.touch_farm_calc(uuid, date);
 drop function if exists public.sync_farm_seasons(uuid);
+drop function if exists public.sync_all_farm_seasons();
 drop function if exists public.sync_farm_seasons_at(uuid, date);
 drop function if exists public.farm_season_window(text, int, date);
 drop function if exists ops.farm_calc_sweep();
 drop function if exists ops.farm_calc_try_wake(boolean);
+drop function if exists ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean, boolean);
 drop function if exists ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean);
 
 -- ---------------------------------------------------------------------------

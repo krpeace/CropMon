@@ -9,8 +9,9 @@
 --   public.farm_water_daily / farm_water_outlook / farm_water_outlook_summary   농장별 계산 결과. 회원 본인 읽기만, 서버 키 쓰기
 --   public.farm_season_window()     작기 연도 규칙 (날짜 계산만, 물수지 계산 아님) — 연도 규칙은 이 한 곳
 --   public.sync_farm_seasons(farm_id) / sync_farm_seasons_at(farm_id, 오늘)   날짜 줄 만들기 · 고치기 (서버 키 / 안쪽)
+--   public.sync_all_farm_seasons() 모든 농장에 대해 날짜 줄 만들기, 처리한 농장 수를 돌려줌 (서버 키만 — croplib-dp 가 정기 계산 전에 한 번)
 --   public.touch_farm_calc()        다시 계산 요청 기록 + croplib-dp 깨우기 (2분 창, 아래 ops.* 와 매분 보충 예약)
---   ops.farm_calc_wake              마지막 깨우기 시각 (한 줄)
+--   ops.farm_calc_wake              깨우기 스위치 enabled(기본 꺼짐) · 마지막 깨우기 시각 (한 줄)
 --
 -- 바꾸는 것 (기존 표):
 --   crop_seasons  열 is_protected(시설 재배) · cum_start_mmdd(적산 시작 월-일) + 합성 외래키용 유일 색인
@@ -486,33 +487,44 @@ revoke all on function public.farm_current_season(uuid, date) from public, anon,
 create schema if not exists ops;
 revoke all on schema ops from public, anon, authenticated;
 
--- 마지막 깨우기 시각 (한 줄). 공개 계약 표가 아니라 운영용이다.
+-- 깨우기 설정 · 마지막 깨우기 시각 (한 줄). 공개 계약 표가 아니라 운영용이다.
+--   enabled: **기본은 꺼짐.** croplib-dp 에 farm_calc.yml 이 아직 없는 동안 부르면 net.http_post 404 가 조용히 묻히므로,
+--   그 파일이 병합된 뒤 사용자가 SQL Editor 에서 켠다:  update ops.farm_calc_wake set enabled = true;
+--   꺼져 있으면 저장 트리거도 매분 보충 예약도 ops.dispatch_workflow 를 부르지 않고 last_wake_at 도 바꾸지 않는다.
+--   다만 farm_calc_status 의 requested_at · recalc_from 기록은 늘 한다(croplib-dp 정기 계산이 따라잡는다).
 create table if not exists ops.farm_calc_wake (
   id           int primary key default 1 check (id = 1),
-  last_wake_at timestamptz
+  last_wake_at timestamptz,
+  enabled      boolean not null default false
 );
+-- 이미 있는 표(먼저 만들어진 경우)에도 들어가게
+alter table ops.farm_calc_wake add column if not exists enabled boolean not null default false;
 insert into ops.farm_calc_wake (id) values (1) on conflict (id) do nothing;
 alter table ops.farm_calc_wake enable row level security;
 revoke all on ops.farm_calc_wake from anon, authenticated;
 
--- 깨울 때가 됐나 (순수 판단 — 시각을 인자로 받아 확인 SQL 이 판단표를 시험한다).
---   마지막 깨우기가 없거나 2분 넘게 지났고, 보충 예약이면(p_require_pending) 마지막 깨우기 뒤에 들어온 기다리는 요청이 있어야 한다.
+-- 깨울 때가 됐나 (순수 판단 — 시각 · 스위치를 인자로 받아 확인 SQL 이 판단표를 시험한다).
+--   스위치가 꺼져 있으면 늘 안 부른다. 켜져 있으면: 마지막 깨우기가 없거나 2분 넘게 지났고, 보충 예약이면(p_require_pending)
+--   마지막 깨우기 뒤에 들어온 기다리는 요청이 있어야 한다.
+drop function if exists ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean);
 create or replace function ops.farm_calc_wake_due(
   p_now timestamptz,
   p_last timestamptz,
   p_has_newer_pending boolean,
-  p_require_pending boolean
+  p_require_pending boolean,
+  p_enabled boolean
 )
 returns boolean
 language sql
 immutable
 set search_path = ''
 as $$
-  select (p_last is null or p_now - p_last >= interval '2 minutes')
+  select coalesce(p_enabled, false)
+     and (p_last is null or p_now - p_last >= interval '2 minutes')
      and (not p_require_pending or coalesce(p_has_newer_pending, false));
 $$;
 
-revoke all on function ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean) from public, anon, authenticated;
+revoke all on function ops.farm_calc_wake_due(timestamptz, timestamptz, boolean, boolean, boolean) from public, anon, authenticated;
 
 -- croplib-dp 농장 계산 작업을 깨운다 (2분 창). p_require_pending = true 면 매분 보충 예약:
 -- 기다리는 요청이 없으면 가벼운 조회 한 번(색인 farm_calc_status_pending_idx)으로 끝난다.
@@ -527,16 +539,22 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_now   timestamptz := clock_timestamp();
-  v_last  timestamptz;
-  v_newer boolean;
-  v_rows  int;
+  v_now     timestamptz := clock_timestamp();
+  v_last    timestamptz;
+  v_enabled boolean;
+  v_newer   boolean;
+  v_rows    int;
 begin
   if coalesce(current_setting('cropmon.skip_wake', true), '') = 'on' then
     return false;
   end if;
 
-  select w.last_wake_at into v_last from ops.farm_calc_wake w where w.id = 1;
+  select w.last_wake_at, w.enabled into v_last, v_enabled from ops.farm_calc_wake w where w.id = 1;
+
+  -- 깨우기 스위치가 꺼져 있으면(기본) 여기서 끝: 부르지도, 마지막 깨우기 시각을 바꾸지도 않는다. (한 줄 읽기뿐이라 보충 예약도 가볍다)
+  if not coalesce(v_enabled, false) then
+    return false;
+  end if;
 
   select exists (
     select 1
@@ -546,7 +564,7 @@ begin
       and (v_last is null or s.requested_at > v_last)
   ) into v_newer;
 
-  if not ops.farm_calc_wake_due(v_now, v_last, v_newer, p_require_pending) then
+  if not ops.farm_calc_wake_due(v_now, v_last, v_newer, p_require_pending, v_enabled) then
     return false;
   end if;
 
@@ -700,6 +718,37 @@ $$;
 
 revoke all on function public.sync_farm_seasons(uuid) from public, anon, authenticated;
 grant execute on function public.sync_farm_seasons(uuid) to service_role;
+
+-- 모든 농장에 대해 안쪽 sync_farm_seasons_at(농장, 한국 오늘)을 부르고 처리한 농장 수를 돌려준다.
+-- croplib-dp 가 정기(02시 · 17시) 계산 전에 한 번만 부르면 된다. 서버 키만 실행한다(sync_farm_seasons 와 같음).
+-- 한 농장이 실패해도(예: 단계 일수가 비게 바뀐 작형) 전체가 멈추지 않게 농장마다 따로 처리하고, 실패한 농장은 세지 않는다
+-- (경고에는 오류 번호 sqlstate 만 — 농장 번호 · 원문은 적지 않는다).
+create or replace function public.sync_all_farm_seasons()
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_today date := public.kst_today();
+  v_farm  uuid;
+  v_done  int := 0;
+begin
+  for v_farm in select f.farm_id from public.farms f order by f.farm_id loop
+    begin
+      perform public.sync_farm_seasons_at(v_farm, v_today);
+      v_done := v_done + 1;
+    exception
+      when others then
+        raise warning 'public.sync_all_farm_seasons: 한 농장을 처리하지 못함 (sqlstate %)', sqlstate;
+    end;
+  end loop;
+  return v_done;
+end;
+$$;
+
+revoke all on function public.sync_all_farm_seasons() from public, anon, authenticated;
+grant execute on function public.sync_all_farm_seasons() to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 11. 트리거

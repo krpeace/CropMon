@@ -14,7 +14,8 @@
 --   ① 맨 앞에서 set_config('cropmon.skip_wake', 'on', true) — 이 트랜잭션에서만, 깨우는 함수가 이 값을 보고 건너뛴다.
 --   ② net.http_request_queue 는 일반 표라 같은 트랜잭션의 요청은 일부러 낸 오류로 같이 취소된다.
 --   끝에서 net.http_request_queue 줄 수와 마지막 깨우기 시각이 그대로인지도 항목으로 본다.
---   깨우기 판단(2분 창)은 시각을 인자로 받는 함수 ops.farm_calc_wake_due 의 판단표로만 시험한다 — 실제로 부르는 함수는 부르지 않는다.
+--   깨우기 판단(2분 창 · 스위치)은 시각 · 스위치를 인자로 받는 함수 ops.farm_calc_wake_due 의 판단표로 시험한다. 깨우기 스위치(ops.farm_calc_wake.enabled)는
+--   기본이 꺼짐이라 요청 기록만 하고 안 부른다 — 이 확인 SQL 은 켜지도 않는다(8e 이후에 이 트랜잭션 안에서만 켰다 되돌려진다).
 --
 -- "오늘"을 바꿔야 하는 날짜 규칙은 안쪽 함수(sync_farm_seasons_at, farm_season_window)에 날짜를 넣어 시험한다.
 -- 트리거가 거치는 시험(관수 기록 · 지난 줄 자르기 · 다시 계산 범위)은 진짜 오늘 d 를 기준으로 한 상대 날짜(d - 10 등)로 써서,
@@ -65,6 +66,18 @@ begin
   end;
   execute 'reset role';
   return v;
+end;
+$f$;
+
+-- 서버 키(service_role) 로 값을 돌려주는 SQL 을 실행한다 (croplib-dp 가 부르는 것과 같은 권한)
+create or replace function pg_temp.as_service_int(p_sql text)
+returns bigint language plpgsql as $f$
+declare n bigint;
+begin
+  perform set_config('role', 'service_role', true);
+  execute p_sql into n;
+  execute 'reset role';
+  return n;
 end;
 $f$;
 
@@ -444,6 +457,15 @@ begin
     res := pg_temp.item(res, '4n 1년(366일) 넘는 작기 · 끝이 시작보다 빠른 작기 거절', ok1 and ok2);
     res := pg_temp.item(res, '4o 같은 농장의 날짜가 겹치는 작기 줄은 거절 (배제 제약)', v = '23P01');
 
+    n := pg_temp.as_service_int('select public.sync_all_farm_seasons()');
+    res := pg_temp.item(res, '4p sync_all_farm_seasons(): 서버 키로 부르면 처리한 농장 수(= 전체 농장 수)를 돌려주고, 회원 · 비회원은 못 부른다',
+      n = (select count(*) from public.farms) and n >= 6
+      and pg_temp.as_member(u_a, 'select public.sync_all_farm_seasons()') = '42501'
+      and pg_temp.as_anon('select public.sync_all_farm_seasons()') = '42501'
+      and has_function_privilege('service_role', 'public.sync_all_farm_seasons()', 'execute')
+      and not has_function_privilege('authenticated', 'public.sync_all_farm_seasons()', 'execute')
+      and not has_function_privilege('anon', 'public.sync_all_farm_seasons()', 'execute'));
+
     -- ===================================================================
     -- 5. 지난 줄과 겹칠 때: 지난 줄의 끝을 자르고, 통째로 겹치면 지운다 (진짜 오늘 d 기준)
     -- ===================================================================
@@ -569,7 +591,7 @@ begin
     update public.farm_calc_status set requested_at = null, recalc_from = null, done_at = null where farm_id = f_r;
 
     perform pg_temp.as_member(u_r, format($q$insert into public.irrigation_logs (farm_id, date, volume_l) values (%L, %L, 100)$q$, f_r, d - 3));
-    res := pg_temp.item(res, '7a 관수 기록을 넣으면 요청이 기록되고 recalc_from = 그 기록의 날',
+    res := pg_temp.item(res, '7a 관수 기록을 넣으면 요청이 기록되고 recalc_from = 그 기록의 날 (깨우기 스위치는 기본 꺼짐이어도)',
       (select requested_at is not null and recalc_from = d - 3 from public.farm_calc_status where farm_id = f_r));
     perform pg_temp.as_member(u_r, format($q$insert into public.irrigation_logs (farm_id, date, volume_l) values (%L, %L, 100)$q$, f_r, d - 7));
     ok1 := (select recalc_from = d - 7 from public.farm_calc_status where farm_id = f_r);
@@ -627,28 +649,55 @@ begin
       (select requested_at is null from public.farm_calc_status where farm_id = f_r));
 
     -- ===================================================================
-    -- 8. 깨우기 판단 · 건너뛰기 (진짜로 깨우지는 않는다)
+    -- 8. 깨우기 판단 · 스위치(기본 꺼짐) · 건너뛰기 (진짜로 깨우지는 않는다)
     -- ===================================================================
-    res := pg_temp.item(res, '8a 깨우기 판단 — 마지막 깨우기가 없으면 깨운다, 2분 안(1분 59초)은 안 깨우고 2분부터 깨운다',
-      ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, false, false)
-      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:58:01+09', false, false)
-      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:58:00+09', false, false)
-      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', false, false));
-    res := pg_temp.item(res, '8b 깨우기 판단 — 보충 예약은 마지막 깨우기 뒤에 들어온 기다리는 요청이 있어야 깨운다',
-      not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', false, true)
-      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', true, true)
-      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:59:00+09', true, true)
-      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, true, true)
-      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, false, true));
-    res := pg_temp.item(res, '8c 건너뛰기 설정이면 깨우는 함수도 보충 예약도 아무것도 하지 않는다 (깨우기 시각 그대로)',
+    res := pg_temp.item(res, '8a 깨우기 판단(스위치 켬) — 마지막 깨우기가 없으면 깨운다, 2분 안(1분 59초)은 안 깨우고 2분부터 깨운다',
+      ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, false, false, true)
+      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:58:01+09', false, false, true)
+      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:58:00+09', false, false, true)
+      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', false, false, true));
+    res := pg_temp.item(res, '8b 깨우기 판단(스위치 켬) — 보충 예약은 마지막 깨우기 뒤에 들어온 기다리는 요청이 있어야 깨운다',
+      not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', false, true, true)
+      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', true, true, true)
+      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:59:00+09', true, true, true)
+      and ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, true, true, true)
+      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, false, true, true));
+    res := pg_temp.item(res, '8c 깨우기 판단(스위치 꺼짐) — 다른 조건이 다 맞아도(처음 · 2분 지남 · 기다리는 요청 있음) 안 부른다',
+      not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, true, false, false)
+      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', '2026-11-20 09:00:00+09', true, true, false)
+      and not ops.farm_calc_wake_due('2026-11-20 10:00:00+09', null, true, true, null));
+    res := pg_temp.item(res, '8d 깨우기 스위치 enabled 는 기본이 꺼짐이고 비어 있을 수 없다 (표 정의)',
+      (select column_default = 'false' and is_nullable = 'NO' and data_type = 'boolean'
+         from information_schema.columns
+        where table_schema = 'ops' and table_name = 'farm_calc_wake' and column_name = 'enabled'));
+
+    -- 스위치가 꺼져 있으면(기본) 건너뛰기 설정이 없어도 아무것도 안 부른다: 저장 트리거 쪽도 보충 예약 쪽도, 마지막 깨우기 시각도 그대로.
+    -- (이 시험은 건너뛰기 설정을 잠시 끈다. 꺼짐이 막지 못해도 같은 트랜잭션이 되돌려지며 요청이 함께 취소된다.)
+    perform set_config('cropmon.skip_wake', '', true);
+    update ops.farm_calc_wake set enabled = false where id = 1;
+    ok1 := not ops.farm_calc_try_wake(false) and not ops.farm_calc_try_wake(true);
+    perform ops.farm_calc_sweep();
+    res := pg_temp.item(res, '8e 스위치가 꺼져 있으면 저장 트리거 쪽 · 보충 예약 쪽 모두 아무것도 안 깨우고 마지막 깨우기 시각도 안 바꾼다 (건너뛰기 설정 없이도)',
+      ok1
+      and (select last_wake_at is not distinct from wake_before from ops.farm_calc_wake where id = 1)
+      and (select count(*) from net.http_request_queue) = q_before);
+    perform set_config('cropmon.skip_wake', 'on', true);
+    -- 꺼짐이어도 요청 기록은 한다 (croplib-dp 정기 계산이 따라잡는다)
+    update public.farm_calc_status set requested_at = null, recalc_from = null, done_at = null where farm_id = f_r;
+    perform pg_temp.as_member(u_r, format($q$insert into public.irrigation_logs (farm_id, date, volume_l) values (%L, %L, 7)$q$, f_r, d - 2));
+    res := pg_temp.item(res, '8f 스위치가 꺼져 있어도 요청 기록(requested_at · recalc_from)은 그대로 남긴다',
+      (select requested_at is not null and recalc_from = d - 2 from public.farm_calc_status where farm_id = f_r));
+
+    -- 이제 스위치를 켜고(이 트랜잭션 안에서만) 건너뛰기 설정이 막는지 본다
+    update ops.farm_calc_wake set enabled = true where id = 1;
+    res := pg_temp.item(res, '8g 스위치를 켜도 건너뛰기 설정이면 깨우는 함수도 보충 예약도 아무것도 하지 않는다 (깨우기 시각 그대로)',
       not ops.farm_calc_try_wake(false)
       and not ops.farm_calc_try_wake(true)
       and (select last_wake_at is not distinct from wake_before from ops.farm_calc_wake where id = 1));
-    ok1 := true;
     perform ops.farm_calc_sweep();
-    res := pg_temp.item(res, '8d 보충 예약 함수를 불러도 오류가 없고 아무것도 깨우지 않는다 (건너뛰기 설정)',
+    res := pg_temp.item(res, '8h 보충 예약 함수를 불러도 오류가 없고 아무것도 깨우지 않는다 (건너뛰기 설정)',
       (select last_wake_at is not distinct from wake_before from ops.farm_calc_wake where id = 1));
-    res := pg_temp.item(res, '8e 여기까지 모든 저장이 일어나는 동안 깨우기 요청이 하나도 쌓이지 않았다 (net.http_request_queue)',
+    res := pg_temp.item(res, '8i 여기까지 모든 저장이 일어나는 동안 깨우기 요청이 하나도 쌓이지 않았다 (net.http_request_queue)',
       (select count(*) from net.http_request_queue) = q_before);
 
     -- ===================================================================
@@ -889,5 +938,5 @@ $check$;
 -- 마지막 줄 all_ok 가 true 면 통과. 위 DO 의 변경은 모두 되돌려졌다 (가짜 회원 · 농장 · 기록이 남지 않음).
 select seq, item, ok from d1_2_results
 union all
-select 999, 'all_ok', coalesce(bool_and(coalesce(ok, false)), false) and count(*) = 113 from d1_2_results
+select 999, 'all_ok', coalesce(bool_and(coalesce(ok, false)), false) and count(*) = 118 from d1_2_results
 order by seq;
