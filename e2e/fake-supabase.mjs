@@ -3,6 +3,7 @@
 // 날짜 규칙: 달력 날짜(예: 04-01)를 고정해 쓰지 않는다. 작기는 "오늘" 기준 상대 날짜(사과 = 오늘 안, 배추 = 오늘 밖)라
 // 어느 날 돌려도 같은 결과가 나온다. 날짜를 바꿔 보려면 E2E_TODAY=YYYY-MM-DD (e2e/fake-clock.mjs, playwright.config.ts).
 // E2E_TODAY 없이 한국 날짜가 1월 1~3일이면 올해 자료가 거의 없어 자동으로 그해 1월 4일로 잡는다 (playwright.config.ts).
+import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -608,14 +609,227 @@ function filter(rows, params) {
   return limit ? out.slice(0, Number(limit)) : out;
 }
 
+// ── 로그인 흉내 (이슈 #182, 결정 0061) ──────────────────────────────────────────────
+// 실제 Supabase Auth 의 PKCE 흐름을 흉내 낸다: /auth/v1/authorize → (우리) /auth/callback?code → /auth/v1/token → 세션.
+// 토큰은 실행할 때 만든다(소스에 JWT 모양 글자를 적지 않는다 — 비밀 검사 오탐 방지). 서명 방식은 HS256 흉내라서
+// supabase-js 의 getClaims() 가 공개 열쇠(JWKS) 대신 /auth/v1/user 로 확인한다. 실제 서명 방식(비대칭 열쇠) 확인은 L3 실제 로그인 때.
+// 시험이 /__fake/scenario 로 다음 로그인의 결과를 정하고, /__fake/calls 로 호출 횟수를 본다.
+const authState = {
+  scenario: "ok", // ok | cancel | provider-error | no-code | exchange-fail
+  ensure: "ok", // ok | fail  (public.ensure_my_member 호출 결과)
+  authCalls: 0, // /auth/v1/* 호출 횟수 (쿠키 없는 방문이 Supabase 를 안 부르는지 확인용)
+  ensureCalls: 0,
+  codes: new Map(), // code -> provider
+  tokens: new Map(), // access_token -> user
+  refresh: new Map(), // refresh_token -> user
+};
+const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+function makeSession(user) {
+  const now = Math.floor(Date.now() / 1000);
+  const access = [
+    b64({ alg: "HS256", typ: "JWT" }),
+    b64({
+      sub: user.id,
+      role: "authenticated",
+      aud: "authenticated",
+      iat: now,
+      exp: now + 3600,
+      session_id: randomUUID(),
+    }),
+    randomBytes(24).toString("base64url"),
+  ].join(".");
+  const refreshToken = randomBytes(12).toString("base64url");
+  authState.tokens.set(access, user);
+  authState.refresh.set(refreshToken, user);
+  return {
+    access_token: access,
+    token_type: "bearer",
+    expires_in: 3600,
+    expires_at: now + 3600,
+    refresh_token: refreshToken,
+    user,
+  };
+}
+const readBody = (req) =>
+  new Promise((resolve) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"));
+      } catch {
+        resolve({});
+      }
+    });
+  });
+const bearerUser = (req) =>
+  authState.tokens.get(
+    (req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""),
+  );
+
+/** 로그인 · 회원 줄 확인 흉내. 처리했으면 true. */
+async function handleAuthRoutes(req, res, url) {
+  const json = (code, body) => {
+    res.writeHead(code, { "content-type": "application/json" });
+    res.end(JSON.stringify(body));
+  };
+  const redirect = (location) => {
+    res.writeHead(302, { location });
+    res.end();
+  };
+
+  // 시험이 쓰는 조작 창
+  if (url.pathname === "/__fake/scenario") {
+    const body = await readBody(req);
+    if (body.scenario) authState.scenario = body.scenario;
+    if (body.ensure) authState.ensure = body.ensure;
+    json(200, { scenario: authState.scenario, ensure: authState.ensure });
+    return true;
+  }
+  if (url.pathname === "/__fake/reset") {
+    authState.scenario = "ok";
+    authState.ensure = "ok";
+    authState.authCalls = 0;
+    authState.ensureCalls = 0;
+    json(200, { ok: true });
+    return true;
+  }
+  if (url.pathname === "/__fake/calls") {
+    json(200, { auth: authState.authCalls, ensure: authState.ensureCalls });
+    return true;
+  }
+
+  if (url.pathname === "/rest/v1/rpc/ensure_my_member") {
+    if (!bearerUser(req)) {
+      json(401, { code: "42501", message: "로그인이 필요합니다 (가짜)" });
+      return true;
+    }
+    authState.ensureCalls += 1;
+    if (authState.ensure === "fail") {
+      json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
+      return true;
+    }
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+
+  if (!url.pathname.startsWith("/auth/v1/")) return false;
+  authState.authCalls += 1;
+  const route = url.pathname.slice("/auth/v1/".length);
+
+  if (route === "authorize") {
+    const back = url.searchParams.get("redirect_to") ?? "";
+    const sep = back.includes("?") ? "&" : "?";
+    const provider = url.searchParams.get("provider") ?? "";
+    if (authState.scenario === "cancel") {
+      return (
+        redirect(
+          `${back}${sep}error=access_denied&error_code=access_denied&error_description=${encodeURIComponent("User denied access")}`,
+        ),
+        true
+      );
+    }
+    if (authState.scenario === "provider-error") {
+      return (
+        redirect(
+          `${back}${sep}error=server_error&error_description=${encodeURIComponent("provider boom")}`,
+        ),
+        true
+      );
+    }
+    if (authState.scenario === "no-code") return (redirect(back), true);
+    const code = `fake-${randomBytes(8).toString("hex")}`;
+    authState.codes.set(code, provider);
+    return (redirect(`${back}${sep}code=${code}`), true);
+  }
+
+  if (route === "token") {
+    const grant = url.searchParams.get("grant_type");
+    const body = await readBody(req);
+    if (grant === "pkce") {
+      if (
+        authState.scenario === "exchange-fail" ||
+        !authState.codes.has(body.auth_code)
+      ) {
+        json(400, {
+          code: 400,
+          error_code: "flow_state_not_found",
+          msg: "가짜 오류 (화면 테스트)",
+        });
+        return true;
+      }
+      const provider = authState.codes.get(body.auth_code);
+      authState.codes.delete(body.auth_code);
+      const user = {
+        id: randomUUID(),
+        aud: "authenticated",
+        role: "authenticated",
+        app_metadata: { provider },
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+      };
+      json(200, makeSession(user));
+      return true;
+    }
+    if (grant === "refresh_token") {
+      const user = authState.refresh.get(body.refresh_token);
+      if (!user) {
+        json(400, {
+          code: 400,
+          error_code: "refresh_token_not_found",
+          msg: "없는 토큰",
+        });
+        return true;
+      }
+      json(200, makeSession(user));
+      return true;
+    }
+    json(400, {
+      code: 400,
+      error_code: "validation_failed",
+      msg: "지원하지 않는 방식",
+    });
+    return true;
+  }
+
+  if (route === "user") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(401, {
+        code: 401,
+        error_code: "bad_jwt",
+        msg: "토큰이 올바르지 않습니다 (가짜)",
+      });
+      return true;
+    }
+    json(200, user);
+    return true;
+  }
+
+  if (route === "logout") {
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+
+  json(404, {
+    code: 404,
+    error_code: "not_found",
+    msg: `가짜에 없는 길 ${route}`,
+  });
+  return true;
+}
+
 http
-  .createServer((req, res) => {
+  .createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     const send = (code, body) => {
       res.writeHead(code, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
     };
     if (url.pathname === "/") return send(200, { ok: true });
+    if (await handleAuthRoutes(req, res, url)) return;
     const table = url.pathname.replace("/rest/v1/", "");
     // 태백(216)만 묻는 읽기는 일부러 오류 (여러 지점을 한꺼번에 묻는 읽기는 정상)
     if (/eq\.216\b|eq\.216-/.test(decodeURIComponent(url.search))) {
