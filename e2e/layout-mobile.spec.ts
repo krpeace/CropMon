@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from "./fixtures";
 
 // 화면 구성 화면 /layout (이슈 #176, 결정 0058). 휴대폰 390. 메뉴를 켜고 끄고 순서를 바꾸면 그 자리에서 저장되고(바로 적용),
-// 하단 탭바 · 더보기가 새로고침 없이 따라간다. 실제 손가락 끌기는 이 시험으로 못 본다(PR 본문의 "휴대폰에서 확인할 목록").
+// 하단 탭바 · 더보기가 새로고침 없이 따라간다. 휴대폰(터치 · 펜)은 길게 눌러야 끌기가 시작된다(이슈 #180, 결정 0060).
+// 실제 손가락 끌기 · 스크롤 다툼은 이 시험으로 못 본다(포인터 이벤트 흉내) — PR 본문의 "휴대폰에서 확인할 목록".
 
 const KEY = "cropmon-menus";
 const DEFAULT_LABELS = [
@@ -68,30 +69,103 @@ async function mouseDrag(page: Page, from: Locator, toY: number) {
   await page.mouse.up();
 }
 
-/** 손가락 흉내: 같은 손잡이에 pointerType "touch" 포인터 이벤트를 보낸다(Playwright 에는 실제 터치 끌기가 없다). */
-async function touchDrag(from: Locator, toY: number) {
-  await from.evaluate((el, ty) => {
-    const r = el.getBoundingClientRect();
-    const x = r.x + r.width / 2;
-    const y = r.y + r.height / 2;
-    const send = (type: string, cy: number) =>
-      el.dispatchEvent(
-        new PointerEvent(type, {
-          pointerId: 11,
-          pointerType: "touch",
-          isPrimary: true,
-          button: 0,
-          buttons: type === "pointerup" ? 0 : 1,
-          clientX: x,
-          clientY: cy,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    send("pointerdown", y);
-    for (let i = 1; i <= 8; i += 1) send("pointermove", y + ((ty - y) * i) / 8);
-    send("pointerup", ty);
-  }, toY);
+/** 길게 누르기 판단(0.45초)을 넉넉히 넘기는 기다림(ms). */
+const HOLD_MS = 600;
+
+/**
+ * 손가락 흉내: 같은 줄 부분에 pointerType "touch" 포인터 이벤트를 하나씩 보낸다(Playwright 에는 실제 터치 끌기가 없다).
+ * 시간 간격은 시험이 `waitForTimeout` 으로 둔다. 좌표는 처음 잰 값에서 이어 가므로 끄는 줄이 움직여도 흔들리지 않는다.
+ */
+async function finger(from: Locator) {
+  const { x, y } = await center(from);
+  const send = (type: string, cy: number) =>
+    from.evaluate(
+      (el, a) =>
+        el.dispatchEvent(
+          new PointerEvent(a.type, {
+            pointerId: 11,
+            pointerType: "touch",
+            isPrimary: true,
+            button: 0,
+            buttons: a.type === "pointerup" ? 0 : 1,
+            clientX: a.cx,
+            clientY: a.cy,
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+      { type, cy, cx: x },
+    );
+  return {
+    x,
+    y,
+    down: () => send("pointerdown", y),
+    move: (toY: number) => send("pointermove", toY),
+    up: (atY: number) => send("pointerup", atY),
+    cancel: (atY: number) => send("pointercancel", atY),
+    /** 눌렀던 곳에서 toY 까지 여러 번에 나눠 움직인다. */
+    async slide(toY: number, steps = 8) {
+      for (let i = 1; i <= steps; i += 1) {
+        await send("pointermove", y + ((toY - y) * i) / steps);
+      }
+    },
+  };
+}
+
+/** 길게 눌러 줄을 들어 올린 뒤 toY 까지 끌어 놓는다. */
+async function longPressDrag(from: Locator, toY: number) {
+  const f = await finger(from);
+  await f.down();
+  await from.page().waitForTimeout(HOLD_MS);
+  await f.slide(toY);
+  await f.up(toY);
+}
+
+const dragging = (page: Page, id: string) =>
+  rowOf(page, id).getAttribute("data-dragging");
+
+/** 10줄 모두 ▲ · ▼ · 손잡이(와 스위치 칸)의 가로 위치가 같다 — 종합의 "항상 사용" 배지가 칸을 밀지 않는다. */
+async function expectColumnsAligned(page: Page) {
+  const cols = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid="layout-row"]')).map(
+      (r) => {
+        const x = (part: string) => {
+          const el = r.querySelector(`[data-part="${part}"]`);
+          if (!el) return null;
+          const b = el.getBoundingClientRect();
+          return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10];
+        };
+        const slot = r.querySelector('[data-part="toggle-slot"]');
+        const sb = slot?.getBoundingClientRect();
+        return {
+          id: r.getAttribute("data-menu"),
+          up: x("up"),
+          down: x("down"),
+          handle: x("handle"),
+          slot: sb
+            ? [Math.round(sb.left * 10) / 10, Math.round(sb.right * 10) / 10]
+            : null,
+        };
+      },
+    ),
+  );
+  expect(cols).toHaveLength(10);
+  const home = cols[0];
+  expect(home.id).toBe("home");
+  expect(home.slot).not.toBeNull();
+  for (const c of cols) {
+    for (const k of ["up", "down", "handle", "slot"] as const) {
+      expect(c[k], `${c.id} ${k}`).not.toBeNull();
+      expect(
+        Math.abs(c[k]![0] - home[k]![0]),
+        `${c.id} ${k} 왼쪽`,
+      ).toBeLessThanOrEqual(0.6);
+      expect(
+        Math.abs(c[k]![1] - home[k]![1]),
+        `${c.id} ${k} 오른쪽`,
+      ).toBeLessThanOrEqual(0.6);
+    }
+  }
 }
 
 test.describe("화면 구성 화면 (휴대폰)", () => {
@@ -283,12 +357,12 @@ test.describe("화면 구성 화면 (휴대폰)", () => {
     ]);
   });
 
-  test("순서 바꾸기 — 끌기(손가락 흉내, pointerType touch): 아래로 끌기", async ({
+  test("순서 바꾸기 — 길게 눌러 끌기(손가락 흉내, pointerType touch): 손잡이를 0.6초 누른 뒤 아래로 끌기", async ({
     page,
   }) => {
     await open(page);
     const target = await center(rowOf(page, "sun"));
-    await touchDrag(handle(page, "물"), target.y);
+    await longPressDrag(handle(page, "물"), target.y);
     expect((await order(page)).slice(0, 4)).toEqual([
       "home",
       "temp",
@@ -301,6 +375,290 @@ test.describe("화면 구성 화면 (휴대폰)", () => {
       "햇빛",
       "물",
     ]);
+    expect(JSON.parse((await savedRaw(page))!).order.slice(0, 4)).toEqual([
+      "home",
+      "temp",
+      "sun",
+      "water",
+    ]);
+  });
+
+  test("길게 눌러 끌기 — 아이콘 · 이름 칸을 잡아도 된다 (탭 배지가 있는 칸 포함)", async ({
+    page,
+  }) => {
+    await open(page);
+    const grab = rowOf(page, "temp").locator('[data-part="grab"]');
+    await expect(grab).toHaveCount(1);
+    await expect(grab).toContainText("탭 3");
+    const target = await center(rowOf(page, "water"));
+    await longPressDrag(grab, target.y);
+    expect((await order(page)).slice(0, 4)).toEqual([
+      "home",
+      "temp",
+      "water",
+      "sun",
+    ]);
+    await expect(live(page)).toHaveText("온도를 2번째로 옮겼어요");
+  });
+
+  test("① 짧게 탭하면 아무 일 없다 (순서 · 저장값 그대로, 들리지 않음)", async ({
+    page,
+  }) => {
+    await open(page);
+    for (const where of [
+      handle(page, "물"),
+      rowOf(page, "water").locator('[data-part="grab"]'),
+    ]) {
+      const f = await finger(where);
+      await f.down();
+      await page.waitForTimeout(150);
+      await f.up(f.y);
+      await page.waitForTimeout(HOLD_MS); // 타이머가 남아 있다면 이때 켜졌을 것
+      expect(await dragging(page, "water")).toBeNull();
+    }
+    expect((await order(page)).slice(0, 4)).toEqual([
+      "home",
+      "water",
+      "temp",
+      "sun",
+    ]);
+    expect(await savedRaw(page)).toBeNull();
+  });
+
+  test("② 누르고 바로(8px 넘게) 움직이면 길게 누르기가 취소된다 — 0.6초가 지나도 줄은 안 들리고 순서 그대로 (화면 스크롤)", async ({
+    page,
+  }) => {
+    await open(page);
+    for (const where of [
+      handle(page, "물"),
+      rowOf(page, "water").locator('[data-part="grab"]'),
+    ]) {
+      const f = await finger(where);
+      await f.down();
+      await f.move(f.y + 20); // 8px 넘게
+      await page.waitForTimeout(HOLD_MS);
+      expect(await dragging(page, "water")).toBeNull();
+      await f.slide(f.y + 140);
+      expect(await dragging(page, "water")).toBeNull();
+      // 줄이 손가락을 따라 움직이지 않았다
+      const t = await rowOf(page, "water").evaluate(
+        (el) => (el as HTMLElement).style.transform,
+      );
+      expect(t).toBe("");
+      await f.up(f.y + 140);
+    }
+    expect((await order(page)).slice(0, 4)).toEqual([
+      "home",
+      "water",
+      "temp",
+      "sun",
+    ]);
+    expect(await savedRaw(page)).toBeNull();
+  });
+
+  test("③ 8px 안에서 조금 흔들려도(5px) 0.45초가 지나면 들린다 · 들린 표시는 기다린 뒤에만 켜진다", async ({
+    page,
+  }) => {
+    await open(page);
+    const f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(150);
+    expect(await dragging(page, "water")).toBeNull(); // 아직 아님
+    await f.move(f.y + 5);
+    await page.waitForTimeout(HOLD_MS);
+    await expect(rowOf(page, "water")).toHaveAttribute("data-dragging", "true");
+    await f.cancel(f.y + 5); // 취소로 끝내면 순서 그대로
+    await expect(rowOf(page, "water")).not.toHaveAttribute(
+      "data-dragging",
+      "true",
+    );
+    expect((await order(page)).slice(0, 3)).toEqual(["home", "water", "temp"]);
+  });
+
+  test("들릴 때 짧은 진동(15ms)을 시도하고, 진동 기능이 없는 브라우저에서도 오류 없이 들린다", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __vib: number[] };
+      w.__vib = [];
+      Object.defineProperty(navigator, "vibrate", {
+        configurable: true,
+        value: (ms: number) => {
+          w.__vib.push(ms);
+          return true;
+        },
+      });
+    });
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await open(page);
+    const f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(HOLD_MS);
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __vib: number[] }).__vib,
+      ),
+    ).toEqual([15]);
+    await f.cancel(f.y);
+    // 진동 기능이 아예 없는 브라우저(아이폰 사파리 등)
+    await page.evaluate(() =>
+      Object.defineProperty(navigator, "vibrate", {
+        configurable: true,
+        value: undefined,
+      }),
+    );
+    const g = await finger(handle(page, "온도"));
+    await g.down();
+    await page.waitForTimeout(HOLD_MS);
+    await expect(rowOf(page, "temp")).toHaveAttribute("data-dragging", "true");
+    await g.cancel(g.y);
+    expect(errors).toEqual([]);
+  });
+
+  test("들린 줄이 커져도(scale) 목록 상자 밖으로 잘리지 않는다 (390 폭, 손잡이가 화면 안)", async ({
+    page,
+  }) => {
+    await open(page);
+    const f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(HOLD_MS);
+    await expect(rowOf(page, "water")).toHaveAttribute("data-dragging", "true");
+    const hb = (await handle(page, "물").boundingBox())!;
+    expect(hb.x + hb.width).toBeLessThanOrEqual(390);
+    const box = await rowOf(page, "water").evaluate((el) => {
+      const card = el.parentElement!.parentElement!.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return { dl: r.left - card.left, dr: card.right - r.right };
+    });
+    expect(box.dl).toBeGreaterThanOrEqual(-0.5);
+    expect(box.dr).toBeGreaterThanOrEqual(-0.5);
+    await f.cancel(f.y);
+  });
+
+  test("끄는 동안에만 화면 터치 스크롤을 막는다 (touchmove preventDefault) — 놓기 · 취소 · Esc · 화면을 떠남 뒤에는 다시 풀린다", async ({
+    page,
+  }) => {
+    await open(page);
+    /** 취소 가능한 touchmove 를 보내, 누가 막았는지(= dispatchEvent 가 false) 돌려준다. */
+    const blocked = () =>
+      page.evaluate(
+        () =>
+          !document.body.dispatchEvent(
+            new Event("touchmove", { bubbles: true, cancelable: true }),
+          ),
+      );
+    expect(await blocked()).toBe(false); // 평소에는 안 막음
+
+    // 기다리는 동안(들리기 전)에도 안 막음 — 스크롤이 가능해야 한다
+    let f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(150);
+    expect(await blocked()).toBe(false);
+    await page.waitForTimeout(HOLD_MS);
+    expect(await blocked()).toBe(true); // 들린 뒤에는 막음
+
+    // 놓으면 풀림
+    await f.up(f.y);
+    expect(await blocked()).toBe(false);
+
+    // 취소로 끝나도 풀림
+    f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(HOLD_MS);
+    expect(await blocked()).toBe(true);
+    await f.cancel(f.y);
+    expect(await blocked()).toBe(false);
+
+    // Esc 로 끝나도 풀림
+    f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(HOLD_MS);
+    expect(await blocked()).toBe(true);
+    await page.keyboard.press("Escape");
+    expect(await blocked()).toBe(false);
+    await f.up(f.y);
+
+    // 끄는 도중 화면을 떠나도(다른 화면으로 이동) 풀림
+    f = await finger(handle(page, "물"));
+    await f.down();
+    await page.waitForTimeout(HOLD_MS);
+    expect(await blocked()).toBe(true);
+    await page.getByRole("button", { name: "뒤로" }).click();
+    await expect(page).not.toHaveURL(/\/layout/);
+    expect(await blocked()).toBe(false);
+  });
+
+  test("잡는 곳(아이콘 · 이름 칸, 손잡이)은 세로 스크롤을 허용하고(touch-action pan-y), 글자 선택 · 길게 누르기 메뉴가 안 뜬다", async ({
+    page,
+  }) => {
+    await open(page);
+    for (const where of [
+      rowOf(page, "water").locator('[data-part="grab"]'),
+      handle(page, "물"),
+    ]) {
+      const st = await where.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return {
+          touchAction: s.touchAction,
+          userSelect: s.userSelect,
+          callout: s.getPropertyValue("-webkit-touch-callout"),
+        };
+      });
+      expect(st.touchAction).toBe("pan-y");
+      expect(st.userSelect).toBe("none");
+      // -webkit-touch-callout 은 크로미움이 모를 수 있어 값이 비면 넘어간다
+      if (st.callout) expect(st.callout).toBe("none");
+      const prevented = await where.evaluate(
+        (el) =>
+          !el.dispatchEvent(
+            new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+          ),
+      );
+      expect(prevented).toBe(true);
+    }
+    // 목록 밖(안내 글)은 건드리지 않는다
+    const outside = await page
+      .getByText("켜 둔 메뉴 가운데")
+      .evaluate((el) => getComputedStyle(el).userSelect);
+    expect(outside).not.toBe("none");
+  });
+
+  test("④ ▲▼ · 스위치는 길게 눌러도 옮기기가 시작되지 않고, 한 번에 눌린다", async ({
+    page,
+  }) => {
+    await open(page);
+    for (const where of [
+      up(page, "온도"),
+      down(page, "온도"),
+      page.getByRole("switch", { name: "온도 사용" }),
+    ]) {
+      const f = await finger(where);
+      await f.down();
+      await page.waitForTimeout(HOLD_MS);
+      expect(await dragging(page, "temp")).toBeNull();
+      await f.up(f.y);
+    }
+    expect((await order(page)).slice(0, 4)).toEqual([
+      "home",
+      "water",
+      "temp",
+      "sun",
+    ]);
+    // 한 번 누르면 바로 동작
+    await up(page, "온도").click();
+    expect((await order(page)).slice(0, 3)).toEqual(["home", "temp", "water"]);
+    await page.getByRole("switch", { name: "온도 사용" }).click();
+    await expect(
+      page.getByRole("switch", { name: "온도 사용" }),
+    ).toHaveAttribute("aria-checked", "false");
+  });
+
+  test("종합 줄도 ▲ · ▼ · 스위치 칸 · 손잡이가 다른 줄과 세로로 나란하다 (100%)", async ({
+    page,
+  }) => {
+    await open(page);
+    await expectColumnsAligned(page);
   });
 
   test("끄는 동안 줄이 따라 움직이고, 목록 위 끝 밖으로 나가도 끊기지 않고 맨 위로 놓인다 · Esc 로 취소", async ({
@@ -545,6 +903,9 @@ test.describe("화면 구성 화면 (휴대폰)", () => {
         ) as HTMLElement[];
         for (let i = 0; i < kids.length; i += 1) {
           for (let j = i + 1; j < kids.length; j += 1) {
+            // 칸 안에 들어 있는 요소(잡는 칸 ⊃ 아이콘 · 이름, 스위치 칸 ⊃ 스위치)는 겹침이 아니다 — 서로 다른 칸끼리만 본다
+            if (kids[i].contains(kids[j]) || kids[j].contains(kids[i]))
+              continue;
             const a = kids[i].getBoundingClientRect();
             const b = kids[j].getBoundingClientRect();
             const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
@@ -559,6 +920,8 @@ test.describe("화면 구성 화면 (휴대폰)", () => {
       return bad;
     });
     expect(overlaps).toEqual([]);
+    // 종합 줄도 ▲ · ▼ · 스위치 칸 · 손잡이가 다른 줄과 세로로 나란하다 (#180)
+    await expectColumnsAligned(page);
     // 맨 아래 줄(일지)을 ▲로 맨 위까지
     for (let i = 0; i < 9; i += 1) await up(page, "일지").click();
     expect((await order(page))[0]).toBe("diary");

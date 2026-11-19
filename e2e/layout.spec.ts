@@ -47,6 +47,62 @@ test.describe("데스크톱 1440", () => {
     await expect.poll(() => labels(page)).not.toContain("토양");
   });
 
+  test("마우스: 손잡이는 누르고 바로 끌면 순서가 바뀐다 (길게 누르기 없음)", async ({
+    page,
+  }) => {
+    await page.goto("/layout?st=101&crop=apple");
+    await expect(page.getByTestId("layout-row")).toHaveCount(10);
+    const h = page.getByRole("button", { name: "햇빛 순서 바꾸기" });
+    const hb = (await h.boundingBox())!;
+    const target = (await page
+      .locator('[data-testid="layout-row"][data-menu="water"]')
+      .boundingBox())!;
+    const x = hb.x + hb.width / 2;
+    const y = hb.y + hb.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    // 기다리지 않고 바로 움직인다
+    await page.mouse.move(x, y - 20, { steps: 3 });
+    await expect(
+      page.locator('[data-testid="layout-row"][data-menu="sun"]'),
+    ).toHaveAttribute("data-dragging", "true");
+    await page.mouse.move(x, target.y + target.height / 2, { steps: 8 });
+    await page.mouse.up();
+    const first = await page
+      .getByTestId("layout-row")
+      .evaluateAll((els) =>
+        els.slice(0, 4).map((e) => e.getAttribute("data-menu")),
+      );
+    expect(first).toEqual(["home", "sun", "water", "temp"]);
+  });
+
+  test("마우스: 아이콘 · 이름 칸은 끌어도 순서가 안 바뀐다 (길게 누르기는 터치 · 펜 전용)", async ({
+    page,
+  }) => {
+    await page.goto("/layout?st=101&crop=apple");
+    await expect(page.getByTestId("layout-row")).toHaveCount(10);
+    const grab = page
+      .locator('[data-testid="layout-row"][data-menu="sun"]')
+      .locator('[data-part="grab"]');
+    const gb = (await grab.boundingBox())!;
+    const x = gb.x + gb.width / 2;
+    const y = gb.y + gb.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.move(x, y - 120, { steps: 8 });
+    await expect(
+      page.locator('[data-testid="layout-row"][data-menu="sun"]'),
+    ).not.toHaveAttribute("data-dragging", "true");
+    await page.mouse.up();
+    const first = await page
+      .getByTestId("layout-row")
+      .evaluateAll((els) =>
+        els.slice(0, 4).map((e) => e.getAttribute("data-menu")),
+      );
+    expect(first).toEqual(["home", "water", "temp", "sun"]);
+  });
+
   test("순서를 바꿔도 데스크톱 메뉴 줄 순서는 기본 그대로", async ({
     page,
   }) => {

@@ -141,6 +141,27 @@ export function nearestIndex(centers: readonly number[], y: number): number {
   return best;
 }
 
+/** 길게 눌러 옮기기: 손가락을 댄 채 버텨야 하는 시간(ms). 이슈 #180, 결정 0060. */
+export const LONG_PRESS_MS = 450;
+/** 길게 누르는 동안 이만큼(px)까지는 흔들려도 괜찮다. 넘으면 스크롤로 보고 취소한다. */
+export const LONG_PRESS_SLOP_PX = 8;
+
+/**
+ * 길게 눌러 옮기기를 시작할지 판단한다. **기다리는 동안에만** 쓴다 — 시작한 뒤의 움직임은 끌기라서 이 함수로 취소하지 않는다.
+ * - `"cancel"`: 8px 을 넘게 움직였다(시간과 상관없이 — 타이머가 확인하는 순간에 이미 넘었어도 취소). 그냥 화면 스크롤이 된다.
+ * - `"start"`: 8px 안에서 0.45초가 지났다(딱 0.45초부터).
+ * - `"wait"`: 아직 0.45초 전이고 8px 안이다. 이때 손을 떼면(짧은 탭) 아무 일도 없다.
+ * `movedPx` 는 손가락을 댄 곳에서 지금까지의 직선거리. 8px 딱은 "넘지" 않은 것이다.
+ */
+export function longPressDecision(
+  elapsedMs: number,
+  movedPx: number,
+): "wait" | "start" | "cancel" {
+  if (movedPx > LONG_PRESS_SLOP_PX) return "cancel";
+  if (elapsedMs >= LONG_PRESS_MS) return "start";
+  return "wait";
+}
+
 /** 받침이 있으면 "을", 없으면 "를" (한글 마지막 글자 기준). */
 function objectParticle(word: string): string {
   const code = word.charCodeAt(word.length - 1) - 0xac00;
