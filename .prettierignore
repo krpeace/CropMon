@@ -10,3 +10,5 @@ test-results/
 design/
 # next dev 가 다시 써 넣는 파일
 AGENTS.md
+# 약관 · 개인정보처리방침 본문 (이슈 #173). 전문가 확인을 거친 글이라 한 글자도 고치지 않는다 — 표 정렬 · 목록 기호를 Prettier 가 바꾸지 않게.
+content/legal/

@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "./fixtures";
 
-// 더보기 아래쪽 (이슈 #161, 결정 0052): 서비스 메뉴 → 구분선 → 공지 · 문의 · FAQ · 약관(준비 중)
+// 더보기 아래쪽 (이슈 #161, 결정 0052): 서비스 메뉴 → 구분선 → 공지 · 문의 · FAQ(준비 중) · 약관(/terms 로 가는 링크, #173)
 // → 화면 구성(준비 중) · 글씨 크기(/font-size 로 가는 링크, #168) · 다크 모드, 끈 메뉴가 있으면 맨 아래 "숨긴 메뉴 n개" 줄.
 // 휴대폰(mobile 프로젝트 390×844)에서는 쪽 안 큰 제목 "더보기"를 숨기고(`h1` 은 남김), 데스크톱은 그대로다.
 
@@ -29,11 +29,13 @@ const darkRow = (page: Page) =>
   main(page).getByRole("button", { name: /(다크|라이트) 모드로 보기/ });
 const fontRow = (page: Page) =>
   main(page).getByRole("link", { name: /^글씨 크기/ });
-// 서비스 메뉴 링크 — 아래 "글씨 크기" 줄(링크)은 뺀다
+const termsRow = (page: Page) =>
+  main(page).getByRole("link", { name: /^약관/ });
+// 서비스 메뉴 링크 — 아래 "약관" · "글씨 크기" 줄(링크)은 뺀다
 const serviceLinks = (page: Page) =>
   main(page)
     .getByRole("link")
-    .filter({ hasNotText: /^글씨 크기/ });
+    .filter({ hasNotText: /^(약관|글씨 크기)/ });
 const hiddenLine = (page: Page) =>
   main(page).getByRole("button", { name: /숨긴 메뉴/ });
 
@@ -59,7 +61,7 @@ test.describe("휴대폰 더보기", () => {
       await top(row(page, /^공지/)),
       await top(row(page, /^문의/)),
       await top(row(page, /^FAQ/)),
-      await top(row(page, /^약관/)),
+      await top(termsRow(page)),
       await top(row(page, /^화면 구성/)),
       await top(fontRow(page)),
       await top(darkRow(page)),
@@ -71,12 +73,12 @@ test.describe("휴대폰 더보기", () => {
     await expect(serviceLinks(page)).toHaveCount(10);
   });
 
-  test("공지 · 문의 · FAQ · 약관 · 화면 구성은 준비 중: aria-disabled · 꼬리표 · 눌러도 이동 없음 · 누르는 높이 44 이상 · 아이콘 24", async ({
+  test("공지 · 문의 · FAQ · 화면 구성은 준비 중: aria-disabled · 꼬리표 · 눌러도 이동 없음 · 누르는 높이 44 이상 · 아이콘 24", async ({
     page,
   }) => {
     await open(page);
     const url = page.url();
-    for (const label of ["공지", "문의", "FAQ", "약관", "화면 구성"]) {
+    for (const label of ["공지", "문의", "FAQ", "화면 구성"]) {
       const r = row(page, new RegExp(`^${label}`));
       await expect(r, label).toHaveAttribute("aria-disabled", "true");
       await expect(r, label).toContainText("준비 중");
@@ -100,6 +102,18 @@ test.describe("휴대폰 더보기", () => {
       expect(page.url(), `${label} 눌러도 이동 없음`).toBe(url);
       await expect(page.getByRole("dialog")).toHaveCount(0);
     }
+  });
+
+  test("약관 줄(#173): 준비 중 꼬리표 없는 링크 · 누르는 높이 44 이상 · 아이콘 24 · /terms 로", async ({
+    page,
+  }) => {
+    await open(page);
+    const r = termsRow(page);
+    await expect(r).not.toContainText("준비 중");
+    await expect(r).not.toHaveAttribute("aria-disabled", "true");
+    await expect(r).toHaveAttribute("href", "/terms");
+    expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await r.locator("svg").first().boundingBox())!.width).toBe(24);
   });
 
   test("글씨 크기 줄(#168): 준비 중 꼬리표 없는 링크 · 누르는 높이 44 이상 · 아이콘 24 · 고른 지역 · 작물을 이어서 /font-size 로", async ({

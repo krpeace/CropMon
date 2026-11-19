@@ -60,12 +60,19 @@ test.describe("데스크톱 1440", () => {
     for (const w of weights.slice(0, 4)) expect(w).toBeLessThan(600);
   });
 
-  test("링크 줄은 아직 글자만이다 — 링크 아님, '준비 중' 표시 없음, 회색", async ({
+  test("링크 줄: 약관 · 개인정보처리방침만 링크(#173), 나머지는 글자만 — 버튼 없음, '준비 중' 표시 없음, 회색", async ({
     page,
   }) => {
     await open(page);
     const list = footer(page).getByTestId("footer-notices");
-    await expect(list.getByRole("link")).toHaveCount(0);
+    await expect(list.getByRole("link")).toHaveCount(2);
+    await expect(list.getByRole("link", { name: "약관" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+    await expect(
+      list.getByRole("link", { name: "개인정보처리방침" }),
+    ).toHaveAttribute("href", "/privacy");
     await expect(list.getByRole("button")).toHaveCount(0);
     await expect(list).not.toContainText("준비 중");
     const colors = await items(page).evaluateAll((els) =>
@@ -73,6 +80,11 @@ test.describe("데스크톱 1440", () => {
     );
     // 라이트의 회색 글자(--color-gray-ink rgb(99 99 102))
     for (const c of colors) expect(c).toBe("rgb(99, 99, 102)");
+    // 링크가 된 두 칸도 같은 회색(링크 기본색으로 바뀌지 않는다)
+    const linkColors = await list
+      .getByRole("link")
+      .evaluateAll((els) => els.map((el) => getComputedStyle(el).color));
+    for (const c of linkColors) expect(c).toBe("rgb(99, 99, 102)");
   });
 
   test("운영자 표기: 문구가 이슈의 인용과 같고 12px 회색이다", async ({

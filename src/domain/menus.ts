@@ -209,6 +209,9 @@ const EXTRA_SCREENS: Record<string, ScreenContext> = {
   [MORE_HREF]: { kind: "title", title: "더보기", back: false },
   "/my-farm": { kind: "title", title: "내 농장", back: true },
   "/font-size": { kind: "title", title: "글씨 크기", back: true },
+  // 약관 · 개인정보처리방침은 같은 "약관" 제목 (두 문서는 화면 안 바꾸기 칸으로 오간다, 이슈 #173)
+  "/terms": { kind: "title", title: "약관", back: true },
+  "/privacy": { kind: "title", title: "약관", back: true },
 };
 
 /**
