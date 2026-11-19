@@ -30,6 +30,9 @@ const SQL = readdirSync(MIGRATIONS_DIR)
 /** 연결 확인용 표. 계산 결과가 아니라서 공개 테이블(v1 9개 + v1.1 1개 + v1.3 1개 + v1.4 2개 + v1.5 1개)과 따로 센다. */
 const HEALTH_TABLE = "app_health";
 
+/** 회원 표(v2.0). 읽기 전용 공개 표와 권한 규칙이 달라(자기 줄만) 표별 공개 표 검사에서 따로 뺀다. */
+const MEMBERS_TABLE = "members";
+
 const PUBLIC_TABLES = [
   "stations",
   "crops",
@@ -61,9 +64,9 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 14개와 app_health 가 있다", () => {
+  it("계약서에 공개 테이블 14개와 회원 표 members, app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
-      [...PUBLIC_TABLES, HEALTH_TABLE].sort(),
+      [...PUBLIC_TABLES, MEMBERS_TABLE, HEALTH_TABLE].sort(),
     );
   });
 
@@ -71,8 +74,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v1.10 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v1\.10\b/);
+  it("계약서의 현재 버전이 v2.0 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.0\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -454,5 +457,410 @@ describe("데이터 계약과 마이그레이션", () => {
       expect(CONTRACT).toContain("`service_role`");
       expect(CONTRACT).toContain("`POST /rest/v1/rpc/db_size_bytes`");
     });
+  });
+});
+
+/**
+ * 회원 DB (v2.0, 이슈 #178, 결정 0059).
+ * 실제 동작(가입 트리거, 자기 줄만 보임, 탈퇴)은 supabase/checks/d1_1_members_check.sql 을 사용자가 SQL Editor 에서 돌려 확인한다.
+ * 여기서는 마이그레이션·계약서·확인 SQL 의 글자가 약속대로인지 본다.
+ */
+describe("회원 DB (v2.0)", () => {
+  /** v2.0 마이그레이션 파일 하나(주석 제거·소문자). */
+  const MEMBERS_FILE = readdirSync(MIGRATIONS_DIR).find((n) =>
+    n.endsWith("_data_contract_v2_0_members.sql"),
+  );
+  const MEMBERS_SQL = MEMBERS_FILE
+    ? readFileSync(join(MIGRATIONS_DIR, MEMBERS_FILE), "utf8")
+        .split("\n")
+        .map((line) => line.replace(/--.*$/, ""))
+        .join("\n")
+        .toLowerCase()
+    : "";
+
+  const UPDATABLE = [
+    "display_name",
+    "terms_version",
+    "terms_agreed_at",
+    "privacy_version",
+    "privacy_confirmed_at",
+    "age14_confirmed_at",
+    "layout",
+    "font_scale",
+    "theme",
+  ];
+  const PROTECTED = [
+    "user_id",
+    "provider",
+    "role",
+    "role_verified_at",
+    "created_at",
+    "updated_at",
+  ];
+
+  /** create or replace function <name>( … $$; 한 덩어리 (소문자). */
+  const fn = (name: string) =>
+    MEMBERS_SQL.match(
+      new RegExp(
+        `create or replace function ${name.replace(".", "\\.")}\\([\\s\\S]*?\\$\\$;`,
+      ),
+    )?.[0];
+  /** 함수 선언부(본문 `as $$` 앞). */
+  const head = (name: string) => fn(name)?.split("as $$")[0];
+
+  it("v2.0 마이그레이션 파일이 있다", () => {
+    expect(MEMBERS_FILE).toBeDefined();
+  });
+
+  describe("public.members 표", () => {
+    const body = MEMBERS_SQL.match(
+      /create table if not exists public\.members\s*\(([\s\S]*?)\n\);/,
+    )?.[1]?.replace(/[ \t]+/g, " ");
+
+    it("회원 한 사람 = 한 줄, auth.users 를 지우면 같이 지워진다", () => {
+      expect(body).toBeDefined();
+      expect(body).toMatch(
+        /user_id uuid primary key references auth\.users \(id\) on delete cascade/,
+      );
+    });
+
+    it("열이 모두 있다 (이메일은 저장하지 않음)", () => {
+      for (const c of [...UPDATABLE, ...PROTECTED]) expect(body).toContain(c);
+      expect(body).not.toMatch(/\bemail\b/);
+    });
+
+    it("provider · role · theme 허용값을 DB 가 막고, jsonb 칸은 객체만 받는다", () => {
+      expect(body).toMatch(
+        /provider text check \(provider in \('kakao', ?'naver', ?'google'\)\)/,
+      );
+      expect(body).toMatch(
+        /role text check \(role in \('farmer', ?'advisor'\)\)/,
+      );
+      expect(body).toMatch(
+        /theme text check \(theme in \('light', ?'dark'\)\)/,
+      );
+      for (const c of ["layout", "font_scale"]) {
+        expect(body).toMatch(
+          new RegExp(
+            `${c} jsonb check \\(jsonb_typeof\\(${c}\\) = 'object'\\)`,
+          ),
+        );
+      }
+    });
+
+    it("created_at · updated_at 은 비어 있지 않고 기본값 now()", () => {
+      expect(body).toMatch(/created_at timestamptz not null default now\(\)/);
+      expect(body).toMatch(/updated_at timestamptz not null default now\(\)/);
+    });
+
+    it("고칠 때 updated_at 을 지금으로 바꾸는 트리거가 있다", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /create trigger members_set_updated_at\s+before update on public\.members\s+for each row execute function public\.set_updated_at\(\)/,
+      );
+    });
+  });
+
+  describe("public.members 권한 (자기 줄만)", () => {
+    it("RLS 를 켜고 기본 권한을 먼저 거둔다", () => {
+      expect(MEMBERS_SQL).toContain(
+        "alter table public.members enable row level security",
+      );
+      expect(MEMBERS_SQL).toContain(
+        "revoke all on public.members from anon, authenticated",
+      );
+    });
+
+    it("읽기 정책은 회원 본인의 자기 줄뿐이다", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /create policy "[^"]+"\s+on public\.members\s+for select\s+to authenticated\s+using \(auth\.uid\(\) = user_id\)/,
+      );
+      expect(MEMBERS_SQL).toMatch(
+        /grant select on public\.members to authenticated;/,
+      );
+    });
+
+    it("고치기 정책도 자기 줄뿐이고 넣기·지우기 정책이 없다", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /create policy "[^"]+"\s+on public\.members\s+for update\s+to authenticated\s+using \(auth\.uid\(\) = user_id\)\s+with check \(auth\.uid\(\) = user_id\)/,
+      );
+      expect(MEMBERS_SQL).not.toMatch(
+        /create policy "[^"]+"\s+on public\.members\s+for (insert|delete|all)/,
+      );
+    });
+
+    it("anon 에는 이 표의 권한과 정책이 하나도 없다", () => {
+      expect(MEMBERS_SQL).not.toMatch(
+        /grant [^;]*on public\.members to [^;]*\banon\b/,
+      );
+      expect(MEMBERS_SQL).not.toMatch(
+        /create policy "[^"]+"\s+on public\.members[^;]*\banon\b/,
+      );
+    });
+
+    it("고칠 수 있는 열은 정해진 9개뿐, role · provider 등은 못 바꾼다", () => {
+      const list = MEMBERS_SQL.match(
+        /grant update \(([^)]*)\) on public\.members to authenticated;/,
+      )?.[1];
+      expect(list).toBeDefined();
+      const cols = list!.split(",").map((c) => c.trim());
+      expect([...cols].sort()).toEqual([...UPDATABLE].sort());
+      for (const c of PROTECTED) expect(cols).not.toContain(c);
+    });
+
+    it("넣기·지우기·전체 권한을 주지 않는다 (열 목록 없는 update 포함)", () => {
+      expect(MEMBERS_SQL).not.toMatch(
+        /grant\s+(insert|delete|truncate|all|update)\s+on public\.members/,
+      );
+      expect(MEMBERS_SQL).not.toMatch(
+        /grant\s+(insert|delete|truncate|all)[^;]*on public\.members/,
+      );
+    });
+  });
+
+  describe("보안 정의(security definer) 함수", () => {
+    it("모든 보안 정의 함수는 set search_path = '' 이다", () => {
+      const defs = [
+        ...MEMBERS_SQL.matchAll(/create or replace function [\s\S]*?as \$\$/g),
+      ]
+        .map((m) => m[0])
+        .filter((h) => h.includes("security definer"));
+      expect(defs.length).toBeGreaterThanOrEqual(3);
+      for (const h of defs) expect(h).toContain("set search_path = ''");
+    });
+  });
+
+  describe("가입 트리거 public.handle_new_user()", () => {
+    it("auth.users 에 줄이 생기면(after insert) 부른다", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /drop trigger if exists on_auth_user_created on auth\.users;\s*create trigger on_auth_user_created\s+after insert on auth\.users\s+for each row execute function public\.handle_new_user\(\)/,
+      );
+    });
+
+    it("이름 · 공급자를 같은 내부 함수 member_seed 로 고르고 on conflict do nothing", () => {
+      const f = fn("public.handle_new_user");
+      expect(f).toBeDefined();
+      expect(f).toContain("public.member_seed(");
+      expect(f).toContain("on conflict (user_id) do nothing");
+    });
+
+    it("오류를 삼킨다: exception when others 로 경고만 남기고 new 를 돌려준다", () => {
+      const f = fn("public.handle_new_user");
+      expect(f).toMatch(
+        /exception\s+when others then\s+raise warning[^;]*;\s*return new;/,
+      );
+    });
+
+    it("경고 문구에 오류 원문(sqlerrm, 이름이 섞일 수 있음)을 쓰지 않는다", () => {
+      expect(fn("public.handle_new_user")).not.toContain("sqlerrm");
+    });
+
+    it("직접 부를 수 없다 (실행 권한 없음)", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /revoke all on function public\.handle_new_user\(\) from public, anon, authenticated;/,
+      );
+      expect(MEMBERS_SQL).not.toMatch(
+        /grant execute on function public\.handle_new_user/,
+      );
+    });
+  });
+
+  describe("이름 · 공급자 고르기 public.member_seed()", () => {
+    it("naver · custom:naver 는 naver, kakao · google 만 받고 모르는 값은 비운다", () => {
+      const f = fn("public.member_seed");
+      expect(f).toBeDefined();
+      expect(f).toContain("'custom:naver");
+      expect(f).toContain("'kakao'");
+      expect(f).toContain("'google'");
+      expect(f).toContain("else null");
+    });
+
+    it("이름 후보를 name → full_name → nickname 순으로 보고 길이를 자른다", () => {
+      const f = fn("public.member_seed")!;
+      const i = ["'name'", "'full_name'", "'nickname'"].map((k) =>
+        f.indexOf(k),
+      );
+      expect(i.every((x) => x > 0)).toBe(true);
+      expect([...i].sort((a, b) => a - b)).toEqual(i);
+      expect(f).toMatch(/left\(/);
+    });
+
+    it("직접 부를 수 없다 (실행 권한 없음)", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /revoke all on function public\.member_seed\(jsonb, jsonb\) from public, anon, authenticated;/,
+      );
+    });
+  });
+
+  describe("public.ensure_my_member() — 줄이 빠진 회원이 자기 줄을 만든다", () => {
+    it("인자 없음, 아무것도 돌려주지 않고, 비회원이면 오류", () => {
+      const h = head("public.ensure_my_member");
+      expect(h).toBeDefined();
+      expect(h).toMatch(/ensure_my_member\(\)\s+returns void/);
+      expect(fn("public.ensure_my_member")).toMatch(
+        /if auth\.uid\(\) is null then\s+raise exception/,
+      );
+    });
+
+    it("자기 auth.users 줄에서 member_seed 로 넣고 두 번 불러도 오류가 없다", () => {
+      const f = fn("public.ensure_my_member");
+      expect(f).toContain("public.member_seed(");
+      expect(f).toMatch(/where u\.id = auth\.uid\(\)/);
+      expect(f).toContain("on conflict (user_id) do nothing");
+    });
+
+    it("회원(authenticated)만 실행한다", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /revoke all on function public\.ensure_my_member\(\) from public, anon;/,
+      );
+      expect(MEMBERS_SQL).toMatch(
+        /grant execute on function public\.ensure_my_member\(\) to authenticated;/,
+      );
+    });
+  });
+
+  describe("탈퇴 ops.withdrawn_accounts · public.delete_my_account()", () => {
+    it("탈퇴 기록 표: 회원 번호는 되돌릴 수 없는 해시만, RLS 켬 · 정책 없음 · 권한 없음", () => {
+      const body = MEMBERS_SQL.match(
+        /create table if not exists ops\.withdrawn_accounts\s*\(([\s\S]*?)\n\);/,
+      )?.[1]?.replace(/[ \t]+/g, " ");
+      expect(body).toBeDefined();
+      expect(body).toMatch(/user_hash text primary key/);
+      expect(body).toMatch(/withdrawn_at timestamptz not null default now\(\)/);
+      expect(MEMBERS_SQL).toContain(
+        "alter table ops.withdrawn_accounts enable row level security",
+      );
+      expect(MEMBERS_SQL).toContain(
+        "revoke all on ops.withdrawn_accounts from anon, authenticated",
+      );
+      expect(MEMBERS_SQL).not.toMatch(/create policy "[^"]+"\s+on ops\./);
+    });
+
+    it("delete_my_account: 인자 없음, 비회원이면 오류, 해시 한 줄 + auth.users 삭제", () => {
+      const h = head("public.delete_my_account");
+      expect(h).toMatch(/delete_my_account\(\)\s+returns void/);
+      const f = fn("public.delete_my_account")!;
+      expect(f).toMatch(/if v_uid is null then\s+raise exception/);
+      expect(f).toContain(
+        "encode(sha256(convert_to(v_uid::text, 'utf8')), 'hex')",
+      );
+      expect(f).toMatch(
+        /on conflict \(user_hash\) do update set withdrawn_at = now\(\)/,
+      );
+      expect(f).toMatch(/delete from auth\.users where id = v_uid/);
+      expect(f.indexOf("insert into ops.withdrawn_accounts")).toBeLessThan(
+        f.indexOf("delete from auth.users"),
+      );
+    });
+
+    it("회원만 실행하고 anon 은 못 한다", () => {
+      expect(MEMBERS_SQL).toMatch(
+        /revoke all on function public\.delete_my_account\(\) from public, anon;/,
+      );
+      expect(MEMBERS_SQL).toMatch(
+        /grant execute on function public\.delete_my_account\(\) to authenticated;/,
+      );
+    });
+  });
+
+  it("이미 있는 auth.users 줄은 마이그레이션 끝에서 한 번 채운다", () => {
+    expect(MEMBERS_SQL).toMatch(
+      /insert into public\.members \(user_id, display_name, provider\)\s+select u\.id, s\.display_name, s\.provider\s+from auth\.users u[\s\S]*?on conflict \(user_id\) do nothing;\s*$/,
+    );
+  });
+
+  describe("계약서 v2.0", () => {
+    const section = CONTRACT.split("### `public.members`")[1]?.split(
+      /\n### /,
+    )[0];
+
+    it("members 열 · 권한 · 가입 트리거 · 고칠 수 있는 열이 적혀 있다", () => {
+      expect(section).toBeDefined();
+      for (const c of [...UPDATABLE, ...PROTECTED])
+        expect(section).toContain(`\`${c}\``);
+      expect(section).toContain("handle_new_user");
+      expect(section).toContain("on_auth_user_created");
+    });
+
+    it("jsonb 칸은 참고용이며 모양은 화면이 거른다고 적혀 있다", () => {
+      expect(section).toContain("참고용");
+      expect(section).toMatch(/parse/);
+    });
+
+    it("ops.withdrawn_accounts 는 공개 표가 아닌 제목으로 적혀 있다", () => {
+      expect(CONTRACT).toMatch(/^### `ops\.withdrawn_accounts`/m);
+      expect(tablesInContract()).not.toContain("withdrawn_accounts");
+    });
+
+    it("운영용 함수 delete_my_account · ensure_my_member 가 적혀 있다", () => {
+      expect(CONTRACT).toContain("`public.delete_my_account()`");
+      expect(CONTRACT).toContain("`public.ensure_my_member()`");
+    });
+
+    it("권한 문장이 공개 표와 회원 표를 나눈다 (회원 표는 자기 줄만)", () => {
+      const rule = CONTRACT.split("## 공통 규칙")[1]
+        .split("\n")
+        .find((l) => l.startsWith("- **권한:**"));
+      expect(rule).toContain("자기 줄");
+      expect(rule).toContain("서버 키");
+    });
+
+    it("농장 쪽은 v2.1 로 더한다고 적혀 있다", () => {
+      expect(CONTRACT).toMatch(/v2\.1/);
+    });
+  });
+
+  describe("확인 SQL · 되돌리기 SQL (사용자가 SQL Editor 에서 실행)", () => {
+    const CHECK = readFileSync(
+      join(ROOT, "supabase/checks/d1_1_members_check.sql"),
+      "utf8",
+    ).toLowerCase();
+    const ROLLBACK = readFileSync(
+      join(ROOT, "supabase/checks/d1_1_members_rollback.sql"),
+      "utf8",
+    ).toLowerCase();
+
+    it("확인 SQL 은 아무것도 남기지 않고(rollback) 마지막에 all_ok 를 낸다", () => {
+      expect(CHECK).toContain("all_ok");
+      expect(CHECK).toContain("raise exception 'd1_1_check_rollback'");
+      expect(CHECK).not.toMatch(/^\s*commit\s*;/m);
+    });
+
+    it("확인 SQL 이 가짜 회원을 gen_random_uuid() 와 example.invalid 로 만든다", () => {
+      expect(CHECK).toContain("gen_random_uuid()");
+      expect(CHECK).toContain("example.invalid");
+    });
+
+    it("확인 SQL 이 핵심 항목을 모두 본다", () => {
+      for (const k of [
+        "custom:naver",
+        "set local role authenticated",
+        "set local role anon",
+        "request.jwt.claims",
+        "delete_my_account()",
+        "ensure_my_member()",
+        "withdrawn_accounts",
+        "insufficient_privilege",
+      ]) {
+        expect(CHECK).toContain(k);
+      }
+    });
+
+    it("되돌리기 SQL 은 트리거 → 함수 → 표 순서로 지운다", () => {
+      const order = [
+        "drop trigger if exists on_auth_user_created on auth.users",
+        "drop function if exists public.handle_new_user()",
+        "drop function if exists public.ensure_my_member()",
+        "drop function if exists public.delete_my_account()",
+        "drop function if exists public.member_seed(jsonb, jsonb)",
+        "drop table if exists ops.withdrawn_accounts",
+        "drop table if exists public.members",
+      ].map((s) => ROLLBACK.indexOf(s));
+      expect(order.every((i) => i >= 0)).toBe(true);
+      expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+  });
+
+  it("members 는 공개 표의 '읽기만' 검사 목록(PUBLIC_TABLES)에 섞지 않는다", () => {
+    expect([...PUBLIC_TABLES]).not.toContain(MEMBERS_TABLE);
   });
 });
