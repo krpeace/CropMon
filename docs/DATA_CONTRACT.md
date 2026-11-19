@@ -444,11 +444,13 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 | `updated_at`                                             | 시각            | 올린(고친) 시각. 고쳐 쓸 때(upsert 포함) 트리거가 지금으로 갱신 (옛 표와 같음)                              |
 
 - croplib-dp 쓰기: PostgREST `on_conflict=stn_id,t_base_c,cum_start_mmdd,date`. `t_base_c`는 **숫자로** 보냅니다.
+- **누적 시작 전 날은 줄이 없습니다**(croplib-dp 회신, 결정 0063): 계열마다 **그해 누적 시작일 ~ 12-31 줄만** 씁니다. 예) (10, 04-20) 계열은 04-20 ~ 12-31. 그 안의 누적 · 평년 누적 · 며칠 빠른가는 모두 그 누적 시작부터 셉니다. **화면은 그 계열에 줄이 없는 날을 "작기 전"으로 봅니다**(3단계 화면 작업 때 쓰는 규칙). 01-01 계열은 지금처럼 1년 내내 줄이 있습니다.
+- **`t_base_c`의 형식**: `numeric`(자릿수 없음, **실수형(float) 아님**)입니다. 사전 `crops.t_base_c`와 옛 `heat_daily.t_base_c`가 모두 `numeric`이라 뷰 · 새 표 · 옛 표가 같은 형식이고, `numeric(4,1)`처럼 자릿수를 묶으면 4.55 같은 값이 말없이 반올림되므로 묶지 않습니다. **숫자로 비교하므로 `4` · `4.0` · `4.00`은 같은 키이고 4.5는 그대로 4.5입니다.** 응답에 `4`와 `4.0`이 섞여 보일 수 있으니 **문자열로 비교하지 말고 숫자(Decimal)로 비교합니다.** croplib-dp는 뷰의 `heat_t_base_c` 값을 그대로 보내면 됩니다.
 - **해를 넘는 누적 시작**(예: 12-01 시작 계열)은 1/1 계열에 없습니다. 그때 "작기 해" 열이 필요한지는 **그때 정합니다**(지금 열을 만들지 않았습니다).
 
 ### `public.sun_series_daily`
 
-적산일사 **계열** × 날짜입니다(v2.2). 권한은 `heat_series_daily`와 같습니다. 키는 계열 × 날짜(`stn_id`, `cum_start_mmdd`, `date`)이고 값 열은 옛 `sun_daily`와 같습니다(`rs_day_mj` · `rs_cum_mj` · `rs_normal_day_mj` · `rs_normal_cum_mj` 수, 비어도 됨 / `normal_from` · `normal_to` 정수 / `filled` / `calc_version` / `updated_at`). 누적(`rs_cum_mj`)과 평년 누적은 그 계열의 누적 시작부터 셉니다. croplib-dp 쓰기: `on_conflict=stn_id,cum_start_mmdd,date`.
+적산일사 **계열** × 날짜입니다(v2.2). 권한은 `heat_series_daily`와 같습니다. 키는 계열 × 날짜(`stn_id`, `cum_start_mmdd`, `date`)이고 값 열은 옛 `sun_daily`와 같습니다(`rs_day_mj` · `rs_cum_mj` · `rs_normal_day_mj` · `rs_normal_cum_mj` 수, 비어도 됨 / `normal_from` · `normal_to` 정수 / `filled` / `calc_version` / `updated_at`). 누적(`rs_cum_mj`)과 평년 누적은 그 계열의 누적 시작부터 셉니다. croplib-dp 쓰기: `on_conflict=stn_id,cum_start_mmdd,date`. **누적 시작 전 날은 줄이 없습니다** — 계열마다 그해 누적 시작일 ~ 12-31 줄만 쓰고(예: 04-20 계열은 04-20 ~ 12-31), 화면은 그 계열에 줄이 없는 날을 "작기 전"으로 봅니다(3단계 화면 작업 때 쓰는 규칙). 01-01 계열은 1년 내내 줄이 있습니다.
 
 #### 계열 목록 뷰: `public.crop_accum_series`
 

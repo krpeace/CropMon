@@ -1611,3 +1611,34 @@ describe("적산 계열 새 표 · 뷰 (v2.2, 결정 0063, D1-3 1단계)", () =>
     );
   });
 });
+
+describe("적산 계열 — croplib-dp 회신 반영 (결정 0063, 문서)", () => {
+  const decision = readFileSync(
+    join(ROOT, "docs/decisions/0063-accum-series.md"),
+    "utf8",
+  );
+
+  it("누적 시작 전 날은 줄이 없고(그해 누적 시작일 ~ 12-31), 화면은 줄 없는 날을 작기 전으로 본다", () => {
+    for (const doc of [decision, CONTRACT]) {
+      expect(doc).toContain("누적 시작 전 날은 줄이 없");
+      expect(doc).toContain("12-31");
+      expect(doc).toMatch(/줄이 없는 날을 "작기 전"으로 (본다|봅니다)/);
+    }
+    // 예시: (10, 04-20) 계열은 04-20 ~ 12-31
+    expect(decision).toContain("04-20 ~ 12-31");
+    expect(CONTRACT).toContain("04-20 ~ 12-31");
+  });
+
+  it("t_base_c 는 자릿수 없는 numeric(실수형 아님)이고 숫자(Decimal)로 비교한다", () => {
+    for (const doc of [decision, CONTRACT]) {
+      expect(doc).toMatch(/`t_base_c`[^\n]*`numeric`/);
+      expect(doc).toContain("실수형");
+      expect(doc).toMatch(/문자열로 비교하지 말고 숫자\(Decimal\)로 비교/);
+      expect(doc).toContain("`4` · `4.0` · `4.00`은 같은 키");
+    }
+    expect(decision).toContain("numeric(4,1)");
+    // 실제 SQL 도 자릿수 없는 numeric 이다 (새 표 · 사전 · 옛 표가 같은 형식)
+    expect(SERIES_SQL).toMatch(/t_base_c\s+numeric not null check/);
+    expect(SERIES_SQL).not.toMatch(/numeric\(\d/);
+  });
+});
