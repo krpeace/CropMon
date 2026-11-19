@@ -95,18 +95,19 @@ test.describe("휴대폰", () => {
 
     await menu(page).getByRole("link", { name: "더보기" }).click();
     await expect(page).toHaveURL(/\/more\?st=101&crop=apple$/);
-    // 서비스 메뉴 줄만 — 아래 "약관"(#173) · "글씨 크기"(#168) 줄은 링크가 되었고 more-bottom.spec.ts 가 본다
+    // 서비스 메뉴 줄만 — 아래 "약관"(#173) · "화면 구성"(#176) · "글씨 크기"(#168) 줄과 "숨긴 메뉴 n개" 줄(#176)은
+    // 링크가 되었고 more-bottom.spec.ts 가 본다
     const list = page
       .getByRole("main")
       .getByRole("link")
-      .filter({ hasNotText: /^(글씨 크기|약관)/ });
+      .filter({ hasNotText: /^(글씨 크기|약관|화면 구성|숨긴 메뉴)/ });
     await expect(list).toHaveText(
       DEFAULT_LABELS.filter((l) => l !== "온도").map(
         (l) => new RegExp(`^${l}`),
       ),
     );
     await expect(
-      page.getByRole("button", { name: /숨긴 메뉴 1개/ }),
+      page.getByRole("link", { name: /숨긴 메뉴 1개/ }),
     ).toBeVisible();
   });
 
@@ -169,11 +170,11 @@ test.describe("휴대폰", () => {
   }) => {
     await open(page, "/more?st=136&crop=cabbage");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("더보기");
-    // 서비스 메뉴 줄만 — 아래 "약관"(#173) · "글씨 크기"(#168) 줄은 링크가 되었고 more-bottom.spec.ts 가 본다
+    // 서비스 메뉴 줄만 — 아래 "약관"(#173) · "화면 구성"(#176) · "글씨 크기"(#168) 줄은 링크가 되었고 more-bottom.spec.ts 가 본다
     const rows = page
       .getByRole("main")
       .getByRole("link")
-      .filter({ hasNotText: /^(글씨 크기|약관)/ });
+      .filter({ hasNotText: /^(글씨 크기|약관|화면 구성|숨긴 메뉴)/ });
     await expect(rows).toHaveText(
       DEFAULT_LABELS.map((l) => new RegExp(`^${l}`)),
     );
@@ -196,17 +197,16 @@ test.describe("휴대폰", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("토양");
   });
 
-  test("'숨긴 메뉴 n개' 줄은 눌러도 이동하지 않는다 (화면 구성은 나중 이슈)", async ({
+  test("'숨긴 메뉴 n개' 줄은 화면 구성(/layout)으로 가는 링크다 (#176)", async ({
     page,
   }) => {
     await save(page, withoutTemp);
     await open(page, "/more?st=101&crop=apple");
-    const hidden = page.getByRole("button", { name: /숨긴 메뉴 1개/ });
+    const hidden = page.getByRole("link", { name: /숨긴 메뉴 1개/ });
     await expect(hidden).toContainText("화면 구성에서 다시 켜기");
-    await expect(hidden).toHaveAttribute("aria-disabled", "true");
-    // aria-disabled 라서 Playwright 가 "누를 수 없음"으로 기다리지 않게 일부러 누른다
-    await hidden.click({ force: true });
-    await expect(page).toHaveURL(/\/more\?st=101&crop=apple$/);
+    await expect(hidden).toHaveAttribute("href", "/layout?st=101&crop=apple");
+    await hidden.click();
+    await expect(page).toHaveURL(/\/layout\?st=101&crop=apple$/);
   });
 
   test("새 쪽 넷은 더보기에서 눌러 열린다", async ({ page }) => {

@@ -187,8 +187,8 @@ test.describe("휴대폰", () => {
     await setFz(page, 1.5);
     const vw = page.viewportSize()!.width;
     const rows = await page.getByRole("main").getByRole("link").all();
-    // 서비스 메뉴 10개 + "약관" 줄(#173) + "글씨 크기" 줄(#168) — 둘 다 준비 중 버튼에서 링크가 됨
-    expect(rows.length).toBe(12);
+    // 서비스 메뉴 10개 + "약관"(#173) · "화면 구성"(#176) · "글씨 크기"(#168) 줄 — 셋 다 준비 중 버튼에서 링크가 됨
+    expect(rows.length).toBe(13);
     for (const row of rows) {
       const b = (await row.boundingBox())!;
       expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);

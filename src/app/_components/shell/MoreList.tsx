@@ -23,7 +23,7 @@ const GROUP = "rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5";
  * ① 서비스 메뉴 — 맨 위 종합, 켠 메뉴(준비 중은 꼬리표, 설정값 순서)
  * ② 구분선
  * ③ 공지 · 문의 · FAQ — 아직 화면이 없어 "준비 중", 약관은 /terms 링크 줄(이슈 #173)
- * ④ (비회원) 화면 구성("준비 중", S5) · 글씨 크기(/font-size 로 가는 줄, 지금 단계 이름) · 다크 모드(스위치 — 휴대폰 맥락 바에는 해/달 버튼이 없다)
+ * ④ (비회원) 화면 구성(/layout 으로 가는 줄, 이슈 #176) · 글씨 크기(/font-size 로 가는 줄, 지금 단계 이름) · 다크 모드(스위치 — 휴대폰 맥락 바에는 해/달 버튼이 없다)
  * ⑤ 끈 메뉴가 있으면 맨 아래 "숨긴 메뉴 n개" 한 줄
  * 준비 중 줄은 버튼처럼 보이되 aria-disabled 이고 눌러도 이동하지 않는다.
  */
@@ -77,7 +77,19 @@ export function MoreList({ selection }: { selection: Selection | null }) {
       </ul>
 
       <ul className={GROUP}>
-        <SoonRow icon="layout" label="화면 구성" />
+        <li className="contents">
+          <Link href={withSelection("/layout", selection)} className={ROW}>
+            <Icon
+              name="layout"
+              size={24}
+              className="text-brand-ink flex-none"
+            />
+            <span className="flex-1">화면 구성</span>
+            <span aria-hidden="true" className="text-20 text-ink-2/60">
+              ›
+            </span>
+          </Link>
+        </li>
         <li className="contents">
           <Link href={withSelection("/font-size", selection)} className={ROW}>
             <Icon name="text" size={24} className="text-brand-ink flex-none" />
@@ -94,9 +106,8 @@ export function MoreList({ selection }: { selection: Selection | null }) {
       </ul>
 
       {hiddenCount > 0 && (
-        <button
-          type="button"
-          aria-disabled="true"
+        <Link
+          href={withSelection("/layout", selection)}
           className="text-15 text-ink-2/85 rounded-box fh-48 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-3 py-1 font-semibold"
         >
           <span>숨긴 메뉴 {hiddenCount}개</span>
@@ -104,7 +115,7 @@ export function MoreList({ selection }: { selection: Selection | null }) {
           <span className="text-brand-ink font-bold underline">
             화면 구성에서 다시 켜기
           </span>
-        </button>
+        </Link>
       )}
     </div>
   );

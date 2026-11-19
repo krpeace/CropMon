@@ -346,6 +346,16 @@ describe("screenContext(pathname)", () => {
     }
   });
 
+  it("/layout 은 제목 '화면 구성' + 뒤로 화살표 (더보기에서 한 번 더 들어간 화면)", () => {
+    for (const path of ["/layout", "/layout/", "/layout?st=101&crop=apple"]) {
+      expect(screenContext(path), path).toEqual({
+        kind: "title",
+        title: "화면 구성",
+        back: true,
+      });
+    }
+  });
+
   it("끝의 슬래시나 쿼리 문자열이 붙어도 같다", () => {
     expect(screenContext("/water/")).toEqual({ kind: "selection" });
     expect(screenContext("/my-farm/")).toEqual({
