@@ -13,6 +13,9 @@ const BASE_URL = `http://localhost:${PORT}`;
 // 회원제 스위치를 "켠" 서버(이슈 #182, 결정 0061). 같은 빌드를 환경변수만 달리해 따로 띄운다. 3100(끔)은 지금 알파와 똑같아야 한다.
 const PORT_MEMBERS_ON = 3101;
 const BASE_URL_MEMBERS_ON = `http://localhost:${PORT_MEMBERS_ON}`;
+// 회원제 켬 + 네이버 켬 (이슈 #189, 결정 0064). 같은 빌드에 서버 변수 NAVER_LOGIN_ENABLED 만 더한다.
+const PORT_NAVER_ON = 3102;
+const BASE_URL_NAVER_ON = `http://localhost:${PORT_NAVER_ON}`;
 
 // "오늘" 맞추기. E2E_TODAY(YYYY-MM-DD)를 주면 그날로 돌려 본다. 안 줬는데 한국 날짜가 1월 1~3일이면
 // 올해 자료가 거의 없어(서귀포 189 의 "3일 전"이 작년 12월 31일이 됨) 그해 1월 4일로 자동으로 잡는다 (회원제 개시일 PR 이 막히지 않게).
@@ -51,7 +54,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
       testIgnore:
-        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth)\.spec\.ts/,
+        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile)\.spec\.ts/,
     },
     // 휴대폰 크기 전용 화면 테스트 (testMatch 의 spec 만 돈다)
     {
@@ -73,10 +76,36 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
         baseURL: BASE_URL_MEMBERS_ON,
       },
-      testMatch: /members-auth\.spec\.ts/,
+      testMatch: /(members-auth|members-sheet)\.spec\.ts/,
       fullyParallel: false,
       // 가짜 로그인 흉내의 호출 횟수 · 시나리오는 전역 값이라, 다른 시험이 다 끝난 뒤에 돈다(끔 서버 시험과 섞이지 않게).
       dependencies: ["desktop", "mobile"],
+    },
+    // 회원제 켬 · 휴대폰 크기 (로그인 시트 · 내 계정 시트). 가짜 로그인 흉내가 전역 값이라 members-on 이 끝난 뒤에 돈다.
+    {
+      name: "members-on-mobile",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+        baseURL: BASE_URL_MEMBERS_ON,
+      },
+      testMatch: /login-sheet-mobile\.spec\.ts/,
+      fullyParallel: false,
+      dependencies: ["members-on"],
+    },
+    // 회원제 켬 + 네이버 켬. 마찬가지로 앞 프로젝트가 끝난 뒤에 돈다.
+    {
+      name: "members-naver",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        baseURL: BASE_URL_NAVER_ON,
+      },
+      testMatch: /members-naver\.spec\.ts/,
+      fullyParallel: false,
+      dependencies: ["members-on-mobile"],
     },
   ],
   // 가짜 Supabase(e2e/fake-supabase.mjs)를 먼저 띄운다. 화면은 build 때 NEXT_PUBLIC_SUPABASE_URL 을
@@ -100,6 +129,17 @@ export default defineConfig({
       command: `npm run start -- -p ${PORT_MEMBERS_ON}`,
       env: { ...serverEnv, MEMBERS_ENABLED: "true" },
       url: BASE_URL_MEMBERS_ON,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run start -- -p ${PORT_NAVER_ON}`,
+      env: {
+        ...serverEnv,
+        MEMBERS_ENABLED: "true",
+        NAVER_LOGIN_ENABLED: "true",
+      },
+      url: BASE_URL_NAVER_ON,
       reuseExistingServer: false,
       timeout: 60_000,
     },

@@ -182,6 +182,7 @@
   --text-18: calc(18px * var(--fz));
   --text-19: calc(19px * var(--fz));
   --text-20: calc(20px * var(--fz));
+  --text-21: calc(21px * var(--fz));
   --text-22: calc(22px * var(--fz));
   --text-23: calc(23px * var(--fz));
   --text-24: calc(24px * var(--fz)); /* 온도 단계 카드 도달일 */

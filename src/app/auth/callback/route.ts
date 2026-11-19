@@ -12,7 +12,7 @@ import { createSupabaseServerClient } from "@/app/_lib/supabase/server-client";
 /**
  * 공급자(카카오 · 구글 · 네이버)에서 돌아오는 곳 `GET /auth/callback` (이슈 #182, 결정 0061).
  * Supabase 가 넘겨준 `code` 를 세션으로 바꾸고(PKCE), 로그인 직후 `public.ensure_my_member()` 를 한 번 부른 뒤
- * 검사한 `next`(누르기 전에 보던 화면, 검색어 포함)로 돌려보낸다. `next` 가 없거나 위험하면 `/`.
+ * 검사한 `next`(누르기 전에 보던 화면, 검색어 포함)로 돌려보낸다. `next` 가 없거나 위험하면 `/`. 성공이면 `login=ok` 를 붙인다.
  *
  * - 스위치를 끄면 404 (코드가 와도 교환하지 않고 쿠키도 안 심는다).
  * - `ensure_my_member` 는 가입 트리거가 오류를 삼켜 `members` 줄이 빠진 경우를 메운다. **이 호출이 실패해도 로그인은 계속한다.**
@@ -74,7 +74,8 @@ export async function GET(request: Request) {
       logAuthError("callback/ensure-member");
     }
 
-    return back(next);
+    // 성공도 표시를 붙인다: 화면이 "로그인했어요" 알림을 한 번 띄우고 주소에서 지운다 (결정 0064)
+    return back(withLoginNotice(next, "ok"));
   } catch {
     logAuthError("callback/exchange");
     return failure("failed");

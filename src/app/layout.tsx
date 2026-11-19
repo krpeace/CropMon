@@ -3,16 +3,19 @@ import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 
 import { buildFontScaleScript } from "@/domain/font-scale";
+import { buildMembersScript } from "@/domain/members-state";
 import { buildNoticeScript } from "@/domain/notice";
 import { THEME_COLOR, THEME_STORAGE_KEY } from "@/domain/theme";
 
 import { FontScaleSync } from "./_components/shell/FontScaleSync";
+import { LoginNotice } from "./_components/shell/LoginNotice";
 import { NavHistory } from "./_components/shell/nav-history";
 import { Sheets } from "./_components/shell/Sheets";
 import { SheetProvider } from "./_components/shell/sheet-context";
 import { SiteFooter } from "./_components/shell/SiteFooter";
 import { SiteHeaderFallback } from "./_components/shell/SiteHeader";
 import { SiteHeaderWithStatus } from "./_components/shell/SiteHeaderWithStatus";
+import { ToastHost } from "./_components/ui/Toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -46,6 +49,12 @@ const THEME_SCRIPT = `(function(){var t=null;try{var v=localStorage.getItem(${JS
 const FONT_SCALE_SCRIPT = buildFontScaleScript();
 const NOTICE_SCRIPT = buildNoticeScript();
 
+/**
+ * 처음 그리기 전에 회원제 표시 쿠키(cm_m)를 읽어 <html data-members data-naver> 를 단다 (이슈 #189, 결정 0064).
+ * 헤더 오른쪽 자리를 CSS 가 이 속성으로 고른다. 쿠키가 없거나 모르는 값이면 아무것도 안 단다(= 지금 알파 모양). 오류가 나도 화면을 막지 않는다.
+ */
+const MEMBERS_SCRIPT = buildMembersScript();
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" suppressHydrationWarning>
@@ -53,6 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: NOTICE_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MEMBERS_SCRIPT }} />
         <link rel="stylesheet" href={PRETENDARD_CSS} crossOrigin="anonymous" />
       </head>
       <body>
@@ -68,7 +78,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SiteFooter />
           <Suspense fallback={null}>
             <Sheets />
+            <LoginNotice />
           </Suspense>
+          <ToastHost />
           <Analytics />
         </SheetProvider>
       </body>

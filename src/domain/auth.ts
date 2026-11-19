@@ -64,12 +64,18 @@ export function hasAuthCookie(names: readonly string[]): boolean {
 const ALLOWED_PROVIDERS = ["kakao", "google", "custom:naver"] as const;
 export type AuthProvider = (typeof ALLOWED_PROVIDERS)[number];
 
-/** 허용 목록에 있는 공급자인지(대소문자 · 공백이 다르면 거절). */
-export function isAllowedProvider(value: unknown): value is AuthProvider {
-  return (
-    typeof value === "string" &&
-    (ALLOWED_PROVIDERS as readonly string[]).includes(value)
-  );
+/**
+ * 로그인을 시작할 수 있는 공급자인지(대소문자 · 공백이 다르면 거절).
+ * 네이버(`custom:naver`)는 네이버 스위치(`naverLoginEnabled`)를 켠 때만 참이다 — 끄면 모르는 공급자와 똑같이 거절한다(결정 0064).
+ * 공급자 판단은 서버의 이 한 곳에서 한다. 화면의 "준비 중" 버튼은 보이는 모양일 뿐이다.
+ */
+export function isAllowedProvider(
+  value: unknown,
+  naverEnabled: boolean,
+): value is AuthProvider {
+  if (typeof value !== "string") return false;
+  if (value === "custom:naver") return naverEnabled;
+  return (ALLOWED_PROVIDERS as readonly string[]).includes(value);
 }
 
 // ── 돌아갈 주소 ────────────────────────────────────────────────
@@ -133,11 +139,11 @@ export function validateRedirectPath(nextPath: unknown): string {
   return nextPath;
 }
 
-/** 돌려보낸 화면 주소에 붙는 표시 값. L3 의 로그인 시트가 읽는다. */
-export type LoginNotice = "cancelled" | "failed";
+/** 돌려보낸 화면 주소에 붙는 표시 값. 화면의 알림(토스트)이 읽고 주소에서 지운다. `ok` 는 로그인 성공(콜백이 붙임, 결정 0064). */
+export type LoginNotice = "ok" | "cancelled" | "failed";
 
 /**
- * 돌아갈 화면 주소에 `login=cancelled` 또는 `login=failed` 하나를 붙인다.
+ * 돌아갈 화면 주소에 `login=ok` · `login=cancelled` · `login=failed` 하나를 붙인다.
  * 주소에 있던 `login` · `next` 검색어는 지우고, 나머지 검색어와 `#` 는 받은 모양 그대로 살린다.
  */
 export function withLoginNotice(path: string, notice: LoginNotice): string {
@@ -178,7 +184,7 @@ export function classifyOAuthCallbackError(
   error: string | null | undefined,
   errorCode: string | null | undefined,
   errorDescription: string | null | undefined,
-): LoginNotice {
+): Exclude<LoginNotice, "ok"> {
   const cancelled = [error, errorCode, errorDescription].some(
     (value) => typeof value === "string" && /access_denied/i.test(value),
   );
