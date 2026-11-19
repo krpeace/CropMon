@@ -48,7 +48,12 @@ const PUBLIC_TABLES = [
   "heat_daily",
   "sun_daily",
   "soil_water_daily",
+  "heat_series_daily",
+  "sun_series_daily",
 ] as const;
+
+/** 적산 계열 새 표(v2.2, 결정 0063). 공개 표(누구나 읽기, 서버 키만 쓰기)라 PUBLIC_TABLES 검사에도 들어간다. */
+const SERIES_TABLES = ["heat_series_daily", "sun_series_daily"] as const;
 
 /** 농장 표(v2.1, 결정 0062). 회원 본인 줄만 읽고 쓰는 표와 서버 키만 쓰는 결과 표라 공개 표 검사와 따로 본다. */
 const FARM_TABLES = [
@@ -90,7 +95,7 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 14개, 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
+  it("계약서에 공개 테이블 16개(적산 계열 표 2개 포함), 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
       [...PUBLIC_TABLES, MEMBERS_TABLE, ...FARM_TABLES, HEALTH_TABLE].sort(),
     );
@@ -100,8 +105,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v2.1 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v2\.1\b/);
+  it("계약서의 현재 버전이 v2.2 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.2\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -1364,5 +1369,276 @@ describe("깨우기 스위치 · sync_all_farm_seasons (v2.1 보충, 결정 0062
     expect(check).toMatch(/'8c 깨우기 판단\(스위치 꺼짐\)/);
     expect(check).toMatch(/'8e 스위치가 꺼져 있으면/);
     expect(check).toMatch(/'4p sync_all_farm_seasons\(\)/);
+  });
+});
+
+const MIGRATION_SERIES = "20261120100000_data_contract_v2_2_series.sql";
+const SERIES_SQL = stripComments(
+  readFileSync(join(MIGRATIONS_DIR, MIGRATION_SERIES), "utf8"),
+);
+const SERIES_STATEMENTS = SERIES_SQL.split(";").map((s) => s.trim());
+
+describe("적산 계열 새 표 · 뷰 (v2.2, 결정 0063, D1-3 1단계)", () => {
+  it("계약서에 새 표 둘과 계열 목록 뷰, 변경 기록 v2.2 가 있다", () => {
+    for (const t of SERIES_TABLES) {
+      expect(CONTRACT, t).toContain(`### \`public.${t}\``);
+    }
+    expect(CONTRACT).toContain("`public.crop_accum_series`");
+    expect(CONTRACT).toMatch(/\*\*v2\.2:\*\*/);
+    // 뷰 제목은 표 제목(### `public.…`)과 달라서 표 목록 시험에 섞이지 않는다
+    expect(CONTRACT).toMatch(
+      /^#### 계열 목록 뷰: `public\.crop_accum_series`/m,
+    );
+  });
+
+  it("이 마이그레이션은 새 표 둘과 뷰만 만든다", () => {
+    for (const t of SERIES_TABLES) {
+      expect(SERIES_SQL, t).toContain(
+        `create table if not exists public.${t} (`,
+      );
+    }
+    expect(SERIES_SQL).toContain(
+      "create or replace view public.crop_accum_series",
+    );
+    expect(
+      [
+        ...SERIES_SQL.matchAll(
+          /create table if not exists public\.([a-z_]+)\s*\(/g,
+        ),
+      ].map((m) => m[1]),
+    ).toEqual([...SERIES_TABLES]);
+  });
+
+  it("옛 heat_daily · sun_daily 는 한 글자도 바꾸지 않는다 (create · alter · drop · insert · update · delete · grant · revoke 어디에도 안 나온다)", () => {
+    const touches = SERIES_STATEMENTS.filter(
+      (s) =>
+        /^(create|alter|drop|insert|update|delete|truncate|grant|revoke|comment)\b/.test(
+          s,
+        ) && /public\.(heat_daily|sun_daily)\b/.test(s),
+    );
+    expect(touches).toEqual([]);
+    // 되돌리기 SQL 도 옛 표를 건드리지 않는다
+    const rollback = stripComments(
+      readFileSync(
+        join(ROOT, "supabase/checks/d1_3a_series_rollback.sql"),
+        "utf8",
+      ),
+    );
+    expect(rollback).not.toMatch(
+      /(drop|alter|delete|truncate)[^;]*\b(heat_daily|sun_daily)\b/,
+    );
+  });
+
+  it("heat_series_daily 키는 (stn_id, t_base_c, cum_start_mmdd, date) 이고 crop_id 열이 없다", () => {
+    const body = SERIES_SQL.match(
+      /create table if not exists public\.heat_series_daily \(([\s\S]*?)\n\);/,
+    )![1];
+    expect(body).toMatch(
+      /primary key \(stn_id, t_base_c, cum_start_mmdd, date\)/,
+    );
+    expect(body).not.toMatch(/\bcrop_id\b/);
+    expect(body).toMatch(
+      /stn_id\s+text not null references public\.stations \(stn_id\)/,
+    );
+    expect(body).toMatch(
+      /t_base_c\s+numeric not null check \(t_base_c between -10 and 30\)/,
+    );
+    expect(body).toMatch(
+      /cum_start_mmdd\s+text not null check \(public\.is_valid_mmdd\(cum_start_mmdd\)\)/,
+    );
+  });
+
+  it("sun_series_daily 키는 (stn_id, cum_start_mmdd, date) 이고 누적 시작은 실제 있는 날만 받는다", () => {
+    const body = SERIES_SQL.match(
+      /create table if not exists public\.sun_series_daily \(([\s\S]*?)\n\);/,
+    )![1];
+    expect(body).toMatch(/primary key \(stn_id, cum_start_mmdd, date\)/);
+    expect(body).not.toMatch(/\bcrop_id\b/);
+    expect(body).toMatch(
+      /cum_start_mmdd\s+text not null check \(public\.is_valid_mmdd\(cum_start_mmdd\)\)/,
+    );
+  });
+
+  it("값 열은 옛 표와 같은 이름 · 형식이다 (heat ↔ heat_daily, sun ↔ sun_daily)", () => {
+    const cols = (sql: string, table: string) =>
+      sql
+        .match(
+          new RegExp(
+            `create table if not exists public\\.${table} \\(([\\s\\S]*?)\\n\\);`,
+          ),
+        )![1]
+        .split("\n")
+        .map((l) => l.trim().match(/^([a-z_0-9]+)\s+([a-z]+(?: [a-z]+)?)/))
+        .filter((m): m is RegExpMatchArray => Boolean(m) && m![1] !== "primary")
+        .map((m) => `${m[1]}:${m[2].replace(/ not$| default$/, "")}`);
+    const oldHeat = cols(SQL, "heat_daily").filter(
+      (c) => !c.startsWith("crop_id"),
+    );
+    const newHeat = cols(SERIES_SQL, "heat_series_daily");
+    for (const c of oldHeat) expect(newHeat, c).toContain(c);
+    const oldSun = cols(SQL, "sun_daily");
+    const newSun = cols(SERIES_SQL, "sun_series_daily");
+    for (const c of oldSun) expect(newSun, c).toContain(c);
+    expect(newSun).toContain("cum_start_mmdd:text");
+    expect(newHeat).toContain("cum_start_mmdd:text");
+  });
+
+  it("두 표 모두 updated_at 트리거(set_updated_at)가 있다", () => {
+    for (const t of SERIES_TABLES) {
+      expect(SERIES_SQL, t).toMatch(
+        new RegExp(
+          `create trigger ${t}_set_updated_at\\s+before update on public\\.${t}\\s+for each row execute function public\\.set_updated_at\\(\\)`,
+        ),
+      );
+    }
+  });
+
+  it("쓰기 권한 · 쓰기 정책 · 회원 전용 정책이 없다 (서버 키만 쓴다)", () => {
+    for (const t of SERIES_TABLES) {
+      const grants = SERIES_STATEMENTS.filter(
+        (s) => s.startsWith("grant") && s.includes(`public.${t} `),
+      );
+      expect(grants, t).toHaveLength(1);
+      expect(grants[0]).toMatch(
+        /^grant select on public\.\w+ to anon, authenticated$/,
+      );
+      const writePolicies = SERIES_STATEMENTS.filter(
+        (s) =>
+          s.startsWith("create policy") &&
+          s.includes(` on public.${t} `) &&
+          /for (insert|update|delete|all)/.test(s),
+      );
+      expect(writePolicies, t).toHaveLength(0);
+    }
+  });
+
+  describe("뷰 crop_accum_series", () => {
+    const view = SERIES_SQL.match(
+      /create or replace view public\.crop_accum_series[\s\S]*?;/,
+    )![0];
+
+    it("security_invoker 로 읽는 사람의 권한을 쓰고, 비회원 · 회원은 읽기만 받는다", () => {
+      expect(view).toContain("with (security_invoker = true)");
+      expect(SERIES_SQL).toContain(
+        "revoke all on public.crop_accum_series from anon, authenticated;",
+      );
+      expect(SERIES_SQL).toContain(
+        "grant select on public.crop_accum_series to anon, authenticated;",
+      );
+    });
+
+    it("열은 crop_id · season_type_id · heat_t_base_c · heat_cum_start_mmdd · sun_cum_start_mmdd", () => {
+      for (const c of [
+        "cs.crop_id",
+        "cs.season_type_id",
+        "as heat_t_base_c",
+        "as heat_cum_start_mmdd",
+        "as sun_cum_start_mmdd",
+      ]) {
+        expect(view, c).toContain(c);
+      }
+    });
+
+    it("줄 기준: 단계 일수 네 개가 모두 있는 작형 + 작물 공통 (cum_start_mmdd 가 비었는지로 거르지 않는다)", () => {
+      for (const c of ["l_ini_d", "l_dev_d", "l_mid_d", "l_late_d"]) {
+        expect(view).toContain(`cs.${c} is not null`);
+      }
+      expect(view).not.toMatch(/where cs\.cum_start_mmdd is not null/);
+      expect(view).toMatch(/union all[\s\S]*where c\.crop_id = 'common'/);
+    });
+
+    it("적산온도는 누적 시작과 기준온도가 모두 있을 때만, 일사는 누적 시작(없으면 01-01)을 따른다", () => {
+      expect(view).toMatch(
+        /case when cs\.cum_start_mmdd is not null and c\.t_base_c is not null then c\.t_base_c end as heat_t_base_c/,
+      );
+      expect(view).toMatch(
+        /case when cs\.cum_start_mmdd is not null and c\.t_base_c is not null then cs\.cum_start_mmdd end as heat_cum_start_mmdd/,
+      );
+      expect(view).toContain(
+        "coalesce(cs.cum_start_mmdd, '01-01') as sun_cum_start_mmdd",
+      );
+    });
+  });
+
+  it("확인 SQL · 되돌리기 SQL 이 있고, 되돌리기는 새 표에 줄이 있으면 멈춘다", () => {
+    const check = readFileSync(
+      join(ROOT, "supabase/checks/d1_3a_series_check.sql"),
+      "utf8",
+    );
+    const rollback = readFileSync(
+      join(ROOT, "supabase/checks/d1_3a_series_rollback.sql"),
+      "utf8",
+    );
+    expect(check).toContain("all_ok");
+    expect(check).toContain("raise exception 'd1_3a_check_rollback'");
+    // 비회원 · 회원 · 서버 키 모두 뷰에서 실제 줄 수를 본다 (사전 읽기 권한이 막히면 오류 없이 0줄이 된다)
+    expect(check).toMatch(
+      /count_as\('anon', 'select \* from public\.crop_accum_series'\) = 5/,
+    );
+    expect(check).toMatch(
+      /count_as\('service_role', 'select \* from public\.crop_accum_series'\) = 5/,
+    );
+    expect(check).toMatch(
+      /on conflict \(stn_id, t_base_c, cum_start_mmdd, date\) do update/,
+    );
+    expect(check).toMatch(
+      /on conflict \(stn_id, cum_start_mmdd, date\) do update/,
+    );
+    expect(rollback).toMatch(
+      /select count\(\*\) from public\.heat_series_daily/,
+    );
+    expect(rollback).toMatch(
+      /select count\(\*\) from public\.sun_series_daily/,
+    );
+    expect(rollback).toMatch(/raise exception '되돌리기를 멈춥니다/);
+    expect(rollback).not.toMatch(/drop function/);
+  });
+
+  it("결정 0063 에 croplib-dp 에 넘길 것(새 표 · on_conflict 열 · 뷰로 계열 읽기 · 옛 표는 3단계까지)이 있다", () => {
+    const decision = readFileSync(
+      join(ROOT, "docs/decisions/0063-accum-series.md"),
+      "utf8",
+    );
+    expect(decision).toMatch(/croplib-dp ?에 넘길 것/);
+    expect(decision).toContain("stn_id,t_base_c,cum_start_mmdd,date");
+    expect(decision).toContain("stn_id,cum_start_mmdd,date");
+    expect(decision).toContain("crop_accum_series");
+    expect(decision).toMatch(/distinct \(heat_t_base_c, heat_cum_start_mmdd\)/);
+    expect(decision).toMatch(/distinct sun_cum_start_mmdd/);
+    expect(decision).toMatch(/3단계/);
+    expect(CONTRACT).toMatch(
+      /옛 표는 3단계에서 지움|옛 표는 3단계에서 지웁니다/,
+    );
+  });
+});
+
+describe("적산 계열 — croplib-dp 회신 반영 (결정 0063, 문서)", () => {
+  const decision = readFileSync(
+    join(ROOT, "docs/decisions/0063-accum-series.md"),
+    "utf8",
+  );
+
+  it("누적 시작 전 날은 줄이 없고(그해 누적 시작일 ~ 12-31), 화면은 줄 없는 날을 작기 전으로 본다", () => {
+    for (const doc of [decision, CONTRACT]) {
+      expect(doc).toContain("누적 시작 전 날은 줄이 없");
+      expect(doc).toContain("12-31");
+      expect(doc).toMatch(/줄이 없는 날을 "작기 전"으로 (본다|봅니다)/);
+    }
+    // 예시: (10, 04-20) 계열은 04-20 ~ 12-31
+    expect(decision).toContain("04-20 ~ 12-31");
+    expect(CONTRACT).toContain("04-20 ~ 12-31");
+  });
+
+  it("t_base_c 는 자릿수 없는 numeric(실수형 아님)이고 숫자(Decimal)로 비교한다", () => {
+    for (const doc of [decision, CONTRACT]) {
+      expect(doc).toMatch(/`t_base_c`[^\n]*`numeric`/);
+      expect(doc).toContain("실수형");
+      expect(doc).toMatch(/문자열로 비교하지 말고 숫자\(Decimal\)로 비교/);
+      expect(doc).toContain("`4` · `4.0` · `4.00`은 같은 키");
+    }
+    expect(decision).toContain("numeric(4,1)");
+    // 실제 SQL 도 자릿수 없는 numeric 이다 (새 표 · 사전 · 옛 표가 같은 형식)
+    expect(SERIES_SQL).toMatch(/t_base_c\s+numeric not null check/);
+    expect(SERIES_SQL).not.toMatch(/numeric\(\d/);
   });
 });
