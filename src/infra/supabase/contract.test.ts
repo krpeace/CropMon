@@ -50,6 +50,32 @@ const PUBLIC_TABLES = [
   "soil_water_daily",
 ] as const;
 
+/** 농장 표(v2.1, 결정 0062). 회원 본인 줄만 읽고 쓰는 표와 서버 키만 쓰는 결과 표라 공개 표 검사와 따로 본다. */
+const FARM_TABLES = [
+  "farms",
+  "farm_seasons",
+  "irrigation_logs",
+  "farm_calc_status",
+  "farm_water_daily",
+  "farm_water_outlook",
+  "farm_water_outlook_summary",
+] as const;
+/** 회원이 쓰는(넣기 · 고치기 · 지우기) 표. 나머지 다섯은 회원 읽기만. */
+const MEMBER_WRITABLE = ["farms", "irrigation_logs"] as const;
+
+const MIGRATION_FARMS = "20261120000000_data_contract_v2_1_farms.sql";
+const stripComments = (sql: string) =>
+  sql
+    .split("\n")
+    .map((line) => line.replace(/--.*$/, ""))
+    .join("\n")
+    .toLowerCase();
+const FARMS_SQL = stripComments(
+  readFileSync(join(MIGRATIONS_DIR, MIGRATION_FARMS), "utf8"),
+);
+/** `;` 로 끊은 문장들 (함수 본문의 `;` 때문에 함수는 따로 본다). */
+const FARMS_STATEMENTS = FARMS_SQL.split(";").map((s) => s.trim());
+
 function tablesInContract(): string[] {
   // "### `public.stations`" 모양의 제목
   return [...CONTRACT.matchAll(/^###\s+`public\.([a-z_]+)`/gm)].map(
@@ -64,9 +90,9 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 14개와 회원 표 members, app_health 가 있다", () => {
+  it("계약서에 공개 테이블 14개, 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
-      [...PUBLIC_TABLES, MEMBERS_TABLE, HEALTH_TABLE].sort(),
+      [...PUBLIC_TABLES, MEMBERS_TABLE, ...FARM_TABLES, HEALTH_TABLE].sort(),
     );
   });
 
@@ -74,8 +100,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v2.0 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v2\.0\b/);
+  it("계약서의 현재 버전이 v2.1 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.1\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -862,5 +888,376 @@ describe("회원 DB (v2.0)", () => {
 
   it("members 는 공개 표의 '읽기만' 검사 목록(PUBLIC_TABLES)에 섞지 않는다", () => {
     expect([...PUBLIC_TABLES]).not.toContain(MEMBERS_TABLE);
+  });
+});
+
+describe("농장 표 (v2.1, 결정 0062)", () => {
+  it("계약서에 새 표 7개와 변경 기록 v2.1 이 있다", () => {
+    for (const t of FARM_TABLES) {
+      expect(CONTRACT, t).toContain(`### \`public.${t}\``);
+    }
+    expect(CONTRACT).toMatch(/\*\*v2\.1:\*\*/);
+  });
+
+  it("마이그레이션이 새 표 7개를 만든다 (계약서의 이름과 같다)", () => {
+    for (const t of FARM_TABLES) {
+      expect(FARMS_SQL, t).toContain(
+        `create table if not exists public.${t} (`,
+      );
+    }
+  });
+
+  for (const t of FARM_TABLES) {
+    describe(t, () => {
+      it("RLS 를 켜고 기본으로 붙는 권한을 먼저 거두며, 비회원(anon)에게는 아무 권한도 주지 않는다", () => {
+        expect(FARMS_SQL).toContain(
+          `alter table public.${t} enable row level security;`,
+        );
+        expect(FARMS_SQL).toContain(
+          `revoke all on public.${t} from anon, authenticated;`,
+        );
+        const grants = FARMS_STATEMENTS.filter(
+          (s) => s.startsWith("grant") && s.includes(`on public.${t} `),
+        );
+        expect(grants.length).toBeGreaterThan(0);
+        for (const g of grants) {
+          expect(g, g).toContain("to authenticated");
+          expect(g, g).not.toMatch(/\banon\b/);
+        }
+      });
+
+      it("읽기 정책이 있고 모든 정책이 회원(authenticated) 대상이며 자기 농장으로 좁힌다", () => {
+        const policies = FARMS_STATEMENTS.filter(
+          (s) =>
+            s.startsWith("create policy") && s.includes(` on public.${t} `),
+        );
+        expect(policies.some((p) => p.includes("for select"))).toBe(true);
+        for (const p of policies) {
+          expect(p, p).toContain("to authenticated");
+          expect(p, p).not.toMatch(/\banon\b/);
+          expect(p, p).toContain("auth.uid()");
+        }
+      });
+    });
+  }
+
+  it("회원이 쓰는 표는 farms · irrigation_logs 둘뿐이고 정책이 넣기 · 고치기 · 지우기까지 있다", () => {
+    for (const t of FARM_TABLES) {
+      const policies = FARMS_STATEMENTS.filter(
+        (s) => s.startsWith("create policy") && s.includes(` on public.${t} `),
+      );
+      const writes = ["for insert", "for update", "for delete"].filter((cmd) =>
+        policies.some((p) => p.includes(cmd)),
+      );
+      if ((MEMBER_WRITABLE as readonly string[]).includes(t)) {
+        expect(writes, t).toHaveLength(3);
+      } else {
+        expect(writes, `${t} 에는 회원 쓰기 정책이 없다`).toHaveLength(0);
+        const grants = FARMS_STATEMENTS.filter(
+          (s) => s.startsWith("grant") && s.includes(`on public.${t} `),
+        );
+        for (const g of grants) {
+          expect(g, g).toMatch(/^grant select on/);
+        }
+      }
+    }
+  });
+
+  it("회원이 못 고치는 열은 열 단위 권한으로 막는다 (farms: farm_id · user_id · created_at · updated_at)", () => {
+    const update = FARMS_STATEMENTS.find((s) =>
+      s.startsWith("grant update ("),
+    )!;
+    const cols = update.match(
+      /grant update \(([^)]*)\)\s+on public\.farms/,
+    )![1];
+    for (const c of ["farm_id", "user_id", "created_at", "updated_at"]) {
+      expect(cols, c).not.toMatch(new RegExp(`\\b${c}\\b`));
+    }
+    expect(cols).toMatch(/\birrigated_area_m2\b/);
+    const insert = FARMS_STATEMENTS.find((s) =>
+      /^grant insert \([^)]*\)\s+on public\.farms/.test(s),
+    )!;
+    const icols = insert.match(
+      /grant insert \(([^)]*)\)\s+on public\.farms/,
+    )![1];
+    for (const c of ["farm_id", "created_at", "updated_at"]) {
+      expect(icols, c).not.toMatch(new RegExp(`\\b${c}\\b`));
+    }
+    expect(icols).toMatch(/\buser_id\b/); // 넣을 때만 정할 수 있다 (정책이 auth.uid() 와 같아야 통과)
+  });
+
+  it("irrigation_logs: farm_id · log_id · created_at 은 회원이 정하거나 바꿀 수 없다", () => {
+    const update = FARMS_STATEMENTS.find((s) =>
+      /^grant update \([^)]*\) on public\.irrigation_logs/.test(s),
+    )!;
+    const ucols = update.match(/\(([^)]*)\)/)![1];
+    expect(ucols).not.toMatch(/\bfarm_id\b/);
+    expect(ucols).not.toMatch(/\blog_id\b/);
+    const insert = FARMS_STATEMENTS.find((s) =>
+      /^grant insert \([^)]*\) on public\.irrigation_logs/.test(s),
+    )!;
+    const icols = insert.match(/\(([^)]*)\)/)![1];
+    expect(icols).not.toMatch(/\blog_id\b/);
+    expect(icols).not.toMatch(/\bcreated_at\b/);
+  });
+
+  it("회원 1명 = 농장 1개 색인 farms_one_per_user, 탈퇴하면 연쇄로 지워진다 (on delete cascade)", () => {
+    expect(FARMS_SQL).toMatch(
+      /create unique index if not exists farms_one_per_user on public\.farms \(user_id\)/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /user_id\s+uuid not null default auth\.uid\(\) references auth\.users \(id\) on delete cascade/,
+    );
+    for (const t of [
+      "farm_seasons",
+      "irrigation_logs",
+      "farm_calc_status",
+      "farm_water_daily",
+      "farm_water_outlook",
+      "farm_water_outlook_summary",
+    ]) {
+      const body = FARMS_SQL.match(
+        new RegExp(
+          `create table if not exists public\\.${t} \\(([\\s\\S]*?)\\n\\);`,
+        ),
+      )![1];
+      expect(body, t).toMatch(
+        /references public\.farms \(farm_id\) on delete cascade/,
+      );
+    }
+  });
+
+  it("작물 · 작형 · 재배 방식 관계는 합성 외래키로 DB 가 지킨다 (farms · farm_seasons)", () => {
+    expect(FARMS_SQL).toMatch(
+      /foreign key \(season_type_id, crop_id\)\s+references public\.crop_seasons \(season_type_id, crop_id\)/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /foreign key \(kc_set_id, crop_id\)\s+references public\.crop_kc_sets \(kc_set_id, crop_id\)/,
+    );
+    expect(FARMS_SQL).toContain(
+      "create unique index if not exists crop_seasons_type_crop_key",
+    );
+    expect(FARMS_SQL).toContain(
+      "create unique index if not exists crop_kc_sets_kc_crop_key",
+    );
+    expect(FARMS_SQL).toMatch(
+      /check \(\(crop_id = 'common'\) = \(season_type_id is null\)\)/,
+    );
+  });
+
+  it("작기 줄: 같은 농장의 날짜 겹침 금지(배제 제약, btree_gist), 끝 ≥ 시작, 366일 이하", () => {
+    expect(FARMS_SQL).toContain("create extension if not exists btree_gist");
+    expect(FARMS_SQL).toMatch(
+      /exclude using gist \(farm_id with =, daterange\(start_date, end_date, '\[\]'\) with &&\)/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /check \(end_date >= start_date and end_date - start_date \+ 1 <= 366\)/,
+    );
+  });
+
+  it("시작 월-일은 실제 있는 날만 (02-29 · 04-31 거절) — 표의 check 가 is_valid_mmdd 를 부른다", () => {
+    expect(FARMS_SQL).toContain(
+      "create or replace function public.is_valid_mmdd",
+    );
+    expect(FARMS_SQL).toMatch(/when '02' then 28/);
+    expect(FARMS_SQL).toMatch(
+      /season_start_mmdd\s+text check \(public\.is_valid_mmdd\(season_start_mmdd\)\)/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /check \(\(season_start_mmdd is null\) = \(season_start_source is null\)\)/,
+    );
+  });
+
+  it("관수 기록: 지금 작기 줄 시작일 ~ 오늘(한국 날짜) 규칙을 트리거가 지키고, 지우기에는 걸리지 않는다", () => {
+    expect(FARMS_SQL).toMatch(
+      /create trigger irrigation_logs_check_date\s+before insert or update on public\.irrigation_logs/,
+    );
+    const fn = FARMS_SQL.match(
+      /create or replace function public\.irrigation_logs_check_date\(\)[\s\S]*?\$\$;/,
+    )![0];
+    expect(fn).toContain("public.farm_current_season(new.farm_id, v_today)");
+    expect(fn).toContain("public.kst_today()");
+    expect(fn).toMatch(/new\.date < cur\.start_date or new\.date > v_today/);
+    // 고칠 때는 날짜(나 농장)가 바뀔 때만 검사한다
+    expect(fn).toMatch(/new\.date = old\.date and new\.farm_id = old\.farm_id/);
+    expect(FARMS_SQL).not.toMatch(
+      /before[^;]*delete[^;]*irrigation_logs_check_date/,
+    );
+  });
+
+  it("지금 줄의 정의는 한 곳: 끝이 오늘 이후(끝나는 날 당일 포함) 중 시작이 가장 이른 줄", () => {
+    const fn = FARMS_SQL.match(
+      /create or replace function public\.farm_current_season[\s\S]*?\$\$;/,
+    )![0];
+    expect(fn).toMatch(/s\.end_date >= p_today/);
+    expect(fn).toMatch(/order by s\.start_date\s+limit 1/);
+    // sync 와 관수 기록 규칙이 이 함수를 같이 쓴다
+    expect(
+      FARMS_SQL.match(/public\.farm_current_season\(/g)!.length,
+    ).toBeGreaterThanOrEqual(4);
+  });
+
+  it("sync_farm_seasons 는 서버 키만 실행하고, 안쪽 · 내부 함수는 서버 키도 못 부른다", () => {
+    expect(FARMS_SQL).toContain(
+      "revoke all on function public.sync_farm_seasons(uuid) from public, anon, authenticated;",
+    );
+    expect(FARMS_SQL).toContain(
+      "grant execute on function public.sync_farm_seasons(uuid) to service_role;",
+    );
+    for (const fn of [
+      "public.sync_farm_seasons_at(uuid, date)",
+      "public.touch_farm_calc(uuid, date)",
+      "public.farm_current_season(uuid, date)",
+    ]) {
+      expect(FARMS_SQL, fn).toContain(
+        `revoke all on function ${fn} from public, anon, authenticated, service_role;`,
+      );
+    }
+  });
+
+  it("보안 정의 함수는 모두 search_path 를 비운다", () => {
+    const fns = FARMS_SQL.split("create or replace function ").slice(1);
+    expect(fns.length).toBeGreaterThanOrEqual(15);
+    for (const f of fns) {
+      const head = f.split("$$")[0];
+      if (head.includes("security definer")) {
+        expect(head, head.slice(0, 60)).toContain("set search_path = ''");
+      }
+    }
+  });
+
+  it("작기 연도 규칙은 farm_season_window 한 곳이고, 날짜를 인자로 받는 안쪽 함수가 있다 (확인 SQL 이 오늘을 바꿔 부름)", () => {
+    expect(FARMS_SQL).toMatch(
+      /function public\.farm_season_window\(p_start_mmdd text, p_len int, p_today date\)/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /function public\.sync_farm_seasons_at\(p_farm_id uuid, p_today date\)/,
+    );
+    // season_end_mmdd 는 끝 계산에 쓰지 않는다 (무시)
+    const body = FARMS_SQL.match(
+      /create or replace function public\.sync_farm_seasons_at[\s\S]*?\$\$;/,
+    )![0];
+    expect(body).not.toMatch(/season_end_mmdd/);
+  });
+
+  it("다시 계산 요청: 기다리는 중에는 더 이른 날로만 당기고, 농장 줄이 없으면 아무것도 안 하며, 오류를 내지 않는다", () => {
+    const fn = FARMS_SQL.match(
+      /create or replace function public\.touch_farm_calc[\s\S]*?\$\$;/,
+    )![0];
+    expect(fn).toMatch(/least\(s\.recalc_from, excluded\.recalc_from\)/);
+    expect(fn).toMatch(/s\.done_at is null or s\.requested_at > s\.done_at/);
+    expect(fn).toMatch(/if not exists \(select 1 from public\.farms/);
+    expect(fn).toMatch(/exception\s+when others then\s+raise warning/);
+    expect(fn).toContain("clock_timestamp()");
+  });
+
+  it("깨우기: 2분 창 + 매분 보충 예약 croplib-farm-calc-sweep, 건너뛰기 설정, farm_calc.yml", () => {
+    expect(FARMS_SQL).toMatch(/interval '2 minutes'/);
+    expect(FARMS_SQL).toContain("ops.dispatch_workflow('farm_calc.yml')");
+    expect(FARMS_SQL).toContain("cropmon.skip_wake");
+    expect(FARMS_SQL).toMatch(
+      /select cron\.schedule\('croplib-farm-calc-sweep', '\* \* \* \* \*', \$cron\$select ops\.farm_calc_sweep\(\)\$cron\$\);/,
+    );
+    // 깨우기가 실패해도 회원의 저장은 성공한다
+    const wake = FARMS_SQL.match(
+      /create or replace function ops\.farm_calc_try_wake[\s\S]*?\$\$;/,
+    )![0];
+    expect(wake).toMatch(/exception\s+when others then\s+raise warning/);
+    // 기다리는 요청만 가볍게 찾는 색인
+    expect(FARMS_SQL).toMatch(
+      /create index if not exists farm_calc_status_pending_idx[\s\S]*?where requested_at is not null and \(done_at is null or requested_at > done_at\)/,
+    );
+  });
+
+  it("쓰는 물 etc_only: 세 공개 표 check 와 새 결과 표가 받는다", () => {
+    for (const [table, col] of [
+      ["water_balance_daily", "status"],
+      ["water_outlook", "status"],
+      ["water_outlook_summary", "status_start"],
+    ] as const) {
+      expect(FARMS_SQL, table).toMatch(
+        new RegExp(
+          `alter table public\\.${table}\\s+add constraint ${table}_${col}_check\\s+check \\(${col} in \\([^)]*'etc_only'\\)\\)`,
+        ),
+      );
+    }
+    for (const t of [
+      "farm_water_daily",
+      "farm_water_outlook",
+      "farm_water_outlook_summary",
+    ]) {
+      const body = FARMS_SQL.match(
+        new RegExp(
+          `create table if not exists public\\.${t} \\(([\\s\\S]*?)\\n\\);`,
+        ),
+      )![1];
+      expect(body, t).toContain("'etc_only'");
+    }
+  });
+
+  it("기본 조건 색인은 작형 기준 (stn_id, season_type_id, season_year)", () => {
+    expect(FARMS_SQL).toMatch(
+      /drop index if exists public\.scenarios_one_default;/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /create unique index if not exists scenarios_one_default\s+on public\.scenarios \(stn_id, season_type_id, season_year\)\s+where is_default;/,
+    );
+  });
+
+  it("사전 열: crop_seasons.is_protected · cum_start_mmdd, crops.gdd_stage_labels (길이는 gdd_stages 와 같아야 함)", () => {
+    expect(FARMS_SQL).toMatch(
+      /add column if not exists is_protected boolean not null default false/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /add column if not exists cum_start_mmdd text check/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /add column if not exists gdd_stage_labels text\[\]/,
+    );
+    expect(FARMS_SQL).toMatch(
+      /cardinality\(gdd_stage_labels\) = cardinality\(gdd_stages\)/,
+    );
+  });
+
+  it("결과 표는 공개 표와 같은 열이고 scenario_id 자리에 farm_id 가 온다 (farm_water_daily)", () => {
+    const pub = SQL.match(
+      /create table if not exists public\.water_balance_daily \(([\s\S]*?)\n\);/,
+    )![1];
+    const farm = FARMS_SQL.match(
+      /create table if not exists public\.farm_water_daily \(([\s\S]*?)\n\);/,
+    )![1];
+    const names = (body: string) =>
+      body
+        .split("\n")
+        .map((l) => l.trim().match(/^([a-z_0-9]+)\s/)?.[1])
+        .filter((n): n is string => Boolean(n) && n !== "primary");
+    const pubCols = names(pub).filter((c) => c !== "scenario_id");
+    const farmCols = names(farm);
+    for (const c of pubCols) expect(farmCols, c).toContain(c);
+    for (const extra of ["farm_season_id", "irr_l", "taw_mm", "raw_mm"]) {
+      expect(farmCols, extra).toContain(extra);
+    }
+    expect(farmCols).toContain("farm_id");
+    expect(farmCols).not.toContain("scenario_id");
+  });
+
+  it("확인 SQL · 되돌리기 SQL 이 있고, 되돌리기는 farms · etc_only 줄이 0 인지 먼저 확인하고 보충 예약을 함께 멈춘다", () => {
+    const check = readFileSync(
+      join(ROOT, "supabase/checks/d1_2_farms_check.sql"),
+      "utf8",
+    );
+    const rollback = readFileSync(
+      join(ROOT, "supabase/checks/d1_2_farms_rollback.sql"),
+      "utf8",
+    );
+    expect(check).toContain("all_ok");
+    expect(check).toContain("cropmon.skip_wake");
+    expect(check).toContain("raise exception 'd1_2_check_rollback'");
+    expect(rollback).toMatch(/select count\(\*\) from public\.farms/);
+    expect(rollback).toMatch(/status = 'etc_only'/);
+    expect(rollback).toContain("cron.unschedule(jobname)");
+    expect(rollback).toContain("croplib-farm-calc-sweep");
+    expect(rollback).not.toMatch(/drop table[^;]*auth\.users/);
+    expect(rollback).not.toMatch(/delete from auth\.users/);
   });
 });

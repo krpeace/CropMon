@@ -9,6 +9,7 @@ import { isSoilWaterStatus, type SoilWaterStatus } from "@/domain/soil-water";
 import {
   addDays,
   CROP_DB_ID,
+  SPECIFIC_CROPS,
   firstMainDate,
   koreanDate,
   needInDays,
@@ -90,7 +91,6 @@ const RECENT_DAYS = 7;
 const RUN_MAX_AGE_H = 36;
 const REP_STATIONS = STATIONS.filter((s) => s.isRepresentative);
 const ACTIVE_STATIONS = STATIONS.filter((s) => s.isActive);
-const SPECIFIC_CROPS = ["apple", "cabbage"] as const;
 
 function code(v: string | undefined): WaterStatus | null {
   return (WATER_STATUSES as readonly string[]).includes(v ?? "")

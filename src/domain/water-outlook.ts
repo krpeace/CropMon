@@ -18,6 +18,15 @@ export const CROP_DB_ID: Record<Crop, string> = {
   cabbage: "kimchi_cabbage",
 };
 
+/**
+ * 지점 판정(지역 칩 점 색 · 종합의 지점 표)에 쓰는 작물. 작물 공통(common)과 포도 등은 이 판정에 안 쓴다.
+ * DB 를 읽을 때도 이 목록으로 걸러 읽는다(`SPECIFIC_CROP_DB_IDS`) — 목록은 여기 한 곳에만 둔다 (결정 0062).
+ */
+export const SPECIFIC_CROPS = ["apple", "cabbage"] as const;
+export const SPECIFIC_CROP_DB_IDS: readonly string[] = SPECIFIC_CROPS.map(
+  (c) => CROP_DB_ID[c],
+);
+
 const DAY = 86_400_000;
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 

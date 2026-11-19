@@ -51,6 +51,8 @@ describe("status-source", () => {
       'select("scenario_id,stn_id,crop_id,raw_mm,taw_mm,season_start,season_end")',
       'eq("is_default",true)',
       'eq("season_year",2026)',
+      // 포도 등 지점 판정에 안 쓰는 작물 줄을 읽지 않는다 (주소 길이 · 결정 0062). 목록은 도메인 한 곳(SPECIFIC_CROP_DB_IDS)에서 온다.
+      'in("crop_id",["apple","kimchi_cabbage"])',
       "from(forecast_runs)",
       'select("run_id,stn_id,run_at,run_name,finished_at")',
       'eq("collector","actions")',

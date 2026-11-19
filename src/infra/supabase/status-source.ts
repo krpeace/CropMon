@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { SPECIFIC_CROP_DB_IDS } from "@/domain/water-outlook";
+
 import { getSupabaseClient } from "./client";
 
 /**
@@ -140,6 +142,8 @@ export function createStatusSource(
           )
           .eq("is_default", true)
           .eq("season_year", year)
+          // 지점 판정에 쓰는 작물 줄만. 포도 등을 읽으면 아래 .in(scenario_id) 주소가 길어진다 (결정 0062).
+          .in("crop_id", [...SPECIFIC_CROP_DB_IDS])
           .retry(false)
           .abortSignal(signal()),
       ),
