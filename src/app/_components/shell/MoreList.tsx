@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { stepById } from "@/domain/font-scale";
+import { legalHref } from "@/domain/legal";
 import { withSelection, type Selection } from "@/domain/selection";
 
 import { Badge } from "../ui/Badge";
@@ -21,7 +22,7 @@ const GROUP = "rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5";
  * 더보기 화면 (시안 v0.4.6 12절 "더보기", 이슈 #145 · #161). 위에서 아래로:
  * ① 서비스 메뉴 — 맨 위 종합, 켠 메뉴(준비 중은 꼬리표, 설정값 순서)
  * ② 구분선
- * ③ 공지 · 문의 · FAQ · 약관 — 아직 화면이 없어 "준비 중" (약관은 L1 에서 /terms 링크로)
+ * ③ 공지 · 문의 · FAQ — 아직 화면이 없어 "준비 중", 약관은 /terms 링크 줄(이슈 #173)
  * ④ (비회원) 화면 구성("준비 중", S5) · 글씨 크기(/font-size 로 가는 줄, 지금 단계 이름) · 다크 모드(스위치 — 휴대폰 맥락 바에는 해/달 버튼이 없다)
  * ⑤ 끈 메뉴가 있으면 맨 아래 "숨긴 메뉴 n개" 한 줄
  * 준비 중 줄은 버튼처럼 보이되 aria-disabled 이고 눌러도 이동하지 않는다.
@@ -64,7 +65,15 @@ export function MoreList({ selection }: { selection: Selection | null }) {
         <SoonRow icon="notice" label="공지" />
         <SoonRow icon="inquiry" label="문의" />
         <SoonRow icon="faq" label="FAQ" />
-        <SoonRow icon="doc" label="약관" />
+        <li className="contents">
+          <Link href={legalHref("terms")} className={ROW}>
+            <Icon name="doc" size={24} className="text-brand-ink flex-none" />
+            <span className="flex-1">약관</span>
+            <span aria-hidden="true" className="text-20 text-ink-2/60">
+              ›
+            </span>
+          </Link>
+        </li>
       </ul>
 
       <ul className={GROUP}>

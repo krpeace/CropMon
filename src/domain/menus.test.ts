@@ -336,6 +336,16 @@ describe("screenContext(pathname)", () => {
     });
   });
 
+  it("/terms · /privacy 는 둘 다 제목 '약관' + 뒤로 화살표 (더보기에서 한 번 더 들어간 화면)", () => {
+    for (const path of ["/terms", "/privacy", "/terms/", "/privacy?x=1"]) {
+      expect(screenContext(path), path).toEqual({
+        kind: "title",
+        title: "약관",
+        back: true,
+      });
+    }
+  });
+
   it("끝의 슬래시나 쿼리 문자열이 붙어도 같다", () => {
     expect(screenContext("/water/")).toEqual({ kind: "selection" });
     expect(screenContext("/my-farm/")).toEqual({
