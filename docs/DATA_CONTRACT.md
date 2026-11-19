@@ -2,14 +2,15 @@
 
 계산 저장소(croplib-dp, Python)가 Supabase에 올리는 자료와, 이 웹이 읽는 자료의 약속입니다. 테이블을 바꾸면 이 문서와 `supabase/migrations/`를 같은 PR에서 고치고 버전을 올립니다. `src/infra/supabase/contract.test.ts`가 이 문서의 테이블 목록과 마이그레이션이 같은지 자동으로 검사합니다.
 
-## 현재 버전: v1.10 (2026-11-11)
+## 현재 버전: v2.0 (2026-11-19)
 
+- **v2.0:** 회원제의 첫 DB를 더했습니다 (`supabase/migrations/20261119000000_data_contract_v2_0_members.sql`, 이슈 #178, 결정 0059). 회원 표 `public.members`(회원 한 사람 = 한 줄, **회원은 자기 줄만** 읽고 정해진 9개 열만 고침), 가입하면 줄이 저절로 생기는 `auth.users` 트리거, 탈퇴 기록 `ops.withdrawn_accounts`, 운영용 함수 `public.delete_my_account()`·`public.ensure_my_member()`입니다. 지금까지 모든 표는 "누구나 읽기, 서버 키만 쓰기"였는데, 회원 표가 처음으로 이 규칙의 예외(자기 줄)입니다. 농장·작기·관수 기록·계산 결과 표는 **v2.1**(D1-2)에서 더합니다. 기존 공개 표와 croplib-dp 업로드는 바뀌지 않습니다(croplib-dp는 회원 표를 쓰지 않습니다).
 - **v1.10:** 종합표의 작물 공통 토양 물 상태 뷰 `soil_water_latest` 마지막 열에 `filled`를 더했습니다 (`supabase/migrations/20261111000000_data_contract_v1_10_soil_water_latest_filled.sql`, 이슈 #128, 결정 0041). 물(`water_balance_daily`)과 토양(`soil_water_daily`)의 `filled = true`는 단순히 그날 하루가 비었다가 아니라 **결측을 메운 날 이후 부족한 물(`Dr`)이 `0`으로 돌아오기 전까지 추정의 영향을 받는 날**을 뜻하며, 화면에서 순수 관측과 구분해 `"추정 포함"`으로 알릴 수 있게 합니다. 반면 적산온도(`heat_daily`)·적산일사(`sun_daily`)는 `filled` 대신 유효 누적 값(`gdd_cum`, `rs_cum_mj` ≠ null)이 있는 마지막 날짜를 기준으로 삼습니다.
 - **v1.9:** 작물 공통 토양 물 상태(`soil_water_daily`)의 지점·토성별 최신 1줄을 돌려주는 뷰 `soil_water_latest`를 더했습니다 (`supabase/migrations/20261108010000_data_contract_v1_9.sql`, 이슈 #82). 한국 기준 최근 7일 이내(`date >= ((now() at time zone 'Asia/Seoul')::date - 7)`)의 지점·토성별 최신 1줄만 돌려주며, 전 지점 확대(croplib-dp #28 S2) 때 1,000줄 제한 절단으로 인한 지점 누락을 막고 화면 읽기량을 줄입니다. 정렬 가속을 위한 복합 색인 `(stn_id, soil_code, date desc)`도 함께 더했습니다. 관측 일자료(`weather_daily`)에는 일사 산출 출처(`rs_source`) 칸을 더했습니다 (`supabase/migrations/20261108030000_weather_daily_rs_source.sql`, croplib-dp #28 C7, #76 선행). ETo 계산에 쓴 일사가 관측(`observed`), 일조시간 추정(`sunshine`), 기온차 추정(`temp_range`) 중 무엇인지 남기며, 비어 있으면 일사 없음입니다.
 - **v1.8:** 적산온도(`heat_daily`)·적산일사(`sun_daily`)에 올린 시각 `updated_at`을 더했습니다. 온도·햇빛 화면의 "마지막 갱신 시각"은 이 열의 지점별 가장 늦은 값(매일 09:20 KST `heat-sun`이 올린 시각)을 보여 줍니다. croplib-dp는 고치지 않아도 됩니다. 줄을 고쳐 쓸 때(upsert 포함) DB의 트리거가 `updated_at`을 지금으로 바꿉니다 (`supabase/migrations/20261108000000_data_contract_v1_8.sql`, 결정 0035). 물 화면은 그대로 물 회차 시각을 씁니다.
 
-- 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.4 적산온도 `heat_daily`·적산일사 `sun_daily` + v1.5 작물 공통 토양 물 상태 `soil_water_daily`)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블).
-- 회원제 개인 테이블(내 농장, 관수 기록, 농장별 보정값)은 1/1 회원 공개에 맞춰 v2로 더합니다.
+- 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.4 적산온도 `heat_daily`·적산일사 `sun_daily` + v1.5 작물 공통 토양 물 상태 `soil_water_daily`)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블). v2.0부터 회원 표 `members`(공개 표가 아님, 자기 줄만)와 운영용 `ops.withdrawn_accounts`가 따로 있습니다.
+- 회원제는 두 번에 나눠 더합니다. **v2.0**은 회원 표 `members`와 탈퇴(이슈 #178), **v2.1**은 개인 테이블(내 농장, 작기, 관수 기록, 계산 결과)입니다. 농장별 보정값(`crop_overrides`)은 그 뒤 판입니다.
 - 지점 사전(`stations`)은 v1.6에서 기상청 ASOS 지점 105곳(현행 운영 97곳 + 폐지·휴지 보존 8곳)으로 현행화하고, 지역 고르기에 필요한 열(`sido`, `is_representative`, `is_active`, `measures_sunlight`, `synced_at`)을 더했습니다. 물 계산(관측 일자료 기반 물수지·토양수분)은 운영 97곳(`is_active = true`), 단기예보 물수지·전망은 `has_forecast = true`(대표 10곳, croplib-dp S4에서 20곳씩 확대)를 대상으로 합니다. 운영 97곳의 단기예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`로 미리 채워 둡니다.
 - 작물 공통(흙만 본 물 상태)은 v1.5에서 더했습니다. "기준작물(잔디)" 대신 **"작물 공통"**으로 부르며, 고정 조건(겉흙 깊이 0.5 m, 증발 수요 = ETo × 1.0, p = 0.40, 3/1에 Dr = 0(포장용수량)으로 시작, 지표유출·모관상승 0, FAO-56 식 (84)~(88))으로 계산합니다.
 - 적산온도·적산일사는 v1.4에서 더했습니다. 평년은 지난 10년(2016–2025) 같은 날의 평균입니다(cropweather 방식). 기상청 공식 30년 평년값(1991–2020)은 아직 쓰지 않습니다.
@@ -22,7 +23,7 @@
 - **결측:** 값이 없으면 빈 칸(null)으로 두고 0을 넣지 않습니다. 화면은 null을 "자료 없음"으로 보여 줍니다. 채운 값은 `filled = true`로 표시해 "추정 포함" 등을 구분합니다.
 - **한계 (기상청 사후 정정·철회):** 기상청이 뒤늦게 관측 값을 거둬들이거나 정정한 날의 옛 값이 DB에 남아 있으면, 화면의 최신 기준 날짜가 실제 관측과 하루 정도 어긋날 수 있습니다.
 - **계산 버전:** 계산 결과에는 `calc_version`(croplib-dp 버전)을 남겨, 식을 고친 뒤에도 어느 계산으로 나온 값인지 알 수 있게 합니다.
-- **권한:** 모든 테이블에 RLS를 켭니다. 비회원(`anon`)과 회원(`authenticated`)은 읽기만 가능하고, 쓰기는 croplib-dp의 서버 키(service role)만 합니다. 서버 키는 이 저장소의 화면 코드에 넣지 않습니다.
+- **권한:** 모든 테이블에 RLS를 켭니다. **공개 표**는 비회원(`anon`)과 회원(`authenticated`) 누구나 읽기만 가능하고, 쓰기는 croplib-dp의 서버 키(service role)만 합니다. **회원 표**(`members`, v2.0)는 **자기 줄만** 읽고 정해진 열만 고칠 수 있으며, 비회원에게는 아무 권한이 없습니다(서버 키는 지금처럼 RLS를 건너뜁니다). 서버 키는 이 저장소의 화면 코드에 넣지 않습니다.
 - **값의 범위:** 범위 검사(예: ETo 0~15 mm/d)는 croplib-dp가 올리기 전에 합니다. DB는 키, 연결, 이름이 정해진 칸처럼 구조만 막습니다. 범위 규칙을 고칠 때 DB를 바꾸지 않아도 되게 하려는 것입니다.
 - **원자료:** 시각별 예보와 API 응답 원문은 DB가 아니라 Storage의 비공개 버킷 `raw`에 압축해 둡니다(v1.2에서 버킷을 만듦). 비회원·회원은 읽을 수 없고, croplib-dp의 서버 키만 씁니다. 위치는 `forecast_runs.raw_path`에 남깁니다.
 - **2계층:** FAO-56 표준값(`crops`, `crop_seasons`, `crop_kc_sets`, `soil_types`)과 농장별 보정값(v2의 `crop_overrides`)을 따로 둡니다. 사용자가 고친 작기 시작일도 보정값 층에 저장하고, 표준값은 바꾸지 않습니다.
@@ -80,6 +81,7 @@
 | `sun_daily`             | 적산일사와 평년 (v1.4)            | 매일                          | 지점 × 날짜                                  |
 | `soil_water_daily`      | 작물 공통 토양 물 상태 (v1.5)     | 매일                          | 지점 × 토성 × 날짜                           |
 | `app_health`            | 연결 확인용                       | 처음 한 번                    | 행 하나                                      |
+| `members` (v2.0)        | 회원: 표시 이름·동의·화면 설정    | 가입 트리거 + 회원 본인       | 회원 한 사람                                 |
 
 ## 테이블별 열
 
@@ -437,6 +439,58 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 | `status`           | 문자, 비어도 됨 | 작물 공통 상태 코드 여섯 가지 (위 "흙 물 상태 판정 (작물 공통)") |
 | `filled`           | 참/거짓         | 채운 기상 값의 영향을 받는 날 (`Dr = 0` 전까지 이어질 수 있음)   |
 
+### `public.members`
+
+회원 한 사람 = 한 줄입니다 (v2.0). 이메일은 저장하지 않습니다(`auth.users`에 있음). 공개 표가 아니라서 **자기 줄만** 읽고 고칩니다.
+
+| 열                     | 형식           | 비어 있어도 되나  | 뜻                                                                                                                                   |
+| ---------------------- | -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `user_id`              | `uuid`         | 아니요 (기본키)   | 회원 번호. `auth.users(id)`를 가리키며, 그 줄이 지워지면 함께 지워집니다 (`on delete cascade`)                                       |
+| `display_name`         | `text`         | 예                | 화면에 보일 이름. 가입 때 로그인 공급자가 준 이름·별명(`name` → `full_name` → `nickname` → `preferred_username` 순)을 처음 값으로    |
+| `provider`             | `text`         | 예                | 처음 가입한 경로(표시용): `kakao`, `naver`, `google`. 네이버는 사용자 정의 공급자(`custom:naver`)로 와도 `naver`로 넣음. 모르면 비움 |
+| `role`                 | `text`         | 예                | `farmer`(농업인) · `advisor`(지도사). **DB에만 두고 1/1 화면은 묻지 않음**                                                           |
+| `role_verified_at`     | `timestamptz`  | 예                | 지도사 확인 시각(나중에). 1/1에는 쓰지 않음                                                                                          |
+| `terms_version`        | `text`         | 예                | 동의한 이용약관 판 (예: `terms-2027-01-01`). **비어 있으면 동의 전** — 회원 기능을 막고 24시간 뒤 계정을 지움(정리 작업 O2)          |
+| `terms_agreed_at`      | `timestamptz`  | 예                | 이용약관에 동의한 시각                                                                                                               |
+| `privacy_version`      | `text`         | 예                | 확인한 개인정보처리방침 판 (예: `privacy-2027-01-01`)                                                                                |
+| `privacy_confirmed_at` | `timestamptz`  | 예                | **"개인정보 수집·이용 안내 확인"** 시각. 동의가 아니라 안내 확인                                                                     |
+| `age14_confirmed_at`   | `timestamptz`  | 예                | "만 14세 이상입니다" 확인 시각                                                                                                       |
+| `layout`               | `jsonb` (객체) | 예                | 화면 구성. 기기 값 `{ v: 1, order, off }`와 같은 모양(참고용). 비면 기본값                                                           |
+| `font_scale`           | `jsonb` (객체) | 예                | 글씨 크기. 기기 값 `{ v: 1, step, follow }`와 같은 모양(참고용). 비면 기기 설정                                                      |
+| `theme`                | `text`         | 예                | `light` · `dark`. 비면 기기 설정                                                                                                     |
+| `created_at`           | `timestamptz`  | 아니요 (기본 now) | 만든 시각                                                                                                                            |
+| `updated_at`           | `timestamptz`  | 아니요 (기본 now) | 고친 시각. 고칠 때 `set_updated_at()` 트리거가 지금으로 바꿈                                                                         |
+
+- **jsonb 칸 모양은 참고용입니다.** DB는 "객체인지"만 검사하고, 값의 범위·모양은 화면 쪽 `parse…` 함수(`src/domain/menus.ts`, `src/domain/font-scale.ts`)가 거릅니다. 값 규칙을 고칠 때 DB를 바꾸지 않아도 되게 하려는 것입니다. `font_scale`은 회원제 설계 7판에는 없던 열이며(글씨 크기도 계정에 저장), 이 계약에서 더했습니다(결정 0059).
+- **동의 판 값의 옳고 그름**(지금 판이 맞는지)은 DB가 아니라 동의 화면(L4)이 지킵니다.
+
+| 누가                                 | 읽기            | 고치기                                                                                | 넣기·지우기                                             |
+| ------------------------------------ | --------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 회원 본인(`authenticated`)           | 자기 줄         | 자기 줄의 **9개 열만**: `display_name`, 동의 다섯 열, `layout`, `font_scale`, `theme` | 없음 (넣기는 가입 트리거, 지우기는 `delete_my_account`) |
+| 다른 회원                            | 없음            | 없음                                                                                  | 없음                                                    |
+| 비회원(`anon`)                       | 없음            | 없음                                                                                  | 없음                                                    |
+| croplib-dp (서버 키, `service_role`) | 됨 (RLS 건너뜀) | — (이 표를 쓰지 않음)                                                                 | —                                                       |
+
+- **고칠 수 있는 열(열 단위 권한):** `display_name`, `terms_version`, `terms_agreed_at`, `privacy_version`, `privacy_confirmed_at`, `age14_confirmed_at`, `layout`, `font_scale`, `theme`. `user_id`·`provider`·`role`·`role_verified_at`·`created_at`·`updated_at`은 회원이 바꿀 수 없습니다.
+- **가입 트리거:** `auth.users`에 줄이 생기면(`on_auth_user_created`, after insert) 보안 정의 함수 `public.handle_new_user()`가 `members`에 한 줄을 넣습니다(`user_id`, `display_name`, `provider`). **이 트리거는 오류를 내지 않습니다** — 오류가 나면 그 사람은 로그인 자체가 막히기 때문입니다. 이름·공급자는 내부 함수 `public.member_seed()`가 골라 모르면 비워 두고, 그래도 생길 수 있는 오류는 경고만 남기고 넘어갑니다(줄이 빠지면 로그인 직후 `ensure_my_member()`가 만듭니다). 직접 부를 수 없습니다(실행 권한 없음).
+
+### `ops.withdrawn_accounts`
+
+탈퇴 기록입니다 (v2.0). 공개 표가 아니라 `ops` 스키마(비회원·회원이 볼 수 없는 운영용)에 있고, RLS를 켠 채 정책이 없어 서버 키만 읽고 씁니다. 백업에서 되살릴 때 그 사이 탈퇴한 회원을 다시 지우기 위한 작은 기록이며, 7일 지난 줄 지우기는 정리 작업(O2)이 합니다.
+
+| 열             | 형식          | 비어 있어도 되나  | 뜻                                                                                                                        |
+| -------------- | ------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `user_hash`    | `text`        | 아니요 (기본키)   | 회원 번호를 되돌릴 수 없게 바꾼 값: `encode(sha256(convert_to(user_id::text, 'UTF8')), 'hex')`. 원래 번호는 저장하지 않음 |
+| `withdrawn_at` | `timestamptz` | 아니요 (기본 now) | 탈퇴 시각                                                                                                                 |
+
+### 회원 함수: `public.delete_my_account()` · `public.ensure_my_member()`
+
+둘 다 보안 정의 함수이며 인자를 받지 않습니다(남의 번호를 넘길 길이 없음). 회원(`authenticated`)만 실행하고 비회원(`anon`)은 못 합니다.
+
+- **`public.delete_my_account()`:** 회원 본인이 탈퇴합니다. ① `ops.withdrawn_accounts`에 위 해시 한 줄(이미 있으면 시각만 갱신) ② `auth.users`의 자기 줄 삭제 → `members`가 연쇄로 지워집니다(v2.1의 농장 표들도 같은 연쇄). 비회원이 부르면 오류. 카카오·네이버·구글 연결 끊기는 서버 키가 필요해 따로 서버 쪽 함수(L6)가 합니다.
+- **`public.ensure_my_member()`:** 줄이 빠진 회원이 자기 줄을 만듭니다. 가입 트리거와 같은 식(`member_seed()`)으로 자기 `auth.users` 줄에서 이름·공급자를 읽어 `members`에 넣고, 이미 있으면 아무것도 하지 않습니다(두 번 불러도 오류 없음). 로그인 직후 한 번 부르는 것이 약속입니다(L2).
+- **확인 SQL:** `supabase/checks/d1_1_members_check.sql`(실행하면 아무것도 남지 않음, 맨 끝 `all_ok = true`). 되돌리기 SQL은 `supabase/checks/d1_1_members_rollback.sql`(실행하지 않음).
+
 ### `public.app_health`
 
 웹이 데이터베이스에 연결되는지 확인하는 용도입니다. 계산 결과는 담지 않습니다.
@@ -470,20 +524,21 @@ croplib-dp의 DB 용량 감시(400MB 경고, 450MB 오류 알림)를 위한 RPC 
 
 ## 변경 기록
 
-| 버전  | 날짜       | 내용                                                                                                                                                                    |
-| ----- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v1.10 | 2026-11-11 | `soil_water_latest` 뷰 마지막 열에 `filled` 추가 및 `filled` 영향권(`Dr = 0` 전까지)·기상청 사후 정정 한계 명시 (#128, 결정 0041)                                       |
-| -     | 2026-11-08 | croplib-dp DB 용량 감시용 RPC 함수 `public.db_size_bytes()` 추가 (service_role 전용, #77)                                                                               |
-| v1.9  | 2026-11-08 | `soil_water_daily`의 한국 기준 최근 7일 지점·토성별 최신 1줄 뷰 `soil_water_latest` 및 `(stn_id, soil_code, date desc)` 복합 색인 추가 (#82)                            |
-| v1.8  | 2026-11-08 | `heat_daily`·`sun_daily`에 올린 시각 `updated_at`(not null, 기본 now()) 및 고쳐 쓸 때 갱신하는 트리거 추가. 온도·햇빛 화면 갱신 시각이 이 값을 씀 (결정 0035)           |
-| v1.7  | 2026-10-30 | (구조 그대로, 사전 값만) 작물 공통(`common`) `gdd_stages`를 [1000, 2000] → [500, 1000, 1500, 2000, 2500, 3000]으로 (결정 0032). 화면은 `lead_days`를 더 이상 쓰지 않음  |
-| v1.6  | 2026-10-28 | 지점 사전(`stations`) 기상청 ASOS 105곳(현행 97곳 + 폐지·휴지 8곳) 현행화 및 `sido`·`is_representative`·`is_active`·`measures_sunlight`·`synced_at` 열 추가 (#38)       |
-| v1.5  | 2026-10-28 | 작물 공통 토양 물 상태 표 `soil_water_daily` 추가, `soil_types`에 `is_estimated` 열 및 추정 3종(사질식양토·식양토·사질식토) 값 추가, `crops`에 적산온도용 `common` 추가 |
-| v1.4  | 2026-10-28 | (구조 그대로, 문구만) `status_start` 휴면기 판정 기준 = 회차 발표 날짜                                                                                                  |
-| v1.4  | 2026-10-26 | 적산온도 `heat_daily`, 적산일사 `sun_daily` 추가. 작물 사전에 `t_base_c`·`gdd_stages` (온1)                                                                             |
-| v1.3  | 2026-10-25 | (구조 그대로, 사전 값만) 예보 수집 지점 춘천 → 10곳 모두 `stations.has_forecast` (물6)                                                                                  |
-| v1.3  | 2026-10-25 | 3일 전망 요약 `water_outlook_summary` 추가 (관수 필요 예상일 중심·빠르면·늦으면, 권장 관수량, 3일 합)                                                                   |
-| v1.2  | 2026-10-24 | `water_outlook.lead_day` 0~3 → 0~4 (저녁 회차는 D+4까지). 원자료 Storage 비공개 버킷 `raw`                                                                              |
-| v1.1  | 2026-10-24 | 재배 방식별 Kc `crop_kc_sets` 추가(사과 4가지, 기본 3번 초생 재배·서리 지역). 계산 조건에 `kc_set_id`, 공개 조건 20개 → 50개                                            |
-| v1    | 2026-10-24 | 공개 테이블 9개 추가 (사전 5개, 수집 기록 1개, 일 자료 2개, 전망 1개). 토양수분 상태 판정 확정                                                                          |
-| v0    | 2026-10-22 | 연결 확인용 `app_health` 추가                                                                                                                                           |
+| 버전  | 날짜       | 내용                                                                                                                                                                                                                                                  |
+| ----- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.0  | 2026-11-19 | 회원 표 `members`(자기 줄만, 고칠 수 있는 9개 열), 가입 트리거 `on_auth_user_created`, 탈퇴 기록 `ops.withdrawn_accounts`, 함수 `delete_my_account()`·`ensure_my_member()` 추가. 권한 문장을 공개 표/회원 표로 나눔. 농장 쪽은 v2.1 (#178, 결정 0059) |
+| v1.10 | 2026-11-11 | `soil_water_latest` 뷰 마지막 열에 `filled` 추가 및 `filled` 영향권(`Dr = 0` 전까지)·기상청 사후 정정 한계 명시 (#128, 결정 0041)                                                                                                                     |
+| -     | 2026-11-08 | croplib-dp DB 용량 감시용 RPC 함수 `public.db_size_bytes()` 추가 (service_role 전용, #77)                                                                                                                                                             |
+| v1.9  | 2026-11-08 | `soil_water_daily`의 한국 기준 최근 7일 지점·토성별 최신 1줄 뷰 `soil_water_latest` 및 `(stn_id, soil_code, date desc)` 복합 색인 추가 (#82)                                                                                                          |
+| v1.8  | 2026-11-08 | `heat_daily`·`sun_daily`에 올린 시각 `updated_at`(not null, 기본 now()) 및 고쳐 쓸 때 갱신하는 트리거 추가. 온도·햇빛 화면 갱신 시각이 이 값을 씀 (결정 0035)                                                                                         |
+| v1.7  | 2026-10-30 | (구조 그대로, 사전 값만) 작물 공통(`common`) `gdd_stages`를 [1000, 2000] → [500, 1000, 1500, 2000, 2500, 3000]으로 (결정 0032). 화면은 `lead_days`를 더 이상 쓰지 않음                                                                                |
+| v1.6  | 2026-10-28 | 지점 사전(`stations`) 기상청 ASOS 105곳(현행 97곳 + 폐지·휴지 8곳) 현행화 및 `sido`·`is_representative`·`is_active`·`measures_sunlight`·`synced_at` 열 추가 (#38)                                                                                     |
+| v1.5  | 2026-10-28 | 작물 공통 토양 물 상태 표 `soil_water_daily` 추가, `soil_types`에 `is_estimated` 열 및 추정 3종(사질식양토·식양토·사질식토) 값 추가, `crops`에 적산온도용 `common` 추가                                                                               |
+| v1.4  | 2026-10-28 | (구조 그대로, 문구만) `status_start` 휴면기 판정 기준 = 회차 발표 날짜                                                                                                                                                                                |
+| v1.4  | 2026-10-26 | 적산온도 `heat_daily`, 적산일사 `sun_daily` 추가. 작물 사전에 `t_base_c`·`gdd_stages` (온1)                                                                                                                                                           |
+| v1.3  | 2026-10-25 | (구조 그대로, 사전 값만) 예보 수집 지점 춘천 → 10곳 모두 `stations.has_forecast` (물6)                                                                                                                                                                |
+| v1.3  | 2026-10-25 | 3일 전망 요약 `water_outlook_summary` 추가 (관수 필요 예상일 중심·빠르면·늦으면, 권장 관수량, 3일 합)                                                                                                                                                 |
+| v1.2  | 2026-10-24 | `water_outlook.lead_day` 0~3 → 0~4 (저녁 회차는 D+4까지). 원자료 Storage 비공개 버킷 `raw`                                                                                                                                                            |
+| v1.1  | 2026-10-24 | 재배 방식별 Kc `crop_kc_sets` 추가(사과 4가지, 기본 3번 초생 재배·서리 지역). 계산 조건에 `kc_set_id`, 공개 조건 20개 → 50개                                                                                                                          |
+| v1    | 2026-10-24 | 공개 테이블 9개 추가 (사전 5개, 수집 기록 1개, 일 자료 2개, 전망 1개). 토양수분 상태 판정 확정                                                                                                                                                        |
+| v0    | 2026-10-22 | 연결 확인용 `app_health` 추가                                                                                                                                                                                                                         |
