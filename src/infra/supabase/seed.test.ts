@@ -10,6 +10,8 @@ import { STATIONS } from "@/infra/stations";
  *   - 20261024010000_seed_dictionaries.sql: 지점·작물·작형·토성 (v1)
  *   - 20261024030000_seed_kc_sets.sql: 재배 방식별 Kc, 기본 계산 조건 (v1.1)
  *   - 20261107000000_seed_scenarios_2027.sql: 2027년 계산 조건 (2026년 줄과 연도만 다름)
+ *   - 20261120010000_seed_grape_dictionary.sql: 포도 작목 · 재배 방식 · 작형 둘, 배추 기준온도 (v2.1, 결정 0062)
+ *   - 20261120020000_seed_scenarios_grape_2027.sql: 2027 포도 계산 조건 194개 (v2.1)
  * 계산 값(TAW, RAW, 작기 끝)은 FAO-56 식으로 다시 계산해 같은지 본다.
  */
 
@@ -32,6 +34,8 @@ const SEED_MEASURES_SUNLIGHT = read(
   "20261109020000_stations_measures_sunlight.sql",
 );
 const SEED_NON_REP = read("20261110000000_seed_scenarios_non_rep.sql");
+const SEED_GRAPE_DICT = read("20261120010000_seed_grape_dictionary.sql");
+const SEED_GRAPE_2027 = read("20261120020000_seed_scenarios_grape_2027.sql");
 const CSV_STATIONS_GRID = existsSync(
   join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
 )
@@ -1221,5 +1225,272 @@ describe("사전 자료: 대표 밖 87곳 계산 조건 (#103)", () => {
     const targetClause = conflictUpdateClause(SEED_NON_REP, "scenarios");
     expect(baseClause).not.toBeNull();
     expect(targetClause).toBe(baseClause);
+  });
+});
+
+const addDaysIso = (iso: string, n: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+
+describe("사전 자료: 포도 · 배추 기준온도 (v2.1, 결정 0062)", () => {
+  const grape = rowsOf("crops", SEED_GRAPE_DICT);
+  const kc = rowsOf("crop_kc_sets", SEED_GRAPE_DICT);
+  const seasons = rowsOf("crop_seasons", SEED_GRAPE_DICT);
+  const bySeason = (id: string) => seasons.find((r) => r.season_type_id === id);
+
+  it("포도 작목 한 줄: Kc 0.30/0.85/0.45, Zr 1.0, p 0.35, 높이 2.0, 기준온도 10", () => {
+    expect(grape).toHaveLength(1);
+    expect(grape[0]).toMatchObject({
+      crop_id: "grape",
+      name_ko: "포도",
+      kc_ini: 0.3,
+      kc_mid: 0.85,
+      kc_end: 0.45,
+      zr_m: 1,
+      p: 0.35,
+      h_m: 2,
+      t_base_c: 10,
+    });
+    expect(String(grape[0].source)).toContain("FAO-56 Table 12");
+    expect(String(grape[0].source)).toContain("Paredes 2025b");
+  });
+
+  it("적산 단계(gdd_stages)와 라벨은 비워 둔다 — 값이 오면 작은 시드 이슈로 넣는다", () => {
+    expect(Object.keys(grape[0])).not.toContain("gdd_stages");
+    expect(Object.keys(grape[0])).not.toContain("gdd_stage_labels");
+    expect(SEED_GRAPE_DICT).toContain("비워 둔다");
+  });
+
+  it("재배 방식 grape-k1: 번호 1, 이름 기본, 기본 방식, Kc 가 작목과 같다", () => {
+    expect(kc).toHaveLength(1);
+    expect(kc[0]).toMatchObject({
+      kc_set_id: "grape-k1",
+      crop_id: "grape",
+      set_no: 1,
+      name_ko: "기본",
+      kc_ini: 0.3,
+      kc_mid: 0.85,
+      kc_end: 0.45,
+      is_default: true,
+    });
+  });
+
+  it("작형 둘: 비가림은 04-20 · 25/45/90/45 · 기본 · 시설 · 적산 04-20", () => {
+    expect(seasons).toHaveLength(2);
+    expect(bySeason("grape-rainshelter")).toMatchObject({
+      crop_id: "grape",
+      name_ko: "포도 비가림",
+      start_mmdd: "04-20",
+      l_ini_d: 25,
+      l_dev_d: 45,
+      l_mid_d: 90,
+      l_late_d: 45,
+      is_default: true,
+      is_protected: true,
+      cum_start_mmdd: "04-20",
+    });
+  });
+
+  it("작형 둘: 시설가온은 시작일 비움 · 35/40/85/30 · 기본 아님 · 시설 · 적산 시작 비움 (단계 일수는 있다)", () => {
+    expect(bySeason("grape-heated")).toMatchObject({
+      crop_id: "grape",
+      name_ko: "포도 시설가온",
+      start_mmdd: null,
+      l_ini_d: 35,
+      l_dev_d: 40,
+      l_mid_d: 85,
+      l_late_d: 30,
+      is_default: false,
+      is_protected: true,
+      cum_start_mmdd: null,
+    });
+  });
+
+  it("단계 일수 합: 비가림 205일, 시설가온 190일", () => {
+    const sum = (r: Row | undefined) =>
+      Number(r?.l_ini_d) +
+      Number(r?.l_dev_d) +
+      Number(r?.l_mid_d) +
+      Number(r?.l_late_d);
+    expect(sum(bySeason("grape-rainshelter"))).toBe(205);
+    expect(sum(bySeason("grape-heated"))).toBe(190);
+  });
+
+  it("사과 · 배추 여름 작형의 적산 시작은 01-01", () => {
+    expect(SEED_GRAPE_DICT).toMatch(
+      /update public\.crop_seasons set cum_start_mmdd = '01-01'\s+where season_type_id in \('apple-main', 'kimchi_cabbage-summer'\)/,
+    );
+  });
+
+  it("배추 기준온도는 4 → 5, 배추 여름 작형 이름은 고랭지배추 (키는 그대로)", () => {
+    expect(SEED_GRAPE_DICT).toMatch(
+      /update public\.crops set t_base_c = 5 where crop_id = 'kimchi_cabbage'/,
+    );
+    expect(SEED_GRAPE_DICT).toMatch(
+      /update public\.crop_seasons set name_ko = '고랭지배추' where season_type_id = 'kimchi_cabbage-summer'/,
+    );
+    // 키 이름은 바꾸지 않는다 (공개 계산 조건이 이 키를 쓴다)
+    expect(SEED_GRAPE_DICT).not.toMatch(
+      /update public\.crop_seasons set season_type_id/,
+    );
+  });
+
+  it("옛 사전 파일은 고치지 않았다 (옛 이름 · 기준온도 4 가 옛 파일에 그대로 있다)", () => {
+    expect(SEED_V1).toContain("여름배추(고랭지)");
+    expect(read("20261026000000_data_contract_v1_4.sql")).toContain(
+      "set t_base_c = 4, gdd_stages = '{300,600,900,1200}'",
+    );
+  });
+
+  it("여러 번 실행해도 오류가 없게 on conflict 가 있다", () => {
+    expect(SEED_GRAPE_DICT).toMatch(/on conflict \(crop_id\) do update set/);
+    expect(SEED_GRAPE_DICT).toMatch(/on conflict \(kc_set_id\) do update set/);
+    expect(SEED_GRAPE_DICT).toMatch(
+      /on conflict \(season_type_id\) do update set/,
+    );
+  });
+});
+
+describe("사전 자료: 2027 포도 계산 조건 194개 (v2.1, 결정 0062)", () => {
+  const rows = rowsOf("scenarios", SEED_GRAPE_2027);
+  const activeIds = STATIONS.filter((s) => s.isActive).map((s) => String(s.id));
+  const rain = rows.filter((r) => r.season_type_id === "grape-rainshelter");
+  const heated = rows.filter((r) => r.season_type_id === "grape-heated");
+
+  it("운영 지점 97곳 × 작형 둘 = 194줄", () => {
+    expect(activeIds).toHaveLength(97);
+    expect(rows).toHaveLength(194);
+    expect(rain).toHaveLength(97);
+    expect(heated).toHaveLength(97);
+  });
+
+  it("지점은 운영 97곳 그대로이고 폐지 · 휴지 지점은 없다", () => {
+    const ids = new Set(rows.map((r) => String(r.stn_id)));
+    expect([...ids].sort()).toEqual([...activeIds].sort());
+    for (const st of STATIONS.filter((s) => !s.isActive)) {
+      expect(ids.has(String(st.id)), String(st.id)).toBe(false);
+    }
+  });
+
+  it("지점마다 두 작형이 하나씩 있다", () => {
+    for (const id of activeIds) {
+      expect(
+        rain.filter((r) => r.stn_id === id),
+        id,
+      ).toHaveLength(1);
+      expect(
+        heated.filter((r) => r.stn_id === id),
+        id,
+      ).toHaveLength(1);
+    }
+  });
+
+  it("모두 포도 · grape-k1 · 양토 · 2027 · 기본 조건이다 (두 작형 모두 기본)", () => {
+    for (const r of rows) {
+      expect(r.crop_id).toBe("grape");
+      expect(r.kc_set_id).toBe("grape-k1");
+      expect(r.soil_code).toBe("loam");
+      expect(r.season_year).toBe(2027);
+      expect(r.is_default).toBe(true);
+    }
+  });
+
+  it("이름은 지점-작형-k1-loam-2027", () => {
+    for (const r of rows) {
+      expect(r.scenario_id).toBe(
+        `${r.stn_id}-${r.season_type_id}-k1-loam-2027`,
+      );
+    }
+    expect(new Set(rows.map((r) => r.scenario_id)).size).toBe(194);
+  });
+
+  it("비가림 2027-04-20 ~ 2027-11-10 (205일), 시설가온 2027-01-01 ~ 2027-07-09 (190일, 미정 대신 1월 1일)", () => {
+    for (const r of rain) {
+      expect(r.season_start).toBe("2027-04-20");
+      expect(r.season_end).toBe("2027-11-10");
+      expect(addDaysIso(String(r.season_start), 204)).toBe(r.season_end);
+    }
+    for (const r of heated) {
+      expect(r.season_start).toBe("2027-01-01");
+      expect(r.season_end).toBe("2027-07-09");
+      expect(addDaysIso(String(r.season_start), 189)).toBe(r.season_end);
+    }
+  });
+
+  it("작기 끝 = 시작 + 단계 일수 합 − 1 (작형 시드의 단계 일수로 다시 계산)", () => {
+    const seasons = rowsOf("crop_seasons", SEED_GRAPE_DICT);
+    for (const r of rows) {
+      const season = seasons.find(
+        (x) => x.season_type_id === r.season_type_id,
+      )!;
+      const days =
+        Number(season.l_ini_d) +
+        Number(season.l_dev_d) +
+        Number(season.l_mid_d) +
+        Number(season.l_late_d);
+      expect(
+        addDaysIso(String(r.season_start), days - 1),
+        String(r.scenario_id),
+      ).toBe(r.season_end);
+    }
+  });
+
+  it("TAW = 1000·(FC−WP)·Zr = 130, RAW = p·TAW = 45.5, dr0 = 0 (양토 FC 0.25 · WP 0.12, 포도 Zr 1.0 · p 0.35)", () => {
+    const loam = rowsOf("soil_types", SEED_V1).find(
+      (r) => r.soil_code === "loam",
+    )!;
+    const grape = rowsOf("crops", SEED_GRAPE_DICT)[0];
+    const taw = 1000 * (Number(loam.fc) - Number(loam.wp)) * Number(grape.zr_m);
+    expect(taw).toBeCloseTo(130, 9);
+    for (const r of rows) {
+      expect(r.taw_mm).toBe(130);
+      expect(r.raw_mm).toBeCloseTo(Number(grape.p) * taw, 9);
+      expect(r.raw_mm).toBe(45.5);
+      expect(r.dr0_mm).toBe(0);
+    }
+  });
+
+  it("지점 × 작형마다 기본 조건이 하나 (색인 scenarios_one_default 가 작형 기준이라 가능)", () => {
+    const seen = new Set<string>();
+    for (const r of rows.filter((x) => x.is_default)) {
+      const key = `${r.stn_id}|${r.season_type_id}|${r.season_year}`;
+      expect(seen.has(key), key).toBe(false);
+      seen.add(key);
+    }
+    expect(seen.size).toBe(194);
+  });
+
+  it("2027 전체 기본 조건은 사과 97 + 배추 97 + 포도 194 = 388줄이다 (기존 시드 파일 합 + 이 파일)", () => {
+    const base = [
+      ...allRowsOf("scenarios", SEED_2027),
+      ...allRowsOf("scenarios", SEED_NON_REP),
+    ].filter((r) => r.season_year === 2027 && r.is_default);
+    expect(base).toHaveLength(194);
+    expect(base.filter((r) => r.crop_id === "apple")).toHaveLength(97);
+    expect(base.filter((r) => r.crop_id === "kimchi_cabbage")).toHaveLength(97);
+    expect(base.length + rows.length).toBe(388);
+  });
+
+  it("여러 번 실행해도 오류가 없게 on conflict 가 있고 갱신 열이 기존 시드와 같다", () => {
+    expect(SEED_GRAPE_2027).toMatch(
+      /on conflict \(scenario_id\) do update set/,
+    );
+    const clause = (sql: string) =>
+      sql
+        .match(/on conflict \(scenario_id\) do update set([\s\S]*?);/)![1]
+        .replace(/\s+/g, " ")
+        .trim();
+    expect(clause(SEED_GRAPE_2027)).toBe(clause(SEED_2027));
+  });
+
+  it("구조 파일의 기본 조건 색인이 작형 기준으로 바뀐 뒤에 이 시드가 들어간다 (파일 이름 순서)", () => {
+    expect(
+      "20261120000000_data_contract_v2_1_farms.sql" <
+        "20261120020000_seed_scenarios_grape_2027.sql",
+    ).toBe(true);
+    expect(read("20261120000000_data_contract_v2_1_farms.sql")).toMatch(
+      /create unique index if not exists scenarios_one_default\s+on public\.scenarios \(stn_id, season_type_id, season_year\)\s+where is_default;/,
+    );
   });
 });

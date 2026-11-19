@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   CROP_DB_ID,
+  SPECIFIC_CROPS,
+  SPECIFIC_CROP_DB_IDS,
   firstMainDate,
   koreanDate,
   markOutlookDays,
@@ -16,6 +18,16 @@ describe("CROP_DB_ID", () => {
       apple: "apple",
       cabbage: "kimchi_cabbage",
     });
+  });
+});
+
+describe("SPECIFIC_CROPS · SPECIFIC_CROP_DB_IDS", () => {
+  it("지점 판정(지역 칩 · 종합)에 쓰는 작물은 사과 · 배추 둘이고, DB 번호는 CROP_DB_ID 에서 온다", () => {
+    expect([...SPECIFIC_CROPS]).toEqual(["apple", "cabbage"]);
+    expect([...SPECIFIC_CROP_DB_IDS]).toEqual(["apple", "kimchi_cabbage"]);
+    expect([...SPECIFIC_CROP_DB_IDS]).toEqual(
+      SPECIFIC_CROPS.map((c) => CROP_DB_ID[c]),
+    );
   });
 });
 
