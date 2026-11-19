@@ -299,6 +299,13 @@
 /* 다크에서만 쓰는 변형. 토큰만으로 안 되는 곳(흰 반투명 바탕 등)에만 쓴다 — 남용 금지 */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/*
+ * 큰 글씨(130% 이상 = 더 크게 · 아주 크게)에서만 쓰는 변형 (이슈 #172, 결정 0056). 머리 스크립트가 첫 그리기 전에
+ * <html data-fz-big> 을 달고(글씨 크기 화면 · "휴대폰 설정 따르기"도 같음), 화면은 JS 로 --fz 를 읽지 않고 이 변형만 쓴다.
+ * 화면 확대가 아니라 배치 바꿈(세로로 쌓기 · 아래 줄로 내리기)에 쓴다.
+ */
+@custom-variant big (&:where([data-fz-big], [data-fz-big] *));
+
 /* 누르는 영역만 44×44 이상으로 넓힌다. 보이는 크기·배치는 그대로 (시안 규칙: 누르는 곳 44px 이상) */
 @utility hit-44 {
   position: relative;

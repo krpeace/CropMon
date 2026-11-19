@@ -5,6 +5,7 @@ import { withSelection, type Crop } from "@/domain/selection";
 import type { NearbyStation, SunlightView } from "@/services/sunlight";
 
 import { Badge } from "../ui/Badge";
+import { MonthLabel } from "../ui/MonthLabel";
 import { monthBars, sunCompareBar, SUN_NORMAL_LINE } from "./sun-chart";
 
 /** 올해 쌓인 햇빛 (시안 그대로): 꼬리표 → "올해 햇빛은 평년의 N%" → 적산일사 숫자 줄 → 설명 한 줄. */
@@ -83,7 +84,15 @@ export function MonthsCard({ view }: { view: SunlightView }) {
               data-low={m.low ? "true" : "false"}
               className={`text-12 font-bold whitespace-nowrap ${m.low ? "text-warn" : "text-ink-2/85"}`}
             >
-              {m.pct}
+              {/* 큰 글씨에서는 "%" 만 숨겨 숫자 글자는 그대로 두고 이웃과 안 겹치게 한다(아래 줄에 "막대 위 숫자는 평년 대비 %") */}
+              {m.pct.endsWith("%") ? (
+                <>
+                  {m.pct.slice(0, -1)}
+                  <span className="big:hidden">%</span>
+                </>
+              ) : (
+                m.pct
+              )}
             </span>
             <div
               className="flex h-30 w-full items-end justify-center gap-0.5"
@@ -98,8 +107,11 @@ export function MonthsCard({ view }: { view: SunlightView }) {
                 style={{ height: `${bars[i].thisYear}%` }}
               />
             </div>
-            <span className="text-13 text-ink-2/85 whitespace-nowrap">
-              {m.label}
+            <span
+              data-testid="sun-month"
+              className="text-13 text-ink-2/85 whitespace-nowrap"
+            >
+              <MonthLabel label={m.label} first={i === 0} />
             </span>
           </div>
         ))}

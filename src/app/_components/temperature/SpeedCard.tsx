@@ -52,7 +52,7 @@ export function StageCards({ view }: { view: TemperatureView }) {
   if (view.stages.length === 0) return null;
   return (
     <section aria-label="적산온도 단계">
-      <Grid min="small">
+      <Grid min="small" stackOnBig>
         {view.stages.map((s) => (
           <div
             key={s.title}
@@ -61,7 +61,7 @@ export function StageCards({ view }: { view: TemperatureView }) {
             <span className="text-15 text-ink-2/85 font-bold">{s.title}</span>
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span
-                className={`text-24 font-bold ${s.reached ? "" : "text-gray-ink"}`}
+                className={`text-24 font-bold whitespace-nowrap ${s.reached ? "" : "text-gray-ink"}`}
               >
                 {s.thisYear}
               </span>

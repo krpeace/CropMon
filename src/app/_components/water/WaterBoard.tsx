@@ -6,6 +6,7 @@ import { parseSelection, withSelection } from "@/domain/selection";
 import {
   koreanDate,
   parseWaterQuery,
+  splitDayLabel,
   withWaterQuery,
 } from "@/domain/water-outlook";
 import { getStation, STATION_ENTRIES } from "@/services/shell";
@@ -141,12 +142,13 @@ function DayNav({
   selection: Parameters<typeof withWaterQuery>[0];
 }) {
   const day = view.day!;
+  const { date: dayDate, tag: dayTag } = splitDayLabel(day.label, day.isToday);
   const href = (d: string) =>
     withWaterQuery(selection, { date: d >= day.today ? null : d });
   return (
     <nav
       aria-label="기준 날짜"
-      className="rounded-card bg-card flex items-center gap-2 p-1.5"
+      className="rounded-card bg-card big:flex-wrap flex items-center gap-2 p-1.5"
     >
       {day.prev ? (
         <Link
@@ -174,7 +176,16 @@ function DayNav({
       )}
       <div className="relative flex min-w-0 flex-1 flex-col items-center py-0.5">
         <span className="text-13 text-ink-2/80">기준 날짜 · 눌러서 고르기</span>
-        <span className="text-19 font-bold">{day.label}</span>
+        {/* 날짜는 한 줄(줄바꿈 금지), 자리가 모자라면 "오늘" 꼬리표만 아래로 (이슈 #172) */}
+        <span className="flex flex-wrap justify-center gap-x-1.5">
+          <span
+            data-testid="day-date"
+            className="text-19 font-bold whitespace-nowrap"
+          >
+            {dayDate}
+          </span>
+          {dayTag && <span className="text-19 font-bold">{dayTag}</span>}
+        </span>
         <DayPicker
           base={base}
           value={day.date}
@@ -186,7 +197,7 @@ function DayNav({
         <Link
           href={base}
           scroll={false}
-          className="bg-brand text-16 flex h-12 flex-none items-center rounded-full px-4 font-bold text-white"
+          className="bg-brand text-16 big:order-last big:basis-full big:justify-center flex h-12 flex-none items-center rounded-full px-4 font-bold text-white"
         >
           오늘로
         </Link>

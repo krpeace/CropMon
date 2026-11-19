@@ -94,11 +94,14 @@ test.describe("알리기 카드 (휴대폰)", () => {
     page,
   }) => {
     await open(page, HOME);
+    // 실제 앱(머리 스크립트 · 저장 함수)과 같이 --fz 와 함께 큰 글씨 표시(data-fz-big, 1.3 이상)를 단다 (#172)
     const setFz = (v: number) =>
-      page.evaluate(
-        (n) => document.documentElement.style.setProperty("--fz", String(n)),
-        v,
-      );
+      page.evaluate((n) => {
+        const root = document.documentElement;
+        root.style.setProperty("--fz", String(n));
+        if (n >= 1.3) root.setAttribute("data-fz-big", "");
+        else root.removeAttribute("data-fz-big");
+      }, v);
     const boxes = async () => {
       const text = (await page.getByTestId("notice-text").boundingBox())!;
       const btn = (await card(page)

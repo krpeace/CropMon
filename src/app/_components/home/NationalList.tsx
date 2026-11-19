@@ -33,7 +33,13 @@ import {
   type NationalTab,
 } from "./national-list";
 
-const COLS = "grid grid-cols-[66px_86px_minmax(0,1fr)] items-center gap-2";
+/**
+ * 지점 · 오늘 · 셋째 칸. 큰 글씨(130% 이상)에서는 막대가 든 셋째 칸을 지점 · 배지 아래 줄 전체 폭으로 내린다
+ * (시안 `mCols: minmax(0,1fr) auto` · `mSpan: 1 / -1`, 결정 0056).
+ */
+const COLS =
+  "grid grid-cols-[66px_86px_minmax(0,1fr)] big:grid-cols-[minmax(0,1fr)_auto] items-center gap-2";
+const THIRD = "big:col-span-full min-w-0";
 
 const TAB_LABEL: Record<NationalTab, string> = {
   water: "물",
@@ -165,7 +171,9 @@ export function NationalList({
         >
           <span>지점</span>
           <span>오늘</span>
-          <ThirdHead tab={tab} isCommon={isCommon} dates={dayDates} />
+          <div className={THIRD}>
+            <ThirdHead tab={tab} isCommon={isCommon} dates={dayDates} />
+          </div>
         </div>
         {rows.map((row) => (
           <Link
@@ -186,7 +194,7 @@ export function NationalList({
               <span className="text-12 text-ink-2/70">{row.id}</span>
             </span>
             {row.badge ? (
-              <span className="flex flex-col items-start gap-0.5 justify-self-start">
+              <span className="big:justify-self-end flex flex-col items-start gap-0.5 justify-self-start">
                 <StatusBadge badge={row.badge} compact />
                 {waterFilledScope === "some" && row.waterFilled && (
                   <span className="fz-cap bg-fill/14 text-12 text-gray-ink rounded-full px-1.75 py-0.5 font-bold whitespace-nowrap">
@@ -195,9 +203,13 @@ export function NationalList({
                 )}
               </span>
             ) : (
-              <GrayBadge className="justify-self-start">{NO_DATA}</GrayBadge>
+              <GrayBadge className="big:justify-self-end justify-self-start">
+                {NO_DATA}
+              </GrayBadge>
             )}
-            <ThirdCell row={row} tab={tab} isCommon={isCommon} />
+            <div className={THIRD}>
+              <ThirdCell row={row} tab={tab} isCommon={isCommon} />
+            </div>
           </Link>
         ))}
       </div>
