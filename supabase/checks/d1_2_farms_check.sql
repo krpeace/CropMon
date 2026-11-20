@@ -1,6 +1,6 @@
 -- 확인 SQL: 농장 DB + 사전 (데이터 계약 v2.1, 이슈 #184, 결정 0062)
 --
--- 언제: 마이그레이션 20261120000000 · 20261120010000 · 20261120020000 을 이름 순서대로 Run 한 뒤.
+-- 언제: 마이그레이션 20261120000000 · 20261120010000 · 20261120020000 을 이름 순서대로 Run 한 뒤 (v2.3 20261120200000 을 Run 한 뒤에도 그대로 통과한다 — 가짜 회원을 동의한 회원으로 만들도록 고쳤다).
 -- 방법: SQL Editor 에 이 파일 내용을 모두 붙여 넣고 Run.
 -- 결과: 항목마다 true/false 한 줄, 맨 끝 줄 all_ok = true 면 통과. 검토 채팅에 all_ok 만 알린다 (개인 값 없음).
 --
@@ -114,6 +114,16 @@ declare u uuid := gen_random_uuid();
 begin
   insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data)
   values (u, u::text || '@example.invalid', '{"provider":"kakao"}', '{"name":"가짜"}');
+  -- v2.3(결정 0065)부터 동의한 회원만 농장 · 관수 기록을 넣고 고칠 수 있다. 이 파일의 가짜 회원은 모두 동의한 회원으로 만든다
+  -- (동의 전 회원 시험은 l4_consent_check.sql). 가입 트리거가 줄을 만들었으면 고치고, 빠졌으면 넣는다.
+  if to_regclass('public.members') is not null then
+    insert into public.members (user_id, terms_version, terms_agreed_at, privacy_version, privacy_confirmed_at, age14_confirmed_at)
+    values (u, 'terms-test', now(), 'privacy-test', now(), now())
+    on conflict (user_id) do update
+      set terms_version = excluded.terms_version, terms_agreed_at = excluded.terms_agreed_at,
+          privacy_version = excluded.privacy_version, privacy_confirmed_at = excluded.privacy_confirmed_at,
+          age14_confirmed_at = excluded.age14_confirmed_at;
+  end if;
   return u;
 end;
 $f$;

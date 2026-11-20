@@ -328,3 +328,95 @@ describe("proxy — 표시 쿠키 (스위치 켬)", () => {
     expect(res.headers.get("set-cookie")).toBeNull();
   });
 });
+
+// ── 로그인 필요 쪽의 "지금 주소" 전달 (이슈 #191, 결정 0065): 공통 관문(requireMemberConsent)이 동의 뒤 돌아올 곳을 안다 ──
+describe("proxy — 로그인함 + 로그인 필요 주소: x-cm-next 요청 머리", () => {
+  beforeEach(() => vi.stubEnv("MEMBERS_ENABLED", "true"));
+  const seenHeader = () =>
+    (session.mock.calls[0][0] as NextRequest).headers.get("x-cm-next");
+
+  it("세션 확인에 넘기는 요청에 지금 주소(경로 + 검색어)를 실어 준다", async () => {
+    session.mockResolvedValue({
+      response: NextResponse.next(),
+      signedIn: true,
+    });
+    await proxy(get("/farm/settings?st=105&crop=apple", COOKIE));
+    expect(seenHeader()).toBe("/farm/settings?st=105&crop=apple");
+  });
+
+  it("밖에서 보낸 같은 이름의 머리는 믿지 않고 덮어쓴다", async () => {
+    session.mockResolvedValue({
+      response: NextResponse.next(),
+      signedIn: true,
+    });
+    await proxy(
+      new NextRequest("http://localhost:3000/account", {
+        headers: { cookie: COOKIE, "x-cm-next": "https://evil.example" },
+      }),
+    );
+    expect(seenHeader()).toBe("/account");
+  });
+
+  it("로그인 필요 주소가 아니면 머리를 지운다(밖에서 보낸 값도)", async () => {
+    session.mockResolvedValue({
+      response: NextResponse.next(),
+      signedIn: true,
+    });
+    await proxy(
+      new NextRequest("http://localhost:3000/water?st=105", {
+        headers: { cookie: COOKIE, "x-cm-next": "/account" },
+      }),
+    );
+    expect(seenHeader()).toBeNull();
+  });
+
+  it("스위치를 끄면 아무것도 안 한다 (세션 확인도 없음)", async () => {
+    vi.stubEnv("MEMBERS_ENABLED", "");
+    await proxy(get("/account", COOKIE));
+    expect(session).not.toHaveBeenCalled();
+  });
+});
+
+// ── 스위치 끔: 로그인 필요 목록의 주소는 "없는 주소"(404)로 돌린다 (이슈 #191, 결정 0065) ──
+// /account(임시 쪽) · /consent 가 생겨도 끄면 지금 알파와 똑같이 404 여야 한다. 스트리밍 쪽에서 notFound() 를 부르면 상태가 200 이 되므로
+// 프록시가 없는 주소로 다시 쓴다(rewrite) — 이동(redirect)이 아니라서 주소창은 그대로이고 로그인으로도 보내지 않는다.
+describe("proxy — 스위치 끔: 로그인 필요 목록은 없는 주소로 다시 쓴다", () => {
+  const rewritten = (res: Response) =>
+    res.headers.get("x-middleware-rewrite") ?? "";
+
+  it("/account · /consent · /farm/settings · /farm/crop 은 다시 쓴다 (location 없음 · Supabase 호출 없음)", async () => {
+    for (const path of [
+      "/account",
+      "/account/x",
+      "/consent?next=%2Fwater",
+      "/farm/settings",
+      "/farm/crop",
+      "/%61ccount",
+    ]) {
+      const res = await proxy(get(path, COOKIE));
+      expect(rewritten(res), path).not.toBe("");
+      expect(res.headers.get("location"), path).toBeNull();
+    }
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it("공개 주소는 그대로 통과한다 (다시 쓰지 않음)", async () => {
+    for (const path of ["/", "/water?st=105", "/my-farm", "/more", "/terms"]) {
+      const res = await proxy(get(path));
+      expect(rewritten(res), path).toBe("");
+    }
+  });
+
+  it("스위치를 켜면 다시 쓰지 않는다 (로그인 필요 주소는 지금처럼 로그인으로 보냄)", async () => {
+    vi.stubEnv("MEMBERS_ENABLED", "true");
+    const res = await proxy(get("/account"));
+    expect(rewritten(res)).toBe("");
+    expect(res.status).toBe(307);
+  });
+
+  it("다시 쓰는 응답에도 남은 표시 쿠키는 지운다 (켰다가 끈 뒤)", async () => {
+    const res = await proxy(get("/account", withState("in")));
+    expect(rewritten(res)).not.toBe("");
+    expect(res.headers.get("set-cookie") ?? "").toContain(`${STATE}=;`);
+  });
+});

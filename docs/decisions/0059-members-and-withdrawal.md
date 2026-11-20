@@ -26,7 +26,7 @@
 
 ### 3. 권한은 열 단위 — 자기 줄만
 
-RLS로 자기 줄(`auth.uid() = user_id`)만 읽고 고치게 하고, 고칠 수 있는 열은 `revoke update … ; grant update (열 9개)`로 막는다: `display_name`, 동의 다섯 열, `layout`, `font_scale`, `theme`. `role` · `role_verified_at` · `provider` · `user_id` · `created_at` · `updated_at`은 회원이 못 바꾼다. 넣기는 가입 트리거, 지우기는 탈퇴 함수만 하고 회원에게는 `insert` · `delete` 권한과 정책이 없다. `anon`에는 이 표의 권한을 하나도 주지 않는다. 계약 시험은 공개 표의 "읽기만" 검사(`PUBLIC_TABLES`)에 `members`를 섞지 않고 회원 표 전용 검사를 둔다 — 표 종류별로 나눈 것이지 기준을 낮춘 것이 아니다.
+RLS로 자기 줄(`auth.uid() = user_id`)만 읽고 고치게 하고, 고칠 수 있는 열은 `revoke update … ; grant update (열 9개)`로 막는다: `display_name`, 동의 다섯 열, `layout`, `font_scale`, `theme`. `role` · `role_verified_at` · `provider` · `user_id` · `created_at` · `updated_at`은 회원이 못 바꾼다. 넣기는 가입 트리거, 지우기는 탈퇴 함수만 하고 회원에게는 `insert` · `delete` 권한과 정책이 없다. `anon`에는 이 표의 권한을 하나도 주지 않는다. 계약 시험은 공개 표의 "읽기만" 검사(`PUBLIC_TABLES`)에 `members`를 섞지 않고 회원 표 전용 검사를 둔다 — 표 종류별로 나눈 것이지 기준을 낮춘 것이 아니다. **[결정 0065 · v2.3 갱신] 동의 다섯 열(`terms_version` · `terms_agreed_at` · `privacy_version` · `privacy_confirmed_at` · `age14_confirmed_at`)은 직접 고치기 권한을 회수해 함수 `record_my_consent`로만 쓴다 — 직접 고치는 열은 9개가 아니라 4개(`display_name` · `layout` · `font_scale` · `theme`).**
 
 `jsonb` 칸(`layout` · `font_scale`)은 DB가 "객체인지"만 검사한다. 값의 범위는 화면 쪽 `parse…` 함수가 거르는 지금 규칙 그대로다(값 규칙을 고칠 때 DB를 바꾸지 않아도 된다).
 

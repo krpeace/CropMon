@@ -14,8 +14,21 @@ vi.mock("@/app/_lib/supabase/server-client", () => ({
 }));
 const makeClient = vi.mocked(createSupabaseServerClient);
 
+import { LEGAL_DOCS } from "@/domain/legal";
+
 const exchangeCodeForSession = vi.fn();
 const rpc = vi.fn();
+// 로그인 직후 자기 members 줄의 동의 판 두 개를 읽는다 (이슈 #191) — 기본은 지금 판으로 동의한 회원
+const maybeSingle = vi.fn();
+const select = vi.fn(() => ({ maybeSingle }));
+const from = vi.fn(() => ({ select }));
+const CONSENTED = {
+  data: {
+    terms_version: LEGAL_DOCS.terms.version,
+    privacy_version: LEGAL_DOCS.privacy.version,
+  },
+  error: null,
+};
 const ORIGIN = "http://localhost:3000";
 
 const call = (qs: string, headers: Record<string, string> = {}) =>
@@ -31,9 +44,14 @@ beforeEach(() => {
   rpc.mockReset();
   rpc.mockResolvedValue({ data: null, error: null });
   makeClient.mockReset();
+  maybeSingle.mockReset();
+  maybeSingle.mockResolvedValue(CONSENTED);
+  select.mockClear();
+  from.mockClear();
   makeClient.mockResolvedValue({
     auth: { exchangeCodeForSession },
     rpc,
+    from,
   } as unknown as Awaited<ReturnType<typeof createSupabaseServerClient>>);
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -195,5 +213,92 @@ describe("GET /auth/callback — 스위치를 켜면", () => {
       `?error=access_denied&next=${encodeURIComponent("//evil.example")}`,
     );
     expect(res.headers.get("location")).toBe(`${ORIGIN}/?login=cancelled`);
+  });
+});
+
+describe("GET /auth/callback — 동의가 필요하면 동의 화면으로 (이슈 #191, 결정 0065)", () => {
+  beforeEach(() => vi.stubEnv("MEMBERS_ENABLED", "true"));
+  const next = encodeURIComponent("/water?st=105&crop=apple");
+  const CONSENT = `${ORIGIN}/consent?next=${encodeURIComponent("/water?st=105&crop=apple")}`;
+
+  it("동의한 회원: 지금처럼 next?login=ok, 읽는 열은 두 개뿐", async () => {
+    const res = await call(`?code=abc&next=${next}`);
+    expect(res.headers.get("location")).toBe(
+      `${ORIGIN}/water?st=105&crop=apple&login=ok`,
+    );
+    expect(from).toHaveBeenCalledWith("members");
+    expect(select).toHaveBeenCalledWith("terms_version, privacy_version");
+  });
+
+  it("처음 로그인(동의 전 · 줄에 판이 없음): /consent?next=<원래 next> — login=ok 는 아직 안 붙인다", async () => {
+    maybeSingle.mockResolvedValue({
+      data: { terms_version: null, privacy_version: null },
+      error: null,
+    });
+    const res = await call(`?code=abc&next=${next}`);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(CONSENT);
+    expect(res.headers.get("location")).not.toContain("login=ok");
+  });
+
+  it("줄이 없어도(null) 동의 화면", async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    const res = await call(`?code=abc&next=${next}`);
+    expect(res.headers.get("location")).toBe(CONSENT);
+  });
+
+  it("모르는 이전 판이면 다시 동의 화면", async () => {
+    maybeSingle.mockResolvedValue({
+      data: {
+        terms_version: "terms-1999-01-01",
+        privacy_version: LEGAL_DOCS.privacy.version,
+      },
+      error: null,
+    });
+    const res = await call(`?code=abc&next=${next}`);
+    expect(res.headers.get("location")).toBe(CONSENT);
+  });
+
+  it("읽기가 실패하면(오류 · 던짐) 로그인은 계속하고 동의 화면으로 — 기록에는 코드만, 개인 값 없음", async () => {
+    maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "PGRST301",
+        message: "JWT failed for someone@example.com",
+      },
+    });
+    let res = await call(`?code=abc&next=${next}`);
+    expect(res.headers.get("location")).toBe(CONSENT);
+    expect(logged()).toContain("PGRST301");
+    expect(logged()).not.toContain("someone@example.com");
+    expect(logged()).not.toContain("JWT failed");
+
+    maybeSingle.mockRejectedValueOnce(new Error("hang up someone@example.com"));
+    res = await call(`?code=abc&next=${next}`);
+    expect(res.headers.get("location")).toBe(CONSENT);
+    expect(logged()).not.toContain("hang up");
+  });
+
+  it("next 가 없거나 위험하면 동의 화면의 next 도 /", async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    for (const n of [
+      null,
+      "//evil.example",
+      "https://evil.example",
+      "/consent",
+    ]) {
+      const qs =
+        n === null ? "?code=abc" : `?code=abc&next=${encodeURIComponent(n)}`;
+      const res = await call(qs);
+      expect(res.headers.get("location"), String(n)).toBe(
+        `${ORIGIN}/consent?next=%2F`,
+      );
+    }
+  });
+
+  it("실패 · 취소는 동의를 읽지 않고 지금처럼 (login=failed · cancelled)", async () => {
+    const res = await call(`?error=access_denied&next=${next}`);
+    expect(res.headers.get("location")).toContain("login=cancelled");
+    expect(from).not.toHaveBeenCalled();
   });
 });

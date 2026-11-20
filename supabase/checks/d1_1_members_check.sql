@@ -1,6 +1,6 @@
 -- 확인 SQL: 회원 DB (데이터 계약 v2.0, 이슈 #178, 결정 0059)
 --
--- 언제: 마이그레이션 20261119000000_data_contract_v2_0_members.sql 을 Run 한 뒤.
+-- 언제: 마이그레이션 20261119000000_data_contract_v2_0_members.sql 을 Run 한 뒤 (v2.3 20261120200000 을 Run 한 뒤에도 그대로 통과한다 — 3a 를 v2.3 에 맞게 고쳤다).
 -- 방법: SQL Editor 에 이 파일 내용을 모두 붙여 넣고 Run.
 -- 결과: 항목마다 true/false 한 줄, 맨 끝 줄 all_ok = true 면 통과. 결과를 PR 에 붙인다 (true/false 만, 개인 값 없음).
 --
@@ -69,17 +69,16 @@ begin
     -- 3. A 가 고칠 수 있는 열 / 못 고치는 열 / 남의 줄
     -- ---------------------------------------------------------------
     begin
+      -- v2.3(결정 0065)부터 동의 다섯 열은 회원이 직접 못 고친다(함수 record_my_consent 로만) — 그 시험은 l4_consent_check.sql 에 있다.
       update public.members
-         set display_name = '바꾼이름', layout = '{"v":1}'::jsonb, font_scale = '{"v":1}'::jsonb, theme = 'dark',
-             terms_version = 'terms-test', terms_agreed_at = now(),
-             privacy_version = 'privacy-test', privacy_confirmed_at = now(), age14_confirmed_at = now()
+         set display_name = '바꾼이름', layout = '{"v":1}'::jsonb, font_scale = '{"v":1}'::jsonb, theme = 'dark'
        where user_id = u_a;
       get diagnostics n = row_count;
       v1 := (n = 1);
     exception when others then
       v1 := false;
     end;
-    res := res || jsonb_build_array(jsonb_build_object('seq', 7, 'item', '3a A 가 자기 layout·theme·동의 열 등을 고칠 수 있음', 'ok', v1));
+    res := res || jsonb_build_array(jsonb_build_object('seq', 7, 'item', '3a A 가 자기 display_name·layout·font_scale·theme 를 고칠 수 있음 (동의 다섯 열은 v2.3 부터 직접 못 고침)', 'ok', v1));
 
     v1 := false; v2 := false; v3 := false; v4 := false;
     begin
