@@ -1851,6 +1851,26 @@ describe("동의 기록 (v2.3, 결정 0065, 이슈 #191)", () => {
       }
     });
 
+    it("한 일을 한 뒤의 상태를 보는 항목(3c · 3e · 3h · 3i · 3j)은 먼저 변수에 담은 뒤 적는다 — 한 식 안의 (select …)는 함수 호출보다 먼저 계산될 수 있다(InitPlan, 3h · 3i 가 false 로 나왔던 원인)", () => {
+      // 3h · 3i: 지우기 결과를 n 에 먼저 담는다 (한 식에 member_rows(...) = 1 and (select …) 로 쓰지 않는다)
+      expect(CHECK).toMatch(
+        /n := pg_temp\.member_rows\(u_e, format\('delete from public\.irrigation_logs/,
+      );
+      expect(CHECK).toMatch(
+        /n := pg_temp\.member_rows\(u_e, format\('delete from public\.farms/,
+      );
+      expect(CHECK).not.toMatch(
+        /pg_temp\.member_rows\(u_e, format\('delete[^;]*\)\) = 1\s+and \(?select/,
+      );
+      // 3c · 3e: 막힌 시도의 결과를 v 에 먼저 담는다
+      expect(CHECK).toMatch(
+        /v := pg_temp\.as_member\(u_e, format\(\$q\$update public\.farms/,
+      );
+      expect(CHECK).toMatch(
+        /v := pg_temp\.as_member\(u_e, format\(\$q\$update public\.irrigation_logs/,
+      );
+    });
+
     it("되돌리기 SQL: 새 함수 둘을 지우고 권한 · 정책을 v2.2 상태로 돌린다", () => {
       expect(ROLLBACK).toMatch(
         /drop function if exists public\.record_my_consent\(text, text\);/,

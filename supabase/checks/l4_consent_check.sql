@@ -133,6 +133,7 @@ declare
   v     text;
   ok1   boolean;
   ok2   boolean;
+  n     int;
   t1    timestamptz;
   t2    timestamptz;
   t3    timestamptz;
@@ -234,32 +235,37 @@ begin
       values (f_e, 'apple', 'apple-main', 'apple-k3', d - 10, d + 100);
     insert into public.irrigation_logs (farm_id, date, volume_l) values (f_e, d - 1, 100), (f_e, d, 200);
 
+    -- ⚠ "한 일을 한 뒤의 상태"를 보는 항목은 먼저 변수에 담은 뒤에 적는다. 한 식 안의 (select …) 는 함수 호출보다 먼저 계산되는
+    --    경우가 있어(InitPlan) 같은 식에 넣으면 "하기 전" 상태를 보게 된다(3h · 3i 가 false 로 나왔던 원인 — 결정 0065).
+    v := pg_temp.as_member(u_e, format($q$update public.farms set name = '바꾼이름' where farm_id = %L$q$, f_e));
     res := pg_temp.item(res, '3c 동의 전 농장 고치기 막힘 (42501, 값도 안 바뀜)',
-      pg_temp.as_member(u_e, format($q$update public.farms set name = '바꾼이름' where farm_id = %L$q$, f_e)) = '42501'
-      and (select name = '가짜농장' from public.farms where farm_id = f_e));
+      v = '42501' and (select name = '가짜농장' from public.farms where farm_id = f_e));
     res := pg_temp.item(res, '3d 동의 전 관수 기록 넣기 막힘 (42501)',
       pg_temp.as_member(u_e, format($q$insert into public.irrigation_logs (farm_id, date, volume_l) values (%L, %L, 300)$q$, f_e, d)) = '42501');
+    v := pg_temp.as_member(u_e, format($q$update public.irrigation_logs set volume_l = 999 where farm_id = %L and date = %L$q$, f_e, d));
     res := pg_temp.item(res, '3e 동의 전 관수 기록 고치기 막힘 (42501, 값도 안 바뀜)',
-      pg_temp.as_member(u_e, format($q$update public.irrigation_logs set volume_l = 999 where farm_id = %L and date = %L$q$, f_e, d)) = '42501'
-      and (select volume_l = 200 from public.irrigation_logs where farm_id = f_e and date = d));
+      v = '42501' and (select volume_l = 200 from public.irrigation_logs where farm_id = f_e and date = d));
 
     res := pg_temp.item(res, '3f 동의 전에도 자기 농장 읽기',
       pg_temp.member_count(u_e, format('select 1 from public.farms where farm_id = %L', f_e)) = 1);
     res := pg_temp.item(res, '3g 동의 전에도 자기 관수 기록 읽기',
       pg_temp.member_count(u_e, format('select 1 from public.irrigation_logs where farm_id = %L', f_e)) = 2);
+    n := pg_temp.member_rows(u_e, format('delete from public.irrigation_logs where farm_id = %L and date = %L', f_e, d));
     res := pg_temp.item(res, '3h 동의 전에도 자기 관수 기록 지우기 됨',
-      pg_temp.member_rows(u_e, format('delete from public.irrigation_logs where farm_id = %L and date = %L', f_e, d)) = 1
-      and (select count(*) from public.irrigation_logs where farm_id = f_e) = 1);
+      n = 1 and (select count(*) from public.irrigation_logs where farm_id = f_e) = 1);
+    n := pg_temp.member_rows(u_e, format('delete from public.farms where farm_id = %L', f_e));
     res := pg_temp.item(res, '3i 동의 전에도 자기 농장 지우기 됨 (딸린 줄도 함께)',
-      pg_temp.member_rows(u_e, format('delete from public.farms where farm_id = %L', f_e)) = 1
+      n = 1
       and not exists (select 1 from public.farms where farm_id = f_e)
       and not exists (select 1 from public.irrigation_logs where farm_id = f_e));
 
     -- 동의 뒤에는 넣기 · 고치기가 다시 된다 (농장 · 관수 기록)
-    res := pg_temp.item(res, '3j 동의 뒤 농장 고치기 · 관수 기록 넣기 · 고치기 됨',
-      pg_temp.member_rows(u_c, format($q$update public.farms set name = '바꾼이름' where farm_id = %L$q$, f_c)) = 1
-      and pg_temp.as_member(u_c, format($q$insert into public.irrigation_logs (farm_id, date, volume_l) values (%L, %L, 300)$q$, f_c, d)) = 'ok'
-      and pg_temp.member_rows(u_c, format($q$update public.irrigation_logs set volume_l = 400 where farm_id = %L and date = %L$q$, f_c, d)) = 1);
+    n := pg_temp.member_rows(u_c, format($q$update public.farms set name = '바꾼이름' where farm_id = %L$q$, f_c));
+    ok1 := n = 1;
+    v := pg_temp.as_member(u_c, format($q$insert into public.irrigation_logs (farm_id, date, volume_l) values (%L, %L, 300)$q$, f_c, d));
+    ok2 := v = 'ok';
+    n := pg_temp.member_rows(u_c, format($q$update public.irrigation_logs set volume_l = 400 where farm_id = %L and date = %L$q$, f_c, d));
+    res := pg_temp.item(res, '3j 동의 뒤 농장 고치기 · 관수 기록 넣기 · 고치기 됨', ok1 and ok2 and n = 1);
 
     -- 남의 농장은 동의 뒤에도 못 건드림 (기존 규칙이 그대로)
     res := pg_temp.item(res, '3k 동의한 회원도 남의 농장 · 관수 기록은 못 고침 (영향 0줄)',
