@@ -356,6 +356,26 @@ describe("screenContext(pathname)", () => {
     }
   });
 
+  it("/account 는 '회원 정보', /account/withdraw 는 '회원 탈퇴' — 둘 다 뒤로 화살표 (이슈 #195)", () => {
+    for (const path of ["/account", "/account/", "/account?x=1"]) {
+      expect(screenContext(path), path).toEqual({
+        kind: "title",
+        title: "회원 정보",
+        back: true,
+      });
+    }
+    for (const path of [
+      "/account/withdraw",
+      "/account/withdraw?withdraw=failed",
+    ]) {
+      expect(screenContext(path), path).toEqual({
+        kind: "title",
+        title: "회원 탈퇴",
+        back: true,
+      });
+    }
+  });
+
   it("끝의 슬래시나 쿼리 문자열이 붙어도 같다", () => {
     expect(screenContext("/water/")).toEqual({ kind: "selection" });
     expect(screenContext("/my-farm/")).toEqual({

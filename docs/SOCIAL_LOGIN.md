@@ -64,6 +64,8 @@
 
 - `.env.local` · Vercel에는 `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY`가 있어야 한다(이미 있음). 공급자의 클라이언트 비밀값은 Supabase가 가지고 있으므로 우리 앱에는 넣지 않는다.
 - **`NAVER_LOGIN_ENABLED`**: 네이버 로그인 스위치(결정 0064). `true`일 때만 켠다. 서버 변수이고 요청 때 읽으므로 값을 바꾸고 다시 배포하면 된다(다시 빌드 안 함). 네이버 설정(2-2)을 마치기 전에는 비워 둔다.
+- **`KAKAO_ADMIN_KEY`**: 카카오 연결 끊기용 서비스 앱 어드민 키(이슈 #195, 결정 0067 — 10장). **비밀값**이라 Vercel **Production · Preview**에 사용자가 직접 넣고 대화창 · 파일 · 이슈에 적지 않는다. 없어도 탈퇴는 되고 끊기만 건너뛴다.
+- **`KAKAO_API_BASE`**: 시험 전용. **운영에 넣지 않는다.** 이 컴퓨터(고리) 주소만 받고 그 밖의 값은 무시한다(10장).
 - **`MEMBERS_ENABLED`**: 회원제를 켜는 스위치. `true`일 때만 켠다. 서버 변수이고 요청 때 읽으므로 **값을 바꾸면 빌드를 다시 하지 않아도 된다**(서버 재배포 · 재시작은 필요). 켜기 전에는 비워 두거나 `false`.
 
 ## 3. 시험 방식 (코드보다 먼저)
@@ -123,19 +125,20 @@
 
 ## 7. 이 저장소의 파일
 
-| 무엇                                                                                     | 파일                                                                                                                                    |
-| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 스위치 판단                                                                              | `src/domain/members-switch.ts` · 요청 때 읽기 `src/app/_lib/members.ts`                                                                 |
-| `next` 검사 · 실패 가르기 · 공급자 허용 · 로그인 필요 목록 · 쿠키 모양 · 돌려보내기 주소 | `src/domain/auth.ts`                                                                                                                    |
-| 프록시(폐지 지점 돌려보내기 + 세션 갱신 + 로그인 필요 주소)                              | `src/proxy.ts` · `src/app/_lib/supabase/proxy-client.ts`                                                                                |
-| 쿠키 세션 클라이언트                                                                     | `src/infra/supabase/cookie-client.ts`(Next.js를 모름) · `src/app/_lib/supabase/server-client.ts`(경로 처리기용)                         |
-| 토큰에서 로그인한 사람(id만) · 서버 기록                                                 | `src/infra/supabase/current-user.ts` · `src/infra/supabase/auth-log.ts`                                                                 |
-| 로그인 시작 · 콜백 · 로그아웃                                                            | `src/app/auth/login/route.ts` · `src/app/auth/callback/route.ts` · `src/app/auth/signout/route.ts`                                      |
-| 로그인 시트 · 내 계정 시트 · 헤더 자리 · 알림                                            | `src/app/_components/shell/Sheets.tsx` · `LoginSlot.tsx` · `LoginNotice.tsx` · `members-state.tsx` · `src/app/_components/ui/Toast.tsx` |
-| 표시 쿠키 `cm_m` · 시트 주소 · 알림 문구 (순수 함수)                                     | `src/domain/members-state.ts` · `src/domain/login-sheet.ts` · `src/domain/toast.ts`                                                     |
-| 공식 심볼                                                                                | `public/brand/login/` (9장)                                                                                                             |
-| 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101)             |
-| 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md` · `docs/decisions/0064-login-sheet.md`                                                          |
+| 무엇                                                                                     | 파일                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 스위치 판단                                                                              | `src/domain/members-switch.ts` · 요청 때 읽기 `src/app/_lib/members.ts`                                                                                                                      |
+| `next` 검사 · 실패 가르기 · 공급자 허용 · 로그인 필요 목록 · 쿠키 모양 · 돌려보내기 주소 | `src/domain/auth.ts`                                                                                                                                                                         |
+| 프록시(폐지 지점 돌려보내기 + 세션 갱신 + 로그인 필요 주소)                              | `src/proxy.ts` · `src/app/_lib/supabase/proxy-client.ts`                                                                                                                                     |
+| 쿠키 세션 클라이언트                                                                     | `src/infra/supabase/cookie-client.ts`(Next.js를 모름) · `src/app/_lib/supabase/server-client.ts`(경로 처리기용)                                                                              |
+| 토큰에서 로그인한 사람(id만) · 서버 기록                                                 | `src/infra/supabase/current-user.ts` · `src/infra/supabase/auth-log.ts`                                                                                                                      |
+| 로그인 시작 · 콜백 · 로그아웃                                                            | `src/app/auth/login/route.ts` · `src/app/auth/callback/route.ts` · `src/app/auth/signout/route.ts`                                                                                           |
+| 로그인 시트 · 내 계정 시트 · 헤더 자리 · 알림                                            | `src/app/_components/shell/Sheets.tsx` · `LoginSlot.tsx` · `LoginNotice.tsx` · `members-state.tsx` · `src/app/_components/ui/Toast.tsx`                                                      |
+| 표시 쿠키 `cm_m` · 시트 주소 · 알림 문구 (순수 함수)                                     | `src/domain/members-state.ts` · `src/domain/login-sheet.ts` · `src/domain/toast.ts`                                                                                                          |
+| 공식 심볼                                                                                | `public/brand/login/` (9장)                                                                                                                                                                  |
+| 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101)                                                                  |
+| 회원 정보 · 탈퇴 · 카카오 연결 끊기 (이슈 #195)                                          | `src/app/auth/withdraw/route.ts` · `src/infra/kakao/unlink.ts` · `src/infra/supabase/member-profile.ts` · `src/domain/account-info.ts` · `src/app/_components/account/` · `src/app/account/` |
+| 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md` · `docs/decisions/0064-login-sheet.md` · `docs/decisions/0067-account-withdraw.md`                                                                   |
 
 ## 8. 미리보기에서 확인할 것 (사용자 · 병합 뒤)
 
@@ -161,3 +164,29 @@
 
 - **카카오 심볼 남음 — O3 전 필수(심사 조건).** 카카오 가이드는 "심볼 없이 카카오 로그인 버튼을 구성할 수 없다"고 한다. 사용자가 위 리소스 페이지에서 받아(말풍선 심볼 파일) 주면 `src/app/_components/shell/Sheets.tsx`의 `PROVIDER_STYLE.kakao.symbol`에 넣는다(구글 · 네이버와 같은 방식).
 - **가이드와 시안이 다른 곳은 가이드를 따랐다**: 카카오 컨테이너 `#FEE500` · 레이블 `#000` 85% · 모서리 12 · 레이블 "카카오 로그인"(완성형)은 시안과 같다. 구글은 라이트 `#FFFFFF`/`#747775`/`#1F1F1F`, 다크 `#131314`/`#8E918F`/`#E3E3E3`이고 문구 현지화("Google 계정으로 로그인")가 허용된다. 구글 자산은 G가 든 40×40 칸(자체 테두리 포함)이라 시안의 "20px G"와 달리 단추 왼쪽에 이 칸을 그대로 놓았다. 네이버는 공식 "녹색 배경 완성형 버튼"(높이 48/56 고정 이미지)을 권하지만 시안(52)과 맞지 않아 공식 N 동그라미 아이콘을 초록 칸에 넣었다 — 심사에서 지적되면 공식 완성형 버튼 이미지로 바꾼다.
+
+## 10. 카카오 연결 끊기 · 회원 탈퇴 (이슈 #195, 결정 0067)
+
+회원이 탈퇴하면(`POST /auth/withdraw`) 자료를 지운 **뒤에** 카카오의 "연결된 서비스"에서 CropMon을 빼 준다. 구글 · 네이버는 그 회원의 공급자 토큰이 있어야 해서 한 번 더 로그인(재인증)이 필요하고, 그 흐름은 다음 이슈(L6-2)다 — 이번에는 안내 줄로 갈음한다.
+
+**공식 문서로 확인한 요청 모양** (2026-11-20 받아 읽음, 근거: `https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api` 의 "연결 끊기"):
+
+| 항목       | 값                                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| 요청       | `POST https://kapi.kakao.com/v1/user/unlink`                                                                      |
+| 머리       | `Authorization: KakaoAK ${서비스 앱 어드민 키}` · `Content-Type: application/x-www-form-urlencoded;charset=utf-8` |
+| 본문(form) | `target_id_type=user_id` · `target_id=<카카오 회원번호>`                                                          |
+| 응답       | `{ "id": <회원번호> }` (어드민 키 방식 — 그 회원의 토큰이 필요 없음)                                              |
+
+**순서 (지키는 이유가 있다)**: 지우기 전에 로그인 정보 읽기(지운 뒤엔 못 읽음) → `delete_my_account()` → 카카오 끊기 → 이 기기 로그인 쿠키 지우기 → 종합으로 + 알림. **탈퇴 함수가 실패하면 아무것도 끊지 않는다.** 카카오 끊기가 실패해도 탈퇴는 끝난 것이다(알림에 안내 한 줄이 더 뜬다).
+
+**카카오 회원번호**: `auth.getUser()`의 `identities`에서 카카오 줄의 `identity_data.provider_id`(없으면 `sub`, 없으면 `id`) 가운데 **숫자 1~20자리**인 첫 값. ⚠ 이 필드 이름은 Supabase 문서와 가짜 서버로만 확인했다. 실제 확인은 아래 순서 4번.
+
+**어드민 키를 다루는 약속**: 서버 환경변수 `KAKAO_ADMIN_KEY`로만, 화면 코드 · 기록 · 이슈 · PR에 값을 쓰지 않는다. 서버 기록에는 단계와 상태 코드(`withdraw/kakao-unlink` + `timeout` · `network` · `401`)만 남는다. `KAKAO_API_BASE`는 **시험 전용**이며 `http://127.0.0.1:포트` · `http://localhost:포트`일 때만 받는다(그 밖의 값은 무시하고 공식 주소를 씀) — 어드민 키를 실어 보낼 곳이 바뀌지 않게.
+
+**사용자가 할 일 (병합 뒤)**:
+
+1. 카카오 개발자 콘솔 → 내 애플리케이션 → 앱 키에서 **어드민 키**를 확인한다(값은 어디에도 적지 않는다).
+2. Vercel → Settings → Environment Variables에 **`KAKAO_ADMIN_KEY`**를 **Production · Preview** 둘 다 넣는다. `KAKAO_API_BASE`는 넣지 않는다.
+3. 다시 배포한다(키가 없어도 탈퇴는 되고 끊기만 건너뛴다).
+4. 미리보기에서 카카오 시험 계정으로 로그인 → 회원 정보 → 회원탈퇴. **카카오 계정의 "연결된 서비스"에서 CropMon이 사라졌는지**, 알림이 한 줄("탈퇴했어요")인지 확인한다. 안내 줄이 같이 뜨거나 연결이 남아 있으면 회원번호 필드 이름이 다른 것이니 이슈에 알린다.

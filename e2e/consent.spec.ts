@@ -362,8 +362,9 @@ test.describe("동의 전 회원 기능 막기", () => {
     await agreeAll(page).click();
     await page.waitForURL(/\/account/);
     await expect.poll(() => here(page)).toBe("/account");
+    // L6-1(이슈 #195)부터 /account 는 실제 회원 정보 화면이다
     await expect(
-      page.getByText("준비 중", { exact: false }).first(),
+      page.getByRole("heading", { name: "회원 정보", level: 1 }),
     ).toBeVisible();
   });
 
@@ -385,8 +386,9 @@ test.describe("동의 전 회원 기능 막기", () => {
     await expect.poll(() => here(page)).toBe(NEXT);
     await page.goto("/account");
     expect(here(page)).toBe("/account");
+    // L6-1(이슈 #195)부터 /account 는 실제 회원 정보 화면이다
     await expect(
-      page.getByText("준비 중", { exact: false }).first(),
+      page.getByRole("heading", { name: "회원 정보", level: 1 }),
     ).toBeVisible();
   });
 });

@@ -51,3 +51,7 @@ RLS로 자기 줄(`auth.uid() = user_id`)만 읽고 고치게 하고, 고칠 수
 ## 병합 뒤 사용자가 할 일
 
 - Supabase 대시보드 → Authentication → Audit Logs의 "Write audit logs to the database"를 끈다(탈퇴 뒤에도 남는 기록을 만들지 않기 위해, 개인정보처리방침 "공개 전 필수"). 이미 쌓인 줄 수는 `select count(*) from auth.audit_log_entries;`로 본다(작업 시점 0줄).
+
+## 갱신 (2026-11-20, 이슈 #195 · 결정 0067)
+
+`delete_my_account()`는 L6-1에서 처음 쓰인다 — `POST /auth/withdraw`가 회원 세션으로 부르고(서버 키 안 씀), **이 함수가 성공하기 전에는 카카오 연결 끊기 · 로그아웃을 하지 않는다.** 함수 · 표 · 권한은 바뀌지 않았다(DB 변경 없음).

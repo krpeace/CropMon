@@ -22,7 +22,9 @@ function emit() {
   listeners.forEach((fn) => fn());
 }
 
-export function showToast(text: string) {
+/** `ms` 를 안 주면 4초. 안내가 붙은 긴 알림(탈퇴 뒤, 이슈 #195)은 더 오래 띄운다. 글 안의 줄바꿈(`
+`)은 그대로 두 줄로 그린다. */
+export function showToast(text: string, ms: number = TOAST_MS) {
   counter += 1;
   current = { id: counter, text };
   if (timer) clearTimeout(timer);
@@ -30,7 +32,7 @@ export function showToast(text: string) {
     current = null;
     timer = null;
     emit();
-  }, TOAST_MS);
+  }, ms);
   emit();
 }
 
@@ -61,7 +63,7 @@ export function ToastHost() {
         <div
           key={toast.id}
           data-testid="toast"
-          className="bg-ink text-card text-15 rounded-row shadow-panel motion-safe:animate-sheet-fade max-w-130 px-4 py-3 text-center leading-snug font-semibold"
+          className="bg-ink text-card text-15 rounded-row shadow-panel motion-safe:animate-sheet-fade max-w-130 px-4 py-3 text-center leading-snug font-semibold whitespace-pre-line"
         >
           {toast.text}
         </div>

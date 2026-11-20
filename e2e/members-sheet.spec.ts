@@ -352,13 +352,7 @@ test.describe("내 계정 시트 · 로그아웃", () => {
       "알림 설정",
       "로그아웃",
     ]);
-    for (const soon of [
-      "알림",
-      "농장 설정",
-      "작물 설정",
-      "회원 정보",
-      "알림 설정",
-    ]) {
+    for (const soon of ["알림", "농장 설정", "작물 설정", "알림 설정"]) {
       const row = dialog.getByRole("button", {
         name: `${soon} 준비 중`,
         exact: true,
@@ -372,6 +366,10 @@ test.describe("내 계정 시트 · 로그아웃", () => {
     await expect(
       dialog.getByRole("link", { name: /글씨 크기/ }),
     ).toHaveAttribute("href", /^\/font-size/);
+    // 회원 정보는 이슈 #195(결정 0067)부터 화면이 있는 줄이다
+    await expect(
+      dialog.getByRole("link", { name: /회원 정보/ }),
+    ).toHaveAttribute("href", "/account");
   });
 
   test("제목 줄(×)이 안에서 스크롤해도 고정이고 잘리지 않는다 · 다크 모드가 시트 안에 있다", async ({

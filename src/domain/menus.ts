@@ -213,6 +213,9 @@ const EXTRA_SCREENS: Record<string, ScreenContext> = {
   // 약관 · 개인정보처리방침은 같은 "약관" 제목 (두 문서는 화면 안 바꾸기 칸으로 오간다, 이슈 #173)
   "/terms": { kind: "title", title: "약관", back: true },
   "/privacy": { kind: "title", title: "약관", back: true },
+  // 회원 정보 · 회원 탈퇴 확인 (이슈 #195)
+  "/account": { kind: "title", title: "회원 정보", back: true },
+  "/account/withdraw": { kind: "title", title: "회원 탈퇴", back: true },
 };
 
 /**
