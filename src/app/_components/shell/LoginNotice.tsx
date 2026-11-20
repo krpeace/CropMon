@@ -7,6 +7,7 @@ import { removeSearchKeys } from "@/domain/login-sheet";
 import { LOGIN_TOAST_TEXT, readLoginNotice } from "@/domain/toast";
 
 import { showToast } from "../ui/Toast";
+import { markLoginJustNow } from "./account-settings-store";
 
 /**
  * 로그인에서 돌아온 주소의 `login=ok | failed | cancelled` 를 읽어 알림을 한 번 띄우고 주소에서 `login` 만 지운다
@@ -19,6 +20,8 @@ export function LoginNotice() {
   useEffect(() => {
     const notice = readLoginNotice(window.location.search);
     if (!notice) return;
+    // 방금 로그인에서 돌아왔다 — 화면 설정을 계정과 맞춰 본다(`AccountSync`, 결정 0066). 주소에서 지우기 전에 한 번만 알린다.
+    if (notice === "ok") markLoginJustNow();
     const text = LOGIN_TOAST_TEXT[notice];
     if (text) showToast(text);
     window.history.replaceState(

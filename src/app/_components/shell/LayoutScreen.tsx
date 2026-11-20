@@ -19,6 +19,7 @@ import {
 } from "@/domain/menus-layout";
 
 import { Icon } from "../ui/Icon";
+import { useMembersState } from "./members-state";
 import { rowShift, useRowDrag } from "./layout-drag";
 import {
   resetMenus,
@@ -52,6 +53,8 @@ const noContextMenu = (e: React.MouseEvent) => e.preventDefault();
  * 저장값을 읽은 뒤에야 목록을 그려, 저장값이 있는 기기에서 기본 순서로 잠깐 보였다 바뀌지 않게 한다(자리 높이는 미리 잡는다).
  */
 export function LayoutScreen() {
+  // 로그인한 회원이면 저장 위치 안내 줄이 "계정에 저장돼요"로 바뀐다 (이슈 #193, 결정 0066)
+  const member = useMembersState().mode === "in";
   const ready = useMenusReady();
   const saved = useSavedMenus();
   const model = layoutModel(saved);
@@ -388,7 +391,9 @@ export function LayoutScreen() {
           기본값
         </button>
         <span className="text-14 text-ink-2/85 min-w-45 flex-1 leading-snug">
-          이 기기에 저장돼요. 로그인하면 계정에 저장돼요.
+          {member
+            ? "내 계정에 저장돼요. 다른 기기에서도 같은 구성으로 보여요."
+            : "이 기기에 저장돼요. 로그인하면 계정에 저장돼요."}
         </span>
       </div>
 

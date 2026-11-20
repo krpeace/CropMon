@@ -39,8 +39,14 @@ const MEMBERS_ON_CHAIN = [
   { name: "members-on", file: "members-auth", mobile: false },
   { name: "members-on-sheet", file: "members-sheet", mobile: false },
   { name: "members-on-consent", file: "consent", mobile: false },
+  { name: "members-on-account", file: "account-settings", mobile: false },
   { name: "members-on-mobile", file: "login-sheet-mobile", mobile: true },
   { name: "members-on-consent-mobile", file: "consent-mobile", mobile: true },
+  {
+    name: "members-on-account-mobile",
+    file: "account-settings-mobile",
+    mobile: true,
+  },
 ] as const;
 
 export default defineConfig({
@@ -63,7 +69,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
       testIgnore:
-        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile|consent|consent-mobile)\.spec\.ts/,
+        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile|consent|consent-mobile|account-settings|account-settings-mobile)\.spec\.ts/,
     },
     // 휴대폰 크기 전용 화면 테스트 (testMatch 의 spec 만 돈다)
     {

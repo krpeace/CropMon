@@ -319,6 +319,14 @@ test.describe("데스크톱 창 — 출구는 하나", () => {
     request,
   }) => {
     await loginNeedingConsent(page, request);
+    // 화면이 살아난 뒤(덮인 것에 inert 가 걸린 뒤)부터 본다 — 서버가 그린 HTML 만 있을 때는 아직 걸리기 전이다
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (document.querySelector("header") as HTMLElement | null)?.inert,
+        ),
+      )
+      .toBe(true);
     // Tab 을 여러 번(끝까지 돌 만큼) 눌러도 초점이 덮인 머리글 · 바닥글 · 탭바에 닿지 않는다
     const landed: boolean[] = [];
     for (let i = 0; i < 25; i += 1) {

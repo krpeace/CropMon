@@ -7,6 +7,7 @@ import { buildMembersScript } from "@/domain/members-state";
 import { buildNoticeScript } from "@/domain/notice";
 import { THEME_COLOR, THEME_STORAGE_KEY } from "@/domain/theme";
 
+import { AccountSync } from "./_components/shell/AccountSync";
 import { FontScaleSync } from "./_components/shell/FontScaleSync";
 import { LoginNotice } from "./_components/shell/LoginNotice";
 import { NavHistory } from "./_components/shell/nav-history";
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={null}>
             <Sheets />
             <LoginNotice />
+            <AccountSync />
           </Suspense>
           <ToastHost />
           <Analytics />

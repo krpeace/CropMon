@@ -51,7 +51,7 @@ const subscribeDesktop = (onChange: () => void) => {
   return () => media.removeEventListener("change", onChange);
 };
 /** 폭 1024 이상(데스크톱 배치). 서버에서는 휴대폰으로 본다(시트는 연 뒤에만 그려서 어긋나지 않는다). */
-function useIsDesktop() {
+export function useIsDesktop() {
   return useSyncExternalStore(
     subscribeDesktop,
     () => window.matchMedia(DESKTOP_QUERY).matches,
@@ -131,7 +131,7 @@ export function Sheets() {
 }
 
 /** 휴대폰: 아래에서 올라오는 시트(BottomSheet, 결정 0050). 넘치면 안에서 스크롤한다. */
-function MobileSheet({
+export function MobileSheet({
   title,
   onClose,
   children,
@@ -154,7 +154,7 @@ function MobileSheet({
  * 데스크톱: 가운데 창 (폭 520 · 끌기 손잡이 없음). 제목 줄은 안에서 스크롤해도 위에 붙어 있고(sticky) × 가 잘리지 않는다.
  * 바깥이나 Esc 를 누르면 닫히고, 닫히면 연 버튼으로 포커스를 돌려준다.
  */
-function CenterWindow({
+export function CenterWindow({
   title,
   onClose,
   children,

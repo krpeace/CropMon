@@ -15,9 +15,11 @@ import {
   serializeFontScalePref,
 } from "@/domain/font-scale";
 
+import { pushAccount } from "./account-settings-store";
+
 /**
  * 글씨 크기 저장 · 적용 (이슈 #168, 결정 0055). **저장은 이 파일 한곳**이다 — 비회원은 기기(localStorage),
- * 회원 계정 저장(L5)이 오면 `readRaw` · `saveFontScale` 만 바꿔 끼운다.
+ * 로그인한 회원은 기기에 쓴 뒤 `pushAccount` 로 계정에도 쓴다(이슈 #193, 결정 0066 — `sync:false` 는 계정 값을 기기에 쓰는 갈래).
  * 저장소가 막혀 있으면(사생활 보호 모드) 이번 화면 동안만 메모리에 둔다(`NationalList.tsx` 와 같은 방식).
  */
 
@@ -77,7 +79,10 @@ export function applyFontScale(pref: FontScalePref) {
 }
 
 /** 고르는 즉시 저장하고 화면 전체에 적용한다 (저장 버튼 없음). */
-export function saveFontScale(pref: FontScalePref) {
+export function saveFontScale(
+  pref: FontScalePref,
+  opts: { sync?: boolean } = {},
+) {
   const raw = serializeFontScalePref(pref);
   try {
     localStorage.setItem(FONT_SCALE_KEY, raw);
@@ -87,6 +92,8 @@ export function saveFontScale(pref: FontScalePref) {
   }
   applyFontScale(pref);
   window.dispatchEvent(new Event(EVENT));
+  // 로그인한 회원이면 계정에도 쓴다(모아서 마지막 값만, 결정 0066). `sync:false` 는 계정 값을 기기에 쓰는 갈래.
+  if (opts.sync !== false) pushAccount({ fontScale: pref });
 }
 
 function subscribe(onChange: () => void) {
