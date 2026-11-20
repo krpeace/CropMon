@@ -209,11 +209,12 @@ describe("isAllowedProvider — 공급자 허용 목록 (두 번째 인자: 네�
 });
 
 describe("requiresLogin — 로그인이 필요한 주소 (공개가 기본)", () => {
-  it("목록: 농장 설정 · 작물 설정 · 회원 정보", () => {
+  it("목록: 농장 설정 · 작물 설정 · 회원 정보 · 동의 화면", () => {
     expect([...LOGIN_REQUIRED_PATHS]).toEqual([
       "/farm/settings",
       "/farm/crop",
       "/account",
+      "/consent",
     ]);
   });
 
@@ -227,6 +228,8 @@ describe("requiresLogin — 로그인이 필요한 주소 (공개가 기본)", (
       "/account",
       "/account/withdraw",
       "/account/",
+      "/consent",
+      "/consent/",
     ]) {
       expect(requiresLogin(p), p).toBe(true);
     }

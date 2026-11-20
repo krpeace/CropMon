@@ -25,6 +25,12 @@ export type LegalDoc = {
    * 이전 판이 있을 때 "이전 판 보기"를 그릴 자리 — 지금은 화면에 그리지 않는다.
    */
   previous: readonly string[];
+  /**
+   * 이전 판 중 **다시 묻지 않아도 되는 판** 번호들 (결정 0065). 사소한 변경은 공지만 하고 이전 판 동의를 그대로 받아 주고,
+   * 크게 바뀔 때는 여기에 넣지 않아 회원이 다시 동의한다. `previous`(이전 판 "보기" 목록)와 따로 둔다 —
+   * 이전 판을 보여 주는 것과 다시 묻지 않는 것은 다른 결정이다. 지금은 제1판 하나라 비어 있다.
+   */
+  acceptedBefore: readonly string[];
 };
 
 export const LEGAL_IDS: readonly LegalId[] = ["terms", "privacy"];
@@ -38,6 +44,7 @@ export const LEGAL_DOCS: Record<LegalId, LegalDoc> = {
     edition: 1,
     draft: true,
     previous: [],
+    acceptedBefore: [],
   },
   privacy: {
     id: "privacy",
@@ -47,6 +54,7 @@ export const LEGAL_DOCS: Record<LegalId, LegalDoc> = {
     edition: 1,
     draft: true,
     previous: [],
+    acceptedBefore: [],
   },
 };
 
@@ -77,4 +85,33 @@ export function draftNotice(
     badge: "예시 글",
     text: "전문가 확인을 거친 초안이에요. 2027년 1월 1일 시행 전에 바뀔 수 있어요.",
   };
+}
+
+/** 저장된 판 번호를 받아 주는가: 지금 판이거나 `acceptedBefore` 에 있는 글자 그대로의 값. 비었거나 모르는 값은 아니다. */
+function accepts(
+  version: string | null | undefined,
+  doc: Pick<LegalDoc, "version" | "acceptedBefore">,
+): boolean {
+  if (typeof version !== "string") return false;
+  return version === doc.version || doc.acceptedBefore.includes(version);
+}
+
+/**
+ * 동의 화면이 필요한가 (이슈 #191, 결정 0065). **두 판(이용약관 · 개인정보 안내) 가운데 하나라도 받아 주지 않으면 다시 묻는다.**
+ * 받아 주는 판 = 지금 판 + `acceptedBefore`. 비었거나(동의 전) 모르는 값이면 필요하다.
+ */
+export function needsConsent(
+  saved: {
+    termsVersion?: string | null;
+    privacyVersion?: string | null;
+  },
+  docs: Record<
+    LegalId,
+    Pick<LegalDoc, "version" | "acceptedBefore">
+  > = LEGAL_DOCS,
+): boolean {
+  return !(
+    accepts(saved.termsVersion, docs.terms) &&
+    accepts(saved.privacyVersion, docs.privacy)
+  );
 }

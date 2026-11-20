@@ -614,9 +614,20 @@ function filter(rows, params) {
 // 토큰은 실행할 때 만든다(소스에 JWT 모양 글자를 적지 않는다 — 비밀 검사 오탐 방지). 서명 방식은 HS256 흉내라서
 // supabase-js 의 getClaims() 가 공개 열쇠(JWKS) 대신 /auth/v1/user 로 확인한다. 실제 서명 방식(비대칭 열쇠) 확인은 L3 실제 로그인 때.
 // 시험이 /__fake/scenario 로 다음 로그인의 결과를 정하고, /__fake/calls 로 호출 횟수를 본다.
+// 동의 판 (이슈 #191, 결정 0065): 서버(src/domain/legal.ts)가 지금 받아 주는 판과 같아야 한다. 어긋나면 legal.test.ts 의 확인이 알려 준다.
+const CURRENT_TERMS = "terms-2027-01-01";
+const CURRENT_PRIVACY = "privacy-2027-01-01";
 const authState = {
   scenario: "ok", // ok | cancel | provider-error | no-code | exchange-fail
   ensure: "ok", // ok | fail  (public.ensure_my_member 호출 결과)
+  // 동의 흉내. 기본 "done" = 새 회원도 지금 판으로 동의한 것으로 읽힘(기존 시험이 그대로 통과). "needed" = 새 회원은 동의 전.
+  consentMode: "done", // done | needed
+  membersRead: "ok", // ok | fail  (GET /rest/v1/members 결과)
+  consentSave: "ok", // ok | fail  (rpc record_my_consent 결과)
+  sameUser: false, // true 면 로그인마다 같은 회원 번호(다시 로그인 시험용)
+  consents: new Map(), // user id -> { terms, privacy }
+  consentCalls: 0,
+  consentLast: null, // 마지막으로 기록된 { terms, privacy }
   authCalls: 0, // /auth/v1/* 호출 횟수 (쿠키 없는 방문이 Supabase 를 안 부르는지 확인용)
   ensureCalls: 0,
   codes: new Map(), // code -> provider
@@ -683,6 +694,10 @@ async function handleAuthRoutes(req, res, url) {
     const body = await readBody(req);
     if (body.scenario) authState.scenario = body.scenario;
     if (body.ensure) authState.ensure = body.ensure;
+    if (body.consentMode) authState.consentMode = body.consentMode;
+    if (body.membersRead) authState.membersRead = body.membersRead;
+    if (body.consentSave) authState.consentSave = body.consentSave;
+    if (typeof body.sameUser === "boolean") authState.sameUser = body.sameUser;
     json(200, { scenario: authState.scenario, ensure: authState.ensure });
     return true;
   }
@@ -691,11 +706,66 @@ async function handleAuthRoutes(req, res, url) {
     authState.ensure = "ok";
     authState.authCalls = 0;
     authState.ensureCalls = 0;
+    authState.consentMode = "done";
+    authState.membersRead = "ok";
+    authState.consentSave = "ok";
+    authState.sameUser = false;
+    authState.consents = new Map();
+    authState.consentCalls = 0;
+    authState.consentLast = null;
     json(200, { ok: true });
     return true;
   }
   if (url.pathname === "/__fake/calls") {
-    json(200, { auth: authState.authCalls, ensure: authState.ensureCalls });
+    json(200, {
+      auth: authState.authCalls,
+      ensure: authState.ensureCalls,
+      consent: authState.consentCalls,
+      consentLast: authState.consentLast,
+    });
+    return true;
+  }
+
+  // 자기 members 줄의 동의 판 두 열 (supabase-js maybeSingle 은 배열을 받아 0줄이면 null)
+  if (url.pathname === "/rest/v1/members" && req.method === "GET") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(401, { code: "42501", message: "로그인이 필요합니다 (가짜)" });
+      return true;
+    }
+    if (authState.membersRead === "fail") {
+      json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
+      return true;
+    }
+    const saved = authState.consents.get(user.id);
+    const row = saved
+      ? { terms_version: saved.terms, privacy_version: saved.privacy }
+      : authState.consentMode === "done"
+        ? { terms_version: CURRENT_TERMS, privacy_version: CURRENT_PRIVACY }
+        : { terms_version: null, privacy_version: null };
+    json(200, [row]);
+    return true;
+  }
+
+  if (url.pathname === "/rest/v1/rpc/record_my_consent") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(401, { code: "28000", message: "로그인이 필요합니다 (가짜)" });
+      return true;
+    }
+    const body = await readBody(req);
+    authState.consentCalls += 1;
+    if (authState.consentSave === "fail") {
+      json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
+      return true;
+    }
+    authState.consentLast = {
+      terms: body.p_terms_version,
+      privacy: body.p_privacy_version,
+    };
+    authState.consents.set(user.id, authState.consentLast);
+    res.writeHead(204);
+    res.end();
     return true;
   }
 
@@ -762,7 +832,9 @@ async function handleAuthRoutes(req, res, url) {
       const provider = authState.codes.get(body.auth_code);
       authState.codes.delete(body.auth_code);
       const user = {
-        id: randomUUID(),
+        id: authState.sameUser
+          ? "00000000-0000-4000-8000-0000000000a1"
+          : randomUUID(),
         aud: "authenticated",
         role: "authenticated",
         app_metadata: { provider },

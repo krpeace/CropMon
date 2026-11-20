@@ -154,3 +154,31 @@ test.describe("회원제 스위치 끔 — 로그인 시트 · 표시 쿠키", (
     expect(res.status()).toBe(404);
   });
 });
+
+// ── 이슈 #191(결정 0065): 동의 화면을 붙여도 스위치를 끄면 지금 알파와 같다 ──
+test.describe("회원제 스위치 끔 — 동의 화면", () => {
+  test.skip(({ isMobile }) => isMobile);
+
+  test("/consent 는 없는 주소(404)다 — 로그인 필요 목록에 있어도 로그인으로 보내지 않는다", async ({
+    page,
+  }) => {
+    const res = await page.goto("/consent?next=%2Fwater");
+    expect(res!.status()).toBe(404);
+    expect(new URL(page.url()).pathname).toBe("/consent");
+    expect(page.url()).not.toContain("login=1");
+  });
+
+  test("/auth/consent 는 POST · GET 모두 404 이고 쿠키를 심지 않는다", async ({
+    request,
+  }) => {
+    const calls = [
+      await request.post("/auth/consent?next=%2F", { maxRedirects: 0 }),
+      await request.get("/auth/consent", { maxRedirects: 0 }),
+    ];
+    for (const res of calls) {
+      expect(res.status(), res.url()).toBe(404);
+      expect(res.headers()["set-cookie"], res.url()).toBeUndefined();
+      expect(res.headers()["location"], res.url()).toBeUndefined();
+    }
+  });
+});

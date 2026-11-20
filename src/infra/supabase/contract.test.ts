@@ -105,8 +105,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v2.2 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v2\.2\b/);
+  it("계약서의 현재 버전이 v2.3 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.3\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -1640,5 +1640,247 @@ describe("적산 계열 — croplib-dp 회신 반영 (결정 0063, 문서)", () 
     // 실제 SQL 도 자릿수 없는 numeric 이다 (새 표 · 사전 · 옛 표가 같은 형식)
     expect(SERIES_SQL).toMatch(/t_base_c\s+numeric not null check/);
     expect(SERIES_SQL).not.toMatch(/numeric\(\d/);
+  });
+});
+
+describe("동의 기록 (v2.3, 결정 0065, 이슈 #191)", () => {
+  const file = (suffix: string, dir = MIGRATIONS_DIR) =>
+    readdirSync(dir).find((n) => n.endsWith(suffix));
+  const strip = (text: string) =>
+    text
+      .split("\n")
+      .map((line) => line.replace(/--.*$/, ""))
+      .join("\n")
+      .toLowerCase();
+
+  const MIGRATION = file("_data_contract_v2_3_consent.sql");
+  const CONSENT_SQL = MIGRATION
+    ? strip(readFileSync(join(MIGRATIONS_DIR, MIGRATION), "utf8"))
+    : "";
+  const CHECKS_DIR = join(ROOT, "supabase/checks");
+  const CHECK = readFileSync(join(CHECKS_DIR, "l4_consent_check.sql"), "utf8");
+  const ROLLBACK = strip(
+    readFileSync(join(CHECKS_DIR, "l4_consent_rollback.sql"), "utf8"),
+  );
+
+  const FIVE = [
+    "terms_version",
+    "terms_agreed_at",
+    "privacy_version",
+    "privacy_confirmed_at",
+    "age14_confirmed_at",
+  ];
+  const fn = (name: string) =>
+    CONSENT_SQL.match(
+      new RegExp(
+        `create or replace function ${name.replace(".", "\\.")}\\([\\s\\S]*?\\$\\$;`,
+      ),
+    )?.[0] ?? "";
+
+  it("마이그레이션 파일이 있다", () => {
+    expect(MIGRATION).toBeDefined();
+  });
+
+  describe("public.record_my_consent(p_terms_version, p_privacy_version)", () => {
+    const body = fn("public.record_my_consent");
+    const head = body.split("as $$")[0];
+
+    it("인자 둘 · 보안 정의 · search_path 비움", () => {
+      expect(body).not.toBe("");
+      expect(head).toMatch(/p_terms_version text,\s*p_privacy_version text/);
+      expect(head).toContain("security definer");
+      expect(head).toMatch(/set search_path = ''/);
+    });
+
+    it("authenticated 만 실행한다 (public · anon 회수)", () => {
+      expect(CONSENT_SQL).toMatch(
+        /revoke all on function public\.record_my_consent\(text, text\) from public, anon;/,
+      );
+      expect(CONSENT_SQL).toMatch(
+        /grant execute on function public\.record_my_consent\(text, text\) to authenticated;/,
+      );
+    });
+
+    it("로그인하지 않았으면 오류(28000)", () => {
+      expect(body).toMatch(/v_uid is null/);
+      expect(body).toMatch(/errcode = '28000'/);
+    });
+
+    it("판 값은 앞뒤 공백을 떼고, 비었거나 100자를 넘으면 거절한다(22023)", () => {
+      expect(body).toMatch(/btrim\(/);
+      expect(body).toMatch(/= ''/);
+      expect(body).toMatch(/length\([^)]*\) > 100/);
+      expect(body).toMatch(/errcode = '22023'/);
+    });
+
+    it("줄이 없으면 member_seed 로 만든 뒤 쓴다 (ensure_my_member 와 같은 식)", () => {
+      expect(body).toContain("public.member_seed(");
+      expect(body).toMatch(/on conflict \(user_id\) do nothing/);
+    });
+
+    it("다섯 열을 DB 시각 하나(now())로 한 번에, 자기 줄에만 쓴다", () => {
+      expect(body).toMatch(/v_now\s+timestamptz := now\(\)/);
+      for (const col of FIVE) expect(body, col).toContain(col);
+      for (const col of [
+        "terms_agreed_at",
+        "privacy_confirmed_at",
+        "age14_confirmed_at",
+      ]) {
+        expect(body, col).toMatch(new RegExp(`${col}\\s*=\\s*v_now`));
+      }
+      expect(body).toMatch(/where user_id = v_uid/);
+      expect(body).toMatch(/v_uid\s+uuid := auth\.uid\(\)/);
+    });
+  });
+
+  describe("동의 다섯 열의 직접 고치기 권한 회수", () => {
+    it("다섯 열만 revoke update 한다 (표 전체 update 를 거두지 않는다)", () => {
+      const m = CONSENT_SQL.match(
+        /revoke update \(([^)]*)\)\s+on public\.members from authenticated;/,
+      );
+      expect(m).not.toBeNull();
+      const cols = m![1].split(",").map((c) => c.trim());
+      expect(cols.sort()).toEqual([...FIVE].sort());
+    });
+
+    it("회원에게 동의 열의 update 권한을 다시 주지 않는다 (grant update 없음)", () => {
+      expect(CONSENT_SQL).not.toMatch(/grant update/);
+    });
+  });
+
+  describe("public.member_has_consented()", () => {
+    const body = fn("public.member_has_consented");
+    const head = body.split("as $$")[0];
+
+    it("stable · 보안 정의 · search_path 비움, authenticated 만 실행", () => {
+      expect(body).not.toBe("");
+      expect(head).toContain("returns boolean");
+      expect(head).toContain("stable");
+      expect(head).toContain("security definer");
+      expect(head).toMatch(/set search_path = ''/);
+      expect(CONSENT_SQL).toMatch(
+        /revoke all on function public\.member_has_consented\(\) from public, anon;/,
+      );
+      expect(CONSENT_SQL).toMatch(
+        /grant execute on function public\.member_has_consented\(\) to authenticated;/,
+      );
+    });
+
+    it("자기 줄의 terms_version 이 비어 있지 않으면 참", () => {
+      expect(body).toContain("auth.uid()");
+      expect(body).toContain("terms_version is not null");
+      expect(body).toMatch(/btrim\(m\.terms_version\) <> ''/);
+    });
+  });
+
+  describe("농장 쓰기는 동의한 회원만 — 넣기 · 고치기 정책만", () => {
+    const policy = (name: string, table: string, kind: string) =>
+      CONSENT_SQL.match(
+        new RegExp(
+          `create policy "${name}"\\s+on public\\.${table} for ${kind} to authenticated[\\s\\S]*?;`,
+        ),
+      )?.[0] ?? "";
+
+    it("farms: 넣기 · 고치기 with check 에 member_has_consented()", () => {
+      const ins = policy("회원은 자기 농장을 만든다", "farms", "insert");
+      const upd = policy("회원은 자기 농장을 고친다", "farms", "update");
+      expect(ins).toContain("auth.uid() = user_id");
+      expect(ins).toContain("public.member_has_consented()");
+      expect(upd).toMatch(/using \(auth\.uid\(\) = user_id\)/);
+      expect(upd).toMatch(/with check \([^;]*public\.member_has_consented\(\)/);
+    });
+
+    it("irrigation_logs: 넣기 · 고치기 with check 에 member_has_consented()", () => {
+      const ins = policy(
+        "회원은 자기 관수 기록을 넣는다",
+        "irrigation_logs",
+        "insert",
+      );
+      const upd = policy(
+        "회원은 자기 관수 기록을 고친다",
+        "irrigation_logs",
+        "update",
+      );
+      expect(ins).toContain("public.member_has_consented()");
+      expect(upd).toMatch(/with check \([^;]*public\.member_has_consented\(\)/);
+      expect(ins).toContain("f.user_id = auth.uid()");
+      expect(upd).toContain("f.user_id = auth.uid()");
+    });
+
+    it("읽기 · 지우기 정책은 건드리지 않는다 (파일에 select · delete 정책 없음)", () => {
+      expect(CONSENT_SQL).not.toMatch(/create policy[^;]* for select/);
+      expect(CONSENT_SQL).not.toMatch(/create policy[^;]* for delete/);
+    });
+
+    it("여러 번 실행해도 오류가 없다 — 정책은 drop policy if exists 뒤에 만든다", () => {
+      const creates = CONSENT_SQL.match(/create policy "[^"]+"/g) ?? [];
+      expect(creates.length).toBe(4);
+      for (const c of creates) {
+        const name = c.replace("create policy ", "");
+        expect(CONSENT_SQL).toContain(
+          `drop policy if exists ${name} on public.`,
+        );
+      }
+    });
+  });
+
+  describe("확인 SQL · 되돌리기 SQL", () => {
+    it("확인 SQL: 되돌림 방식, 맨 끝 all_ok, 이슈의 항목을 모두 덮는다", () => {
+      expect(CHECK).toMatch(/raise exception 'l4_check_rollback'/);
+      expect(CHECK).toContain("all_ok");
+      for (const phrase of [
+        "다섯 열을 직접 못 고침",
+        "나머지 네 열은 고침",
+        "함수로 쓰면 다섯 열이 채워짐",
+        "DB 시각",
+        "남의 줄은 못 씀",
+        "비회원은 함수를 못 부름",
+        "동의 전 농장 만들기 막힘",
+        "동의 전 농장 고치기 막힘",
+        "동의 전 관수 기록 넣기 막힘",
+        "동의 전 관수 기록 고치기 막힘",
+        "동의 뒤 농장 만들기 됨",
+        "동의 전에도 자기 농장 읽기",
+        "동의 전에도 자기 관수 기록 지우기",
+        "동의 전에도 자기 농장 지우기",
+        "빈 판 값 거절",
+        "긴 판 값 거절",
+        "줄이 빠진 회원",
+      ]) {
+        expect(CHECK, phrase).toContain(phrase);
+      }
+    });
+
+    it("되돌리기 SQL: 새 함수 둘을 지우고 권한 · 정책을 v2.2 상태로 돌린다", () => {
+      expect(ROLLBACK).toMatch(
+        /drop function if exists public\.record_my_consent\(text, text\);/,
+      );
+      expect(ROLLBACK).toMatch(
+        /grant update \([^)]*terms_version[^)]*\)\s+on public\.members to authenticated;/,
+      );
+      for (const name of [
+        "회원은 자기 농장을 만든다",
+        "회원은 자기 농장을 고친다",
+        "회원은 자기 관수 기록을 넣는다",
+        "회원은 자기 관수 기록을 고친다",
+      ]) {
+        expect(ROLLBACK, name).toContain(`create policy "${name}"`);
+      }
+      // 정책이 도우미 함수를 쓰므로 정책을 먼저 되돌린 뒤 함수를 지운다
+      expect(ROLLBACK.indexOf("create policy")).toBeLessThan(
+        ROLLBACK.indexOf("drop function if exists public.member_has_consented"),
+      );
+    });
+  });
+
+  describe("계약서 v2.3", () => {
+    it("버전 표 · 함수 설명 · 권한 표가 새 규칙을 말한다", () => {
+      expect(CONTRACT).toMatch(/\|\s*v2\.3\s*\|/);
+      expect(CONTRACT).toContain("record_my_consent");
+      expect(CONTRACT).toContain("member_has_consented");
+      expect(CONTRACT).toMatch(
+        /`display_name`, `layout`, `font_scale`, `theme`/,
+      );
+    });
   });
 });

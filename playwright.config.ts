@@ -34,6 +34,15 @@ const serverEnv: Record<string, string> = process.env.E2E_TODAY
     }
   : {};
 
+/** 가짜 Supabase 의 전역 상태를 쓰는 "켬" 서버 시험들. 이 순서로 하나씩 돈다(앞 프로젝트가 끝나야 다음이 시작). */
+const MEMBERS_ON_CHAIN = [
+  { name: "members-on", file: "members-auth", mobile: false },
+  { name: "members-on-sheet", file: "members-sheet", mobile: false },
+  { name: "members-on-consent", file: "consent", mobile: false },
+  { name: "members-on-mobile", file: "login-sheet-mobile", mobile: true },
+  { name: "members-on-consent-mobile", file: "consent-mobile", mobile: true },
+] as const;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -54,7 +63,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
       testIgnore:
-        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile)\.spec\.ts/,
+        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile|consent|consent-mobile)\.spec\.ts/,
     },
     // 휴대폰 크기 전용 화면 테스트 (testMatch 의 spec 만 돈다)
     {
@@ -68,33 +77,29 @@ export default defineConfig({
       testMatch:
         /(theme|national-mobile|tabbar|more|font-scale|context-bar-mobile|bottom-sheet-mobile|auto-hide-mobile|more-bottom|footer|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile)\.spec\.ts/,
     },
-    // 회원제 스위치 "켬" 전용 (로그인 → 돌아옴 → 로그아웃). 가짜 로그인 흉내의 시나리오가 전역 값이라 한 파일 안에서 차례로 돈다.
-    {
-      name: "members-on",
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { width: 1440, height: 900 },
-        baseURL: BASE_URL_MEMBERS_ON,
-      },
-      testMatch: /(members-auth|members-sheet)\.spec\.ts/,
+    // 회원제 스위치 "켬" 전용 (로그인 → 돌아옴 → 로그아웃 · 시트 · 동의 화면). 가짜 로그인 흉내의 시나리오 · 호출 횟수가 전역 값이라
+    // **파일마다 프로젝트 하나로 만들어 차례로** 돈다(같은 프로젝트의 파일은 일꾼이 나뉘어 동시에 돌 수 있어 상태가 섞인다).
+    // 첫 프로젝트는 다른 시험이 다 끝난 뒤에 돈다(끔 서버 시험과 섞이지 않게).
+    ...MEMBERS_ON_CHAIN.map(({ name, file, mobile }, i) => ({
+      name,
+      use: mobile
+        ? {
+            ...devices["Desktop Chrome"],
+            viewport: { width: 390, height: 844 },
+            isMobile: true,
+            hasTouch: true,
+            baseURL: BASE_URL_MEMBERS_ON,
+          }
+        : {
+            ...devices["Desktop Chrome"],
+            viewport: { width: 1440, height: 900 },
+            baseURL: BASE_URL_MEMBERS_ON,
+          },
+      testMatch: new RegExp(String.raw`${file}\.spec\.ts`),
       fullyParallel: false,
-      // 가짜 로그인 흉내의 호출 횟수 · 시나리오는 전역 값이라, 다른 시험이 다 끝난 뒤에 돈다(끔 서버 시험과 섞이지 않게).
-      dependencies: ["desktop", "mobile"],
-    },
-    // 회원제 켬 · 휴대폰 크기 (로그인 시트 · 내 계정 시트). 가짜 로그인 흉내가 전역 값이라 members-on 이 끝난 뒤에 돈다.
-    {
-      name: "members-on-mobile",
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { width: 390, height: 844 },
-        isMobile: true,
-        hasTouch: true,
-        baseURL: BASE_URL_MEMBERS_ON,
-      },
-      testMatch: /login-sheet-mobile\.spec\.ts/,
-      fullyParallel: false,
-      dependencies: ["members-on"],
-    },
+      dependencies:
+        i === 0 ? ["desktop", "mobile"] : [MEMBERS_ON_CHAIN[i - 1].name],
+    })),
     // 회원제 켬 + 네이버 켬. 마찬가지로 앞 프로젝트가 끝난 뒤에 돈다.
     {
       name: "members-naver",
@@ -105,7 +110,7 @@ export default defineConfig({
       },
       testMatch: /members-naver\.spec\.ts/,
       fullyParallel: false,
-      dependencies: ["members-on-mobile"],
+      dependencies: [MEMBERS_ON_CHAIN[MEMBERS_ON_CHAIN.length - 1].name],
     },
   ],
   // 가짜 Supabase(e2e/fake-supabase.mjs)를 먼저 띄운다. 화면은 build 때 NEXT_PUBLIC_SUPABASE_URL 을

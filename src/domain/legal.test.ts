@@ -10,6 +10,7 @@ import {
   LEGAL_IDS,
   legalFileName,
   legalHref,
+  needsConsent,
 } from "./legal";
 
 const read = (name: string) =>
@@ -26,6 +27,7 @@ describe("문서 정보", () => {
       edition: 1,
       draft: true,
       previous: [],
+      acceptedBefore: [],
     });
     expect(LEGAL_DOCS.privacy).toEqual({
       id: "privacy",
@@ -35,6 +37,7 @@ describe("문서 정보", () => {
       edition: 1,
       draft: true,
       previous: [],
+      acceptedBefore: [],
     });
   });
 
@@ -131,5 +134,96 @@ describe("글 파일 검사 (전문가 확인을 거친 글이 통째로 들어 
       expect(body.endsWith("\n")).toBe(true);
       expect(body.endsWith("\n\n")).toBe(false);
     }
+  });
+});
+
+describe("needsConsent — 동의 화면이 필요한가 (결정 0065)", () => {
+  const T = LEGAL_DOCS.terms.version;
+  const P = LEGAL_DOCS.privacy.version;
+
+  it("두 판이 모두 지금 판이면 필요 없다", () => {
+    expect(needsConsent({ termsVersion: T, privacyVersion: P })).toBe(false);
+  });
+
+  it("비어 있으면(null · undefined · 빈 글자 · 공백) 필요하다 — 동의 전", () => {
+    for (const empty of [null, undefined, "", "  "]) {
+      expect(needsConsent({ termsVersion: empty, privacyVersion: P })).toBe(
+        true,
+      );
+      expect(needsConsent({ termsVersion: T, privacyVersion: empty })).toBe(
+        true,
+      );
+    }
+    expect(needsConsent({ termsVersion: null, privacyVersion: null })).toBe(
+      true,
+    );
+  });
+
+  it("모르는 판이면 필요하다 (지금 판도 이전 허용 판도 아님)", () => {
+    expect(
+      needsConsent({ termsVersion: "terms-1999-01-01", privacyVersion: P }),
+    ).toBe(true);
+    expect(
+      needsConsent({ termsVersion: T, privacyVersion: "privacy-1999-01-01" }),
+    ).toBe(true);
+    // 판 번호는 글자 그대로만 받는다(대소문자 · 공백이 다르면 모르는 판)
+    expect(
+      needsConsent({ termsVersion: T.toUpperCase(), privacyVersion: P }),
+    ).toBe(true);
+    expect(needsConsent({ termsVersion: ` ${T}`, privacyVersion: P })).toBe(
+      true,
+    );
+  });
+
+  it("acceptedBefore 에 있는 이전 판은 다시 묻지 않는다 — 두 판 가운데 하나라도 못 받으면 다시 묻는다", () => {
+    const docs = {
+      terms: {
+        ...LEGAL_DOCS.terms,
+        version: "terms-2028-01-01",
+        acceptedBefore: [T],
+      },
+      privacy: {
+        ...LEGAL_DOCS.privacy,
+        version: "privacy-2028-01-01",
+        acceptedBefore: [P],
+      },
+    };
+    // 둘 다 이전 허용 판
+    expect(needsConsent({ termsVersion: T, privacyVersion: P }, docs)).toBe(
+      false,
+    );
+    // 약관만 허용 판, 방침은 지금 판
+    expect(
+      needsConsent(
+        { termsVersion: T, privacyVersion: "privacy-2028-01-01" },
+        docs,
+      ),
+    ).toBe(false);
+    // 한쪽이 허용 목록 밖
+    expect(
+      needsConsent(
+        { termsVersion: "terms-1999-01-01", privacyVersion: P },
+        docs,
+      ),
+    ).toBe(true);
+    // 방침이 크게 바뀌어 이전 판을 허용하지 않으면 다시 묻는다
+    const strict = {
+      ...docs,
+      privacy: { ...docs.privacy, acceptedBefore: [] },
+    };
+    expect(needsConsent({ termsVersion: T, privacyVersion: P }, strict)).toBe(
+      true,
+    );
+  });
+});
+
+describe("가짜 Supabase(e2e)의 동의 판이 지금 판과 같다", () => {
+  it("e2e/fake-supabase.mjs 의 CURRENT_TERMS · CURRENT_PRIVACY 가 LEGAL_DOCS 의 version 이다 (판을 바꾸면 여기가 알려 준다)", () => {
+    const fake = readFileSync(
+      path.resolve(process.cwd(), "e2e/fake-supabase.mjs"),
+      "utf-8",
+    );
+    expect(fake).toContain(`CURRENT_TERMS = "${LEGAL_DOCS.terms.version}"`);
+    expect(fake).toContain(`CURRENT_PRIVACY = "${LEGAL_DOCS.privacy.version}"`);
   });
 });
