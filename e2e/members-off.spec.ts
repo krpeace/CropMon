@@ -34,7 +34,12 @@ test.describe("회원제 스위치 끔", () => {
   test("로그인 필요 목록도 막지 않는다 — /account · /farm/settings 는 원래대로 없는 쪽(로그인으로 보내지 않음)", async ({
     page,
   }) => {
-    for (const path of ["/account", "/farm/settings", "/farm/crop"]) {
+    for (const path of [
+      "/account",
+      "/account/withdraw",
+      "/farm/settings",
+      "/farm/crop",
+    ]) {
       const res = await page.goto(path);
       expect(res!.status(), path).toBe(404);
       expect(new URL(page.url()).pathname, path).toBe(path);
@@ -166,6 +171,27 @@ test.describe("회원제 스위치 끔 — 동의 화면", () => {
     expect(res!.status()).toBe(404);
     expect(new URL(page.url()).pathname).toBe("/consent");
     expect(page.url()).not.toContain("login=1");
+  });
+
+  test("/auth/withdraw 는 POST · GET 모두 404 이고 쿠키를 심지 않는다 (탈퇴 함수 호출 0)", async ({
+    request,
+  }) => {
+    await request.post(`${FAKE}/reset`);
+    const calls = [
+      await request.post("/auth/withdraw", {
+        form: { confirm: "on" },
+        maxRedirects: 0,
+      }),
+      await request.get("/auth/withdraw", { maxRedirects: 0 }),
+    ];
+    for (const res of calls) {
+      expect(res.status(), res.url()).toBe(404);
+      expect(res.headers()["set-cookie"], res.url()).toBeUndefined();
+      expect(res.headers()["location"], res.url()).toBeUndefined();
+    }
+    const fake = await (await request.get(`${FAKE}/calls`)).json();
+    expect(fake.withdrawCalls).toBe(0);
+    expect(fake.kakaoUnlinkCalls).toHaveLength(0);
   });
 
   test("/auth/consent 는 POST · GET 모두 404 이고 쿠키를 심지 않는다", async ({

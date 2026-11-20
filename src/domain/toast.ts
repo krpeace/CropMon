@@ -21,3 +21,27 @@ export function readLoginNotice(search: string): LoginNotice | null {
     ? value
     : null;
 }
+
+/** 탈퇴 뒤 종합으로 돌아온 주소의 `account` 표시 (이슈 #195, 결정 0067). 끝에 안내 한 줄이 붙는 쪽은 `withdrawn-unlinked`. */
+export type AccountNotice = "withdrawn" | "withdrawn-unlinked";
+
+/** 안내가 붙는 알림은 긴 글(두 줄)이라 더 오래 띄운다. */
+export const ACCOUNT_TOAST_LONG_MS = 7000;
+
+/** `account` 표시별 알림. 두 줄은 한 알림 안의 줄바꿈(`\n`) — 화면은 `whitespace-pre-line` 로 그린다. */
+export const ACCOUNT_TOAST: Record<
+  AccountNotice,
+  { text: string; ms: number }
+> = {
+  withdrawn: { text: "탈퇴했어요", ms: TOAST_MS },
+  "withdrawn-unlinked": {
+    text: "탈퇴했어요\n연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    ms: ACCOUNT_TOAST_LONG_MS,
+  },
+};
+
+/** 주소 검색어에서 `account` 표시를 읽는다. 모르는 값은 null. */
+export function readAccountNotice(search: string): AccountNotice | null {
+  const value = new URLSearchParams(search).get("account");
+  return value === "withdrawn" || value === "withdrawn-unlinked" ? value : null;
+}

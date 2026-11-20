@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { LOGIN_TOAST_TEXT, readLoginNotice } from "./toast";
+import {
+  ACCOUNT_TOAST,
+  LOGIN_TOAST_TEXT,
+  readAccountNotice,
+  readLoginNotice,
+  TOAST_MS,
+} from "./toast";
 
 describe("readLoginNotice — 돌아온 주소의 login 표시 읽기", () => {
   it("ok · failed · cancelled 를 알아본다", () => {
@@ -23,5 +29,35 @@ describe("LOGIN_TOAST_TEXT — 알림 문구", () => {
       "로그인을 마치지 못했어요. 잠시 뒤 다시 해 주세요",
     );
     expect(LOGIN_TOAST_TEXT.cancelled).toBeNull();
+  });
+});
+
+describe("account= 알림 (이슈 #195, 결정 0067)", () => {
+  it("withdrawn · withdrawn-unlinked 를 알아본다", () => {
+    expect(readAccountNotice("?account=withdrawn")).toBe("withdrawn");
+    expect(readAccountNotice("?st=105&account=withdrawn-unlinked")).toBe(
+      "withdrawn-unlinked",
+    );
+  });
+  it("모르는 값 · 없음은 null", () => {
+    for (const s of [
+      "",
+      "?account=",
+      "?account=1",
+      "?account=WITHDRAWN",
+      "?login=ok",
+    ]) {
+      expect(readAccountNotice(s), s).toBeNull();
+    }
+  });
+  it("문구: 탈퇴했어요 / 안내가 붙으면 한 알림의 두 줄(줄바꿈)이고 더 오래 뜬다", () => {
+    expect(ACCOUNT_TOAST.withdrawn).toEqual({
+      text: "탈퇴했어요",
+      ms: TOAST_MS,
+    });
+    expect(ACCOUNT_TOAST["withdrawn-unlinked"].text).toBe(
+      "탈퇴했어요\n연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    );
+    expect(ACCOUNT_TOAST["withdrawn-unlinked"].ms).toBe(7000);
   });
 });

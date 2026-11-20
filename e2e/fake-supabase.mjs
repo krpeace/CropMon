@@ -636,12 +636,24 @@ const authState = {
   settingsReads: 0, // GET /rest/v1/members?select=layout,… 횟수 (끔 · 비회원은 0 이어야 한다)
   settingsWrites: 0,
   settingsLast: null, // 마지막으로 쓴 줄 내용
+  // 회원 정보 · 탈퇴 흉내 (이슈 #195, 결정 0067)
+  email: "tester@example.invalid", // 로그인한 회원의 메일 (null 이면 메일 없음)
+  identities: null, // null 이면 로그인한 공급자 하나. ["kakao", "google"] 처럼 정하면 그 목록 (카카오 회원번호는 KAKAO_ID)
+  profileRead: "ok", // ok | fail  (회원 정보 화면의 읽기만 실패 — 동의 확인 읽기는 그대로, 관문에 안 걸리게)
+  profile: {}, // 회원 정보 줄을 덮어쓸 값 { display_name, provider, created_at, ... }
+  withdrawMode: "ok", // ok | fail  (rpc delete_my_account 결과)
+  kakaoUnlink: "ok", // ok | fail  (카카오 연결 끊기 흉내의 결과)
+  withdrawCalls: 0,
+  withdrawn: [], // 탈퇴한 회원 번호
+  kakaoUnlinkCalls: [], // { authorization, body }
   authCalls: 0, // /auth/v1/* 호출 횟수 (쿠키 없는 방문이 Supabase 를 안 부르는지 확인용)
   ensureCalls: 0,
   codes: new Map(), // code -> provider
   tokens: new Map(), // access_token -> user
   refresh: new Map(), // refresh_token -> user
 };
+// 카카오 회원번호 흉내 (숫자). 로그인 정보의 identities 와 연결 끊기 요청 본문이 같은지 시험이 본다.
+const KAKAO_ID = "4200000001";
 const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
 function makeSession(user) {
   const now = Math.floor(Date.now() / 1000);
@@ -669,6 +681,12 @@ function makeSession(user) {
     user,
   };
 }
+const readText = (req) =>
+  new Promise((resolve) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+  });
 const readBody = (req) =>
   new Promise((resolve) => {
     const chunks = [];
@@ -707,6 +725,12 @@ async function handleAuthRoutes(req, res, url) {
     if (body.consentSave) authState.consentSave = body.consentSave;
     if (typeof body.sameUser === "boolean") authState.sameUser = body.sameUser;
     if (body.settingsWrite) authState.settingsWrite = body.settingsWrite;
+    if (body.withdrawMode) authState.withdrawMode = body.withdrawMode;
+    if (body.kakaoUnlink) authState.kakaoUnlink = body.kakaoUnlink;
+    if ("email" in body) authState.email = body.email;
+    if ("identities" in body) authState.identities = body.identities;
+    if (body.profile) authState.profile = body.profile;
+    if (body.profileRead) authState.profileRead = body.profileRead;
     // 같은 회원(sameUser)의 계정 설정을 미리 채운다 (다른 기기에서 저장해 둔 것처럼)
     if (body.settings) authState.settings.set(SAME_USER_ID, body.settings);
     json(200, { scenario: authState.scenario, ensure: authState.ensure });
@@ -729,6 +753,15 @@ async function handleAuthRoutes(req, res, url) {
     authState.settingsReads = 0;
     authState.settingsWrites = 0;
     authState.settingsLast = null;
+    authState.email = "tester@example.invalid";
+    authState.identities = null;
+    authState.profile = {};
+    authState.profileRead = "ok";
+    authState.withdrawMode = "ok";
+    authState.kakaoUnlink = "ok";
+    authState.withdrawCalls = 0;
+    authState.withdrawn = [];
+    authState.kakaoUnlinkCalls = [];
     json(200, { ok: true });
     return true;
   }
@@ -742,6 +775,10 @@ async function handleAuthRoutes(req, res, url) {
       settingsWrites: authState.settingsWrites,
       settingsLast: authState.settingsLast,
       settings: Object.fromEntries(authState.settings),
+      withdrawCalls: authState.withdrawCalls,
+      withdrawn: authState.withdrawn,
+      kakaoUnlinkCalls: authState.kakaoUnlinkCalls,
+      kakaoId: KAKAO_ID,
     });
     return true;
   }
@@ -771,6 +808,36 @@ async function handleAuthRoutes(req, res, url) {
       return true;
     }
     const saved = authState.consents.get(user.id);
+    // 회원 정보 화면의 읽기 (select 에 display_name 이 있으면)
+    if ((url.searchParams.get("select") ?? "").includes("display_name")) {
+      if (authState.profileRead === "fail") {
+        json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
+        return true;
+      }
+      const tv = saved
+        ? saved.terms
+        : authState.consentMode === "done"
+          ? CURRENT_TERMS
+          : null;
+      const pv = saved
+        ? saved.privacy
+        : authState.consentMode === "done"
+          ? CURRENT_PRIVACY
+          : null;
+      json(200, [
+        {
+          display_name: "가짜별명",
+          provider: user.app_metadata.provider,
+          created_at: "2026-08-12T01:00:00Z",
+          terms_version: tv,
+          terms_agreed_at: tv ? "2026-08-12T01:00:00Z" : null,
+          privacy_version: pv,
+          privacy_confirmed_at: pv ? "2026-08-12T01:00:00Z" : null,
+          ...authState.profile,
+        },
+      ]);
+      return true;
+    }
     const row = saved
       ? { terms_version: saved.terms, privacy_version: saved.privacy }
       : authState.consentMode === "done"
@@ -827,6 +894,46 @@ async function handleAuthRoutes(req, res, url) {
     authState.consents.set(user.id, authState.consentLast);
     res.writeHead(204);
     res.end();
+    return true;
+  }
+
+  // 회원 탈퇴: 호출 횟수를 세고, 성공하면 그 회원의 로그인 · 설정 · 동의를 지운다(진짜 auth.users 삭제 흉내)
+  if (url.pathname === "/rest/v1/rpc/delete_my_account") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(401, { code: "42501", message: "로그인이 필요합니다 (가짜)" });
+      return true;
+    }
+    authState.withdrawCalls += 1;
+    if (authState.withdrawMode === "fail") {
+      json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
+      return true;
+    }
+    authState.withdrawn.push(user.id);
+    for (const [k, v] of authState.tokens)
+      if (v.id === user.id) authState.tokens.delete(k);
+    for (const [k, v] of authState.refresh)
+      if (v.id === user.id) authState.refresh.delete(k);
+    authState.settings.delete(user.id);
+    authState.consents.delete(user.id);
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+
+  // 카카오 연결 끊기 흉내 (KAKAO_API_BASE 를 이 가짜로 가리킨 서버만 부른다). 요청 모양을 그대로 적어 둔다.
+  if (url.pathname === "/v1/user/unlink" && req.method === "POST") {
+    const body = await readText(req);
+    authState.kakaoUnlinkCalls.push({
+      authorization: req.headers.authorization ?? "",
+      contentType: req.headers["content-type"] ?? "",
+      body,
+    });
+    if (authState.kakaoUnlink === "fail") {
+      json(401, { msg: "가짜 오류 (화면 테스트)", code: -401 });
+      return true;
+    }
+    json(200, { id: Number(KAKAO_ID) });
     return true;
   }
 
@@ -899,6 +1006,13 @@ async function handleAuthRoutes(req, res, url) {
         app_metadata: { provider },
         user_metadata: {},
         created_at: new Date().toISOString(),
+        ...(authState.email ? { email: authState.email } : {}),
+        identities: (authState.identities ?? [provider]).map((p) => ({
+          provider: p,
+          id: p === "kakao" ? KAKAO_ID : randomUUID(),
+          identity_data:
+            p === "kakao" ? { provider_id: KAKAO_ID, sub: KAKAO_ID } : {},
+        })),
       };
       json(200, makeSession(user));
       return true;

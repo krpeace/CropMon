@@ -514,7 +514,7 @@ function NavRow({
   onClose,
 }: {
   href: string;
-  icon: "layout" | "text";
+  icon: "layout" | "text" | "user";
   label: string;
   onClose: () => void;
 }) {
@@ -533,7 +533,7 @@ function NavRow({
 
 /**
  * 내 계정 시트의 틀 (시안 v0.4.6 사용자 메뉴 순서): 알림 · 농장 설정 · 작물 설정 · 화면 구성 · 글씨 크기 · 다크 모드 / 회원 정보 · 알림 설정 / 로그아웃.
- * 있는 화면(화면 구성 · 글씨 크기 · 다크 모드)만 연결하고, 아직 없는 화면은 회색 "준비 중"이다. 회원탈퇴 줄은 L6.
+ * 있는 화면(화면 구성 · 글씨 크기 · 다크 모드)만 연결하고, 아직 없는 화면은 회색 "준비 중"이다. 회원 정보(이슈 #195)는 화면이 있는 줄이고, 회원탈퇴는 그 화면 맨 아래에 있다(시트에는 두지 않음).
  * 회원은 헤더의 다크 모드 버튼이 사라지고 여기서 바꾼다(시안 "회원은 사용자 메뉴 안").
  * 로그아웃은 `POST /auth/signout` 폼이다(링크 미리 불러오기로 로그아웃되지 않게, 결정 0061). 끝나면 지금 보던 화면으로 돌아온다.
  */
@@ -560,7 +560,12 @@ function AccountBody({ next, onClose }: { next: string; onClose: () => void }) {
         <ThemeRow />
       </ul>
       <ul className={GROUP}>
-        <SoonRow icon="user" label="회원 정보" />
+        <NavRow
+          href="/account"
+          icon="user"
+          label="회원 정보"
+          onClose={onClose}
+        />
         <SoonRow icon="bell" label="알림 설정" />
       </ul>
       <form
