@@ -315,11 +315,11 @@ test.describe("탈퇴하기", () => {
     expect(c.kakaoUnlinkCalls).toHaveLength(1);
   });
 
-  test("구글 회원은 카카오 끊기를 부르지 않고 안내 한 줄이 더 붙는다", async ({
+  test("구글 회원은 이슈 #197부터 구글로 한 번 더 로그인해 탈퇴한다 — 카카오 끊기는 안 부른다 (자세한 시험은 account-reauth.spec.ts)", async ({
     page,
     request,
   }) => {
-    await scenario(request, { identities: ["google"] });
+    await scenario(request, { identities: ["google"], sameUser: true });
     await page.goto(
       `/auth/login?provider=google&next=${enc("/water?st=105&crop=apple")}`,
     );
@@ -328,9 +328,7 @@ test.describe("탈퇴하기", () => {
     await agree(page).check();
     await withdrawButton(page).click();
     await page.waitForURL((u) => u.pathname === "/");
-    await expect(toast(page)).toContainText(
-      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
-    );
+    await expect(toast(page)).toHaveText("탈퇴했어요");
     const c = await calls(request);
     expect(c.withdrawn).toHaveLength(1);
     expect(c.kakaoUnlinkCalls).toHaveLength(0);

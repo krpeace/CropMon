@@ -33,6 +33,13 @@ describe("LOGIN_TOAST_TEXT — 알림 문구", () => {
 });
 
 describe("account= 알림 (이슈 #195, 결정 0067)", () => {
+  it("withdraw-other(다른 계정으로 재로그인, 이슈 #197)도 알아본다", () => {
+    expect(readAccountNotice("?account=withdraw-other")).toBe("withdraw-other");
+    expect(ACCOUNT_TOAST["withdraw-other"]).toEqual({
+      text: "다른 계정으로 로그인해서 탈퇴하지 않았어요. 원래 계정으로 다시 로그인해 주세요",
+      ms: 7000,
+    });
+  });
   it("withdrawn · withdrawn-unlinked 를 알아본다", () => {
     expect(readAccountNotice("?account=withdrawn")).toBe("withdrawn");
     expect(readAccountNotice("?st=105&account=withdrawn-unlinked")).toBe(

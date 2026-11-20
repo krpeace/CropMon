@@ -5,9 +5,17 @@ import { useRef, useState } from "react";
 /** 탈퇴를 마치지 못했을 때 맨 위 한 줄 (확정 문구 밖 — 검토 채팅 승인 11/20). */
 export const WITHDRAW_FAILED_TEXT =
   "탈퇴를 마치지 못했어요. 잠시 뒤 다시 해 주세요";
+/** 재인증 도중 시간이 지났을 때(탈퇴 의도 쿠키 만료 · 없음, 이슈 #197 — 검토 채팅 승인 11/20). */
+export const WITHDRAW_EXPIRED_TEXT =
+  "시간이 지나 탈퇴하지 않았어요. 다시 해 주세요";
 /** 확인 칸을 켜지 않고 누르려 할 때(시안 그대로). */
 export const WITHDRAW_NEED_CONFIRM_TEXT =
   "위 내용을 확인했다고 체크하면 탈퇴할 수 있어요";
+
+/** 구글 · 네이버 회원에게 [탈퇴하기] 위에 보이는 한 줄(이슈 #197, 검토 채팅 승인 11/20). 누르면 그 공급자로 로그인을 한 번 더 한다. */
+export function reauthHint(provider: "google" | "naver"): string {
+  return `탈퇴하기를 누르면 연결을 끊기 위해 ${provider === "google" ? "구글" : "네이버"} 로그인을 한 번 더 해요.`;
+}
 
 const GONE = [
   "회원 정보",
@@ -29,8 +37,11 @@ const GONE = [
  */
 export function WithdrawScreen({
   notice,
+  reauth,
 }: {
-  notice: "failed" | "confirm" | null;
+  notice: "failed" | "confirm" | "expired" | null;
+  /** 구글 · 네이버 회원이면 그 공급자(안내 줄을 보인다). 카카오만이면 null. */
+  reauth: "google" | "naver" | null;
 }) {
   const [checked, setChecked] = useState(false);
   const [needHint, setNeedHint] = useState(notice === "confirm");
@@ -47,6 +58,15 @@ export function WithdrawScreen({
           className="bg-tile text-14 text-ink rounded-box m-0 px-3.5 py-2.5 font-semibold"
         >
           {WITHDRAW_FAILED_TEXT}
+        </p>
+      )}
+
+      {notice === "expired" && (
+        <p
+          role="alert"
+          className="bg-tile text-14 text-ink rounded-box m-0 px-3.5 py-2.5 font-semibold"
+        >
+          {WITHDRAW_EXPIRED_TEXT}
         </p>
       )}
 
@@ -111,6 +131,12 @@ export function WithdrawScreen({
           />
           위 내용을 확인했어요
         </label>
+
+        {reauth && (
+          <p className="text-14 text-ink-2/85 m-0 leading-snug text-pretty">
+            {reauthHint(reauth)}
+          </p>
+        )}
 
         <button
           type="submit"
