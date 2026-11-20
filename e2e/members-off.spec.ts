@@ -224,6 +224,24 @@ test.describe("회원제 스위치 끔 — 동의 화면", () => {
       expect(res.headers()["location"], res.url()).toBeUndefined();
     }
   });
+
+  test("/auth/consent/decline(나가기) 는 POST · GET 모두 404 이고 쿠키를 심지 않는다 (삭제 함수 호출 0)", async ({
+    request,
+  }) => {
+    const calls = [
+      await request.post("/auth/consent/decline?next=%2F", {
+        maxRedirects: 0,
+      }),
+      await request.get("/auth/consent/decline", { maxRedirects: 0 }),
+    ];
+    for (const res of calls) {
+      expect(res.status(), res.url()).toBe(404);
+      expect(res.headers()["set-cookie"], res.url()).toBeUndefined();
+      expect(res.headers()["location"], res.url()).toBeUndefined();
+    }
+    const fake = await (await request.get(`${FAKE}/calls`)).json();
+    expect(fake.withdrawCalls).toBe(0);
+  });
 });
 
 // ── 이슈 #193(결정 0066): 화면 설정 계정 저장을 붙여도 스위치를 끄면 지금 알파와 같다 ──

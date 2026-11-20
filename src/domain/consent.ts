@@ -103,6 +103,23 @@ export type ConsentRead =
   | { ok: true; termsVersion: string | null; privacyVersion: string | null }
   | { ok: false };
 
+/** "동의하지 않고 나가기" 폼이 보낼 곳: `POST /auth/consent/decline?next=…` (결정 0069). 로그아웃 길(`/auth/signout`)과 다르다. */
+export function consentDeclineAction(next: string): string {
+  return `/auth/consent/decline?next=${encodeURIComponent(readConsentNext(next))}`;
+}
+
+/**
+ * "동의하지 않고 나가기"를 눌렀을 때 계정을 지우나 (이슈 #199, 결정 0069).
+ * **동의한 적이 한 번도 없는 회원만**(두 판 열이 모두 비어 있음) 지운다 — 가입만 하고 동의 전에 떠난 사람이다.
+ * 예전 판에 동의했던 회원(약관이 바뀌어 다시 묻는 중)은 농장 · 관수 기록이 있을 수 있어 지우지 않고 로그아웃만 한다.
+ * 동의 기록을 읽지 못해도 지우지 않는다(남은 계정은 정기 정리 O2).
+ */
+export function declineAction(read: ConsentRead): "delete" | "signout-only" {
+  return read.ok && read.termsVersion === null && read.privacyVersion === null
+    ? "delete"
+    : "signout-only";
+}
+
 /**
  * 로그인 직후(콜백) 보낼 곳. 동의가 필요하면(비어 있음 · 모르는 판 · **읽기 실패**) `/consent?next=<원래 next>`,
  * 아니면 `next` 에 `login=ok`. 읽기에 실패해도 로그인은 막지 않고 동의 화면이 다시 확인한다.

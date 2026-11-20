@@ -619,11 +619,22 @@ const CURRENT_TERMS = "terms-2027-01-01";
 const CURRENT_PRIVACY = "privacy-2027-01-01";
 // "같은 사용자로 로그인"(sameUser)할 때의 회원 번호 — 다른 "기기"(새 브라우저 문맥)에서 같은 계정으로 로그인하는 시험에 쓴다.
 const SAME_USER_ID = "00000000-0000-4000-8000-0000000000a1";
+const LEGACY_TERMS = "terms-2026-01-01";
+const LEGACY_PRIVACY = "privacy-2026-01-01";
+/** 기록이 없는 회원의 동의 판: consentMode 가 정한다. */
+function defaultConsent() {
+  if (authState.consentMode === "done")
+    return { terms: CURRENT_TERMS, privacy: CURRENT_PRIVACY };
+  if (authState.consentMode === "legacy")
+    return { terms: LEGACY_TERMS, privacy: LEGACY_PRIVACY };
+  return { terms: null, privacy: null };
+}
 const authState = {
   scenario: "ok", // ok | cancel | provider-error | no-code | exchange-fail
   ensure: "ok", // ok | fail  (public.ensure_my_member 호출 결과)
   // 동의 흉내. 기본 "done" = 새 회원도 지금 판으로 동의한 것으로 읽힘(기존 시험이 그대로 통과). "needed" = 새 회원은 동의 전.
-  consentMode: "done", // done | needed
+  // done = 지금 판으로 동의 · needed = 동의 전(첫 동의) · legacy = 예전 판에 동의했던 회원(이슈 #199, 약관이 바뀌어 다시 묻는 중)
+  consentMode: "done", // done | needed | legacy
   membersRead: "ok", // ok | fail  (GET /rest/v1/members 결과)
   consentSave: "ok", // ok | fail  (rpc record_my_consent 결과)
   sameUser: false, // true 면 로그인마다 같은 회원 번호(다시 로그인 시험용)
@@ -842,16 +853,9 @@ async function handleAuthRoutes(req, res, url) {
         json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
         return true;
       }
-      const tv = saved
-        ? saved.terms
-        : authState.consentMode === "done"
-          ? CURRENT_TERMS
-          : null;
-      const pv = saved
-        ? saved.privacy
-        : authState.consentMode === "done"
-          ? CURRENT_PRIVACY
-          : null;
+      const dflt = defaultConsent();
+      const tv = saved ? saved.terms : dflt.terms;
+      const pv = saved ? saved.privacy : dflt.privacy;
       json(200, [
         {
           display_name: "가짜별명",
@@ -866,11 +870,10 @@ async function handleAuthRoutes(req, res, url) {
       ]);
       return true;
     }
+    const dflt = defaultConsent();
     const row = saved
       ? { terms_version: saved.terms, privacy_version: saved.privacy }
-      : authState.consentMode === "done"
-        ? { terms_version: CURRENT_TERMS, privacy_version: CURRENT_PRIVACY }
-        : { terms_version: null, privacy_version: null };
+      : { terms_version: dflt.terms, privacy_version: dflt.privacy };
     json(200, [row]);
     return true;
   }

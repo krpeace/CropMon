@@ -8,6 +8,7 @@ import {
   CONSENT_SAVE_FAILED_TEXT,
   type ConsentChecks,
   consentButtonLabel,
+  consentDeclineAction,
   consentPostAction,
 } from "@/domain/consent";
 import { tieMiddleDot } from "@/domain/display";
@@ -167,7 +168,7 @@ export function ConsentScreen({
 
           <form
             method="post"
-            action={`/auth/signout?next=${encodeURIComponent(next)}`}
+            action={consentDeclineAction(next)}
             className="contents"
           >
             <button
