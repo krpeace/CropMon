@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 
 import { TOAST_MS } from "@/domain/toast";
 
+import { useSheet } from "../shell/sheet-context";
+
 /**
  * 공통 알림(토스트, 이슈 #189, 결정 0064). `showToast("문장")` 을 부르면 몇 초 뒤 사라진다. 로그인 알림이 처음 쓰고,
  * 앞으로 "탈퇴했어요" · "기록을 지웠어요"도 같은 부품을 쓴다.
@@ -43,11 +45,17 @@ const getServerSnapshot = () => null;
 
 export function ToastHost() {
   const toast = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // 휴대폰의 아래 시트가 열려 있으면(`holds`) 알림이 시트의 단추를 가리지 않게 위쪽에 띄운다 (이슈 #193 — 로그인 직후 시트와 알림이 겹침)
+  const { holds } = useSheet();
+  const position =
+    holds > 0
+      ? "top-[calc(env(safe-area-inset-top)+12px)]"
+      : "bottom-[calc(var(--tabbar-h)+var(--tabbar-safe-bottom)+12px)] desktop:bottom-6";
   return (
     <div
       role="status"
       aria-live="polite"
-      className="desktop:bottom-6 pointer-events-none fixed inset-x-0 bottom-[calc(var(--tabbar-h)+var(--tabbar-safe-bottom)+12px)] z-50 flex justify-center px-4"
+      className={`pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 ${position}`}
     >
       {toast && (
         <div

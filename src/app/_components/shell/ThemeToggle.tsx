@@ -11,6 +11,7 @@ import {
 } from "@/domain/theme";
 
 import { Icon } from "../ui/Icon";
+import { pushAccount } from "./account-settings-store";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
@@ -21,6 +22,25 @@ function readSaved(): Theme | null {
   } catch {
     return null;
   }
+}
+
+/** 기기에 저장된 선택(없으면 null = 휴대폰 설정을 따름). 계정과 견줄 때 쓴다. */
+export function readDeviceTheme(): Theme | null {
+  return readSaved();
+}
+
+/**
+ * 테마를 정해 화면에 적용하고 기기에 기억한다. 로그인한 회원이면 계정에도 쓴다(모아서 마지막 값만, 결정 0066).
+ * `sync:false` 는 계정 값을 기기에 쓰는 갈래(되보내지 않는다).
+ */
+export function saveTheme(theme: Theme, opts: { sync?: boolean } = {}) {
+  applyTheme(theme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // 저장이 안 돼도 이번 화면은 바뀐다.
+  }
+  if (opts.sync !== false) pushAccount({ theme });
 }
 
 /** 화면 테마와 주소창 색(theme-color meta)을 함께 바꾼다. meta 가 없으면 화면 테마만 바꾼다. */
@@ -68,13 +88,7 @@ export function useThemeToggle() {
     /** 누르면 갈 테마를 읽어 주는 이름 (화면 읽기 · 시험이 쓰는 이름이라 바꾸지 않는다). */
     label: dark ? "라이트 모드로 보기" : "다크 모드로 보기",
     toggle: () => {
-      const next: Theme = dark ? "light" : "dark";
-      applyTheme(next);
-      try {
-        localStorage.setItem(THEME_STORAGE_KEY, next);
-      } catch {
-        // 저장이 안 돼도 이번 화면은 바뀐다.
-      }
+      saveTheme(dark ? "light" : "dark");
     },
   };
 }

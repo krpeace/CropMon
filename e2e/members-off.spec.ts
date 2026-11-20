@@ -182,3 +182,77 @@ test.describe("회원제 스위치 끔 — 동의 화면", () => {
     }
   });
 });
+
+// ── 이슈 #193(결정 0066): 화면 설정 계정 저장을 붙여도 스위치를 끄면 지금 알파와 같다 ──
+test.describe("회원제 스위치 끔 — 화면 설정 계정 저장", () => {
+  test.skip(({ isMobile }) => isMobile);
+
+  test("/auth/settings 는 GET · POST 모두 404 이고 쿠키를 심지 않는다", async ({
+    request,
+  }) => {
+    const calls = [
+      await request.get("/auth/settings", { maxRedirects: 0 }),
+      await request.post("/auth/settings", {
+        data: { theme: "dark" },
+        maxRedirects: 0,
+      }),
+    ];
+    for (const res of calls) {
+      expect(res.status(), res.url()).toBe(404);
+      expect(res.headers()["set-cookie"], res.url()).toBeUndefined();
+    }
+  });
+
+  test("글씨 크기 · 화면 구성 · 다크 모드는 지금처럼 기기에만 저장되고 계정 요청은 0 이다", async ({
+    page,
+    request,
+  }) => {
+    await request.post(`${FAKE}/reset`);
+    let settingsRequests = 0;
+    page.on("request", (r) => {
+      if (new URL(r.url()).pathname === "/auth/settings") settingsRequests += 1;
+    });
+    await page.goto("/font-size?st=105");
+    await page.waitForLoadState("networkidle"); // 버튼이 살아난 뒤에 누른다
+    await page.getByRole("button", { name: "크게", exact: true }).click();
+    await page.goto("/layout?st=105");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("switch", { name: "토양 사용" }).click();
+    await page.getByRole("button", { name: "다크 모드로 보기" }).click();
+    await page.waitForTimeout(800);
+    expect(settingsRequests).toBe(0);
+    const c = await (await request.get(`${FAKE}/calls`)).json();
+    expect(c.settingsReads).toBe(0);
+    expect(c.settingsWrites).toBe(0);
+    const saved = await page.evaluate(() => ({
+      font: localStorage.getItem("cropmon-font-scale"),
+      menus: localStorage.getItem("cropmon-menus"),
+      theme: localStorage.getItem("cropmon-theme"),
+    }));
+    expect(saved.font).toContain("large");
+    expect(saved.menus).toContain("soil");
+    expect(saved.theme).toBe("dark");
+    // 안내 줄은 비회원 글 그대로
+    await expect(
+      page.getByText("이 기기에 저장돼요. 로그인하면 계정에 저장돼요."),
+    ).toBeVisible();
+  });
+
+  test("남은 cm_m=in 쿠키가 있어도 계정을 부르지 않는다 (켰다가 끈 뒤)", async ({
+    page,
+    request,
+    context,
+  }) => {
+    await request.post(`${FAKE}/reset`);
+    await context.addCookies([
+      { name: "cm_m", value: "in", url: "http://localhost:3100" },
+    ]);
+    let settingsRequests = 0;
+    page.on("request", (r) => {
+      if (new URL(r.url()).pathname === "/auth/settings") settingsRequests += 1;
+    });
+    await page.goto("/water?st=105");
+    await page.waitForLoadState("networkidle");
+    expect(settingsRequests).toBe(0);
+  });
+});

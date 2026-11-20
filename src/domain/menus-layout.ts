@@ -44,6 +44,14 @@ function build(order: readonly MenuId[], off: ReadonlySet<MenuId>): SavedMenus {
   };
 }
 
+/**
+ * 저장값(없으면 기본값)의 **정규 모양**: `order` 에 10개 ID 모두, `off` 에 끈 ID 만(종합 없음, `order` 순서). 같은 상태는 같은 값이 된다.
+ * 계정 저장(이슈 #193, 결정 0066)이 "기기 값 = 계정 값인가"를 견주고 계정에 쓸 글자를 만들 때 쓴다.
+ */
+export function canonicalMenus(saved: SavedMenus | null): SavedMenus {
+  return build(fullOrder(saved), offSet(saved));
+}
+
 export type LayoutRow = {
   id: MenuId;
   /** 켬. 끈 줄도 목록에 남는다(다시 켤 수 있어야 하므로). */

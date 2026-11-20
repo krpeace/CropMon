@@ -617,6 +617,8 @@ function filter(rows, params) {
 // 동의 판 (이슈 #191, 결정 0065): 서버(src/domain/legal.ts)가 지금 받아 주는 판과 같아야 한다. 어긋나면 legal.test.ts 의 확인이 알려 준다.
 const CURRENT_TERMS = "terms-2027-01-01";
 const CURRENT_PRIVACY = "privacy-2027-01-01";
+// "같은 사용자로 로그인"(sameUser)할 때의 회원 번호 — 다른 "기기"(새 브라우저 문맥)에서 같은 계정으로 로그인하는 시험에 쓴다.
+const SAME_USER_ID = "00000000-0000-4000-8000-0000000000a1";
 const authState = {
   scenario: "ok", // ok | cancel | provider-error | no-code | exchange-fail
   ensure: "ok", // ok | fail  (public.ensure_my_member 호출 결과)
@@ -628,6 +630,12 @@ const authState = {
   consents: new Map(), // user id -> { terms, privacy }
   consentCalls: 0,
   consentLast: null, // 마지막으로 기록된 { terms, privacy }
+  // 화면 설정 계정 저장 흉내 (이슈 #193, 결정 0066): 회원 번호별 { layout, font_scale, theme } (없으면 null = 한 번도 저장 안 함)
+  settings: new Map(),
+  settingsWrite: "ok", // ok | fail  (PATCH /rest/v1/members 결과)
+  settingsReads: 0, // GET /rest/v1/members?select=layout,… 횟수 (끔 · 비회원은 0 이어야 한다)
+  settingsWrites: 0,
+  settingsLast: null, // 마지막으로 쓴 줄 내용
   authCalls: 0, // /auth/v1/* 호출 횟수 (쿠키 없는 방문이 Supabase 를 안 부르는지 확인용)
   ensureCalls: 0,
   codes: new Map(), // code -> provider
@@ -698,6 +706,9 @@ async function handleAuthRoutes(req, res, url) {
     if (body.membersRead) authState.membersRead = body.membersRead;
     if (body.consentSave) authState.consentSave = body.consentSave;
     if (typeof body.sameUser === "boolean") authState.sameUser = body.sameUser;
+    if (body.settingsWrite) authState.settingsWrite = body.settingsWrite;
+    // 같은 회원(sameUser)의 계정 설정을 미리 채운다 (다른 기기에서 저장해 둔 것처럼)
+    if (body.settings) authState.settings.set(SAME_USER_ID, body.settings);
     json(200, { scenario: authState.scenario, ensure: authState.ensure });
     return true;
   }
@@ -713,6 +724,11 @@ async function handleAuthRoutes(req, res, url) {
     authState.consents = new Map();
     authState.consentCalls = 0;
     authState.consentLast = null;
+    authState.settings = new Map();
+    authState.settingsWrite = "ok";
+    authState.settingsReads = 0;
+    authState.settingsWrites = 0;
+    authState.settingsLast = null;
     json(200, { ok: true });
     return true;
   }
@@ -722,6 +738,10 @@ async function handleAuthRoutes(req, res, url) {
       ensure: authState.ensureCalls,
       consent: authState.consentCalls,
       consentLast: authState.consentLast,
+      settingsReads: authState.settingsReads,
+      settingsWrites: authState.settingsWrites,
+      settingsLast: authState.settingsLast,
+      settings: Object.fromEntries(authState.settings),
     });
     return true;
   }
@@ -737,6 +757,19 @@ async function handleAuthRoutes(req, res, url) {
       json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
       return true;
     }
+    // 화면 설정 세 열 읽기 (select 에 layout 이 있으면)
+    if ((url.searchParams.get("select") ?? "").includes("layout")) {
+      authState.settingsReads += 1;
+      const s = authState.settings.get(user.id) ?? {};
+      json(200, [
+        {
+          layout: s.layout ?? null,
+          font_scale: s.font_scale ?? null,
+          theme: s.theme ?? null,
+        },
+      ]);
+      return true;
+    }
     const saved = authState.consents.get(user.id);
     const row = saved
       ? { terms_version: saved.terms, privacy_version: saved.privacy }
@@ -744,6 +777,34 @@ async function handleAuthRoutes(req, res, url) {
         ? { terms_version: CURRENT_TERMS, privacy_version: CURRENT_PRIVACY }
         : { terms_version: null, privacy_version: null };
     json(200, [row]);
+    return true;
+  }
+
+  // 화면 설정 쓰기: PATCH /rest/v1/members?user_id=eq.<회원 번호>  (supabase-js update().eq().select())
+  if (url.pathname === "/rest/v1/members" && req.method === "PATCH") {
+    const user = bearerUser(req);
+    if (!user) {
+      json(401, { code: "42501", message: "로그인이 필요합니다 (가짜)" });
+      return true;
+    }
+    const body = await readBody(req);
+    authState.settingsWrites += 1;
+    if (authState.settingsWrite === "fail") {
+      json(500, { code: "XX000", message: "가짜 오류 (화면 테스트)" });
+      return true;
+    }
+    // 자기 줄만 (RLS 흉내): user_id=eq.<내 번호> 가 아니면 0줄
+    const target = (url.searchParams.get("user_id") ?? "").replace(/^eq\./, "");
+    if (target !== user.id) {
+      json(200, []);
+      return true;
+    }
+    authState.settings.set(user.id, {
+      ...(authState.settings.get(user.id) ?? {}),
+      ...body,
+    });
+    authState.settingsLast = body;
+    json(200, [{ user_id: user.id }]);
     return true;
   }
 
@@ -832,9 +893,7 @@ async function handleAuthRoutes(req, res, url) {
       const provider = authState.codes.get(body.auth_code);
       authState.codes.delete(body.auth_code);
       const user = {
-        id: authState.sameUser
-          ? "00000000-0000-4000-8000-0000000000a1"
-          : randomUUID(),
+        id: authState.sameUser ? SAME_USER_ID : randomUUID(),
         aud: "authenticated",
         role: "authenticated",
         app_metadata: { provider },
