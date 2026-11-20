@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
-
 import { NextResponse } from "next/server";
 
 import { membersEnabledNow } from "@/app/_lib/members";
 import { createSupabaseServerClient } from "@/app/_lib/supabase/server-client";
+import { whoOf } from "@/app/_lib/who";
 import {
   accountValuesFromRow,
   validateSettingsUpdate,
@@ -20,10 +19,6 @@ import {
 const MAX_BODY = 8 * 1024;
 
 const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
-
-/** 회원 번호는 내보내지 않는다 — 기기의 "기준"이 회원을 가를 때 쓰는 되돌릴 수 없는 해시 앞 16자만. */
-const whoOf = (id: string) =>
-  createHash("sha256").update(id).digest("hex").slice(0, 16);
 
 const status = (code: number, headers: Record<string, string> = NO_STORE) =>
   new NextResponse(null, { status: code, headers });

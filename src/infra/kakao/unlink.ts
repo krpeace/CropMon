@@ -1,4 +1,5 @@
 import type { KakaoUnlinkResult } from "@/domain/account-info";
+import { loopbackBase } from "@/infra/loopback-base";
 import { logAuthError } from "@/infra/supabase/auth-log";
 
 /**
@@ -13,19 +14,13 @@ import { logAuthError } from "@/infra/supabase/auth-log";
 
 export const KAKAO_DEFAULT_BASE = "https://kapi.kakao.com";
 
-/** 시험 전용 주소로 바꿀 수 있는 곳: 이 컴퓨터(고리 주소) 한 곳뿐. 경로 · 계정 정보 · https 는 받지 않는다. */
-const LOOPBACK_BASE =
-  /^http:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]{1,5})?\/?$/;
-
 /**
  * 어드민 키를 실어 보낼 주소. `KAKAO_API_BASE` 는 **시험 전용**이라 이 컴퓨터(고리) 주소일 때만 받고,
  * 그 밖의 값(비어 있음 포함)은 무시하고 카카오 공식 주소를 쓴다 — 잘못된 값이 들어가도 키가 다른 곳으로 가지 않게(검토 11/20).
+ * 규칙은 구글 · 네이버 끊기와 같은 공통 함수(`loopbackBase`)다.
  */
 export function kakaoBase(raw: string | undefined | null): string {
-  if (typeof raw === "string" && LOOPBACK_BASE.test(raw)) {
-    return raw.replace(/\/$/, "");
-  }
-  return KAKAO_DEFAULT_BASE;
+  return loopbackBase(raw, KAKAO_DEFAULT_BASE);
 }
 
 const KAKAO_ID_SHAPE = /^[0-9]{1,20}$/;

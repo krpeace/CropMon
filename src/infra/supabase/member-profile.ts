@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { pickKakaoUserId, providersOf } from "@/domain/account-info";
+import {
+  pickKakaoUserId,
+  providerOf,
+  providersOf,
+} from "@/domain/account-info";
 import type { AccountProvider } from "@/domain/account-info";
 
 import { logAuthError } from "./auth-log";
@@ -17,6 +21,8 @@ export type MemberIdentity = {
   providers: AccountProvider[];
   /** 카카오 회원번호(숫자만). 카카오로 로그인한 적이 없거나 읽을 수 없으면 null. */
   kakaoUserId: string | null;
+  /** 처음 가입한 공급자(`app_metadata.provider`). 구글 · 네이버가 함께 연결됐을 때 재인증할 쪽을 고를 때 쓴다(결정 0068). */
+  signupProvider: AccountProvider | null;
 };
 
 /**
@@ -40,6 +46,11 @@ export async function readIdentity(
         typeof user.email === "string" && user.email !== "" ? user.email : null,
       providers: providersOf(user.identities),
       kakaoUserId: pickKakaoUserId(user.identities),
+      signupProvider: providerOf(
+        typeof user.app_metadata?.provider === "string"
+          ? user.app_metadata.provider
+          : null,
+      ),
     };
   } catch {
     logAuthError("account/identity");

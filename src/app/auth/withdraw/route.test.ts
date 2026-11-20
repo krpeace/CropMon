@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSupabaseServerClient } from "@/app/_lib/supabase/server-client";
@@ -22,6 +24,7 @@ const calls: string[] = [];
 const getUser = vi.fn();
 const rpc = vi.fn();
 const signOut = vi.fn();
+const signInWithOAuth = vi.fn();
 const fetchMock = vi.fn();
 
 const kakaoUser = {
@@ -38,6 +41,21 @@ const kakaoUser = {
 };
 
 /** 폼 POST. 기본은 "위 내용을 확인했어요" 칸을 켠 채(confirm=on). */
+const userWith = (identities: unknown[], appProvider?: string) => ({
+  data: {
+    user: {
+      id: "11111111-2222-3333-4444-555555555555",
+      email: "someone@example.com",
+      app_metadata: appProvider ? { provider: appProvider } : {},
+      identities,
+    },
+  },
+  error: null,
+});
+const who = (id: string) =>
+  createHash("sha256").update(id).digest("hex").slice(0, 16);
+const USER_ID = "11111111-2222-3333-4444-555555555555";
+
 const post = (
   headers: Record<string, string> = {},
   body: string | null = "confirm=on",
@@ -75,6 +93,14 @@ beforeEach(() => {
     calls.push("signOut");
     return { error: null };
   });
+  signInWithOAuth.mockReset();
+  signInWithOAuth.mockImplementation(async () => {
+    calls.push("signIn");
+    return {
+      data: { url: "http://127.0.0.1:54321/auth/v1/authorize?x=1" },
+      error: null,
+    };
+  });
   fetchMock.mockReset();
   fetchMock.mockImplementation(async () => {
     calls.push("kakao");
@@ -83,7 +109,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   makeClient.mockReset();
   makeClient.mockResolvedValue({
-    auth: { getUser, signOut },
+    auth: { getUser, signOut, signInWithOAuth },
     rpc,
   } as unknown as Awaited<ReturnType<typeof createSupabaseServerClient>>);
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -193,28 +219,19 @@ describe("/auth/withdraw — 스위치를 켜면", () => {
     expect(calls).toEqual(["getUser", "rpc", "signOut"]);
   });
 
-  it("구글 · 네이버 회원은 카카오를 부르지 않고 안내 한 줄(withdrawn-unlinked)", async () => {
-    for (const provider of ["google", "custom:naver"]) {
-      calls.length = 0;
-      getUser.mockImplementationOnce(async () => {
-        calls.push("getUser");
-        return {
-          data: {
-            user: {
-              id: "u",
-              email: null,
-              identities: [{ provider, id: "9", identity_data: {} }],
-            },
-          },
-          error: null,
-        };
-      });
-      const res = await post();
-      expect(res.headers.get("location"), provider).toBe(
-        `${ORIGIN}/?account=withdrawn-unlinked`,
-      );
-      expect(calls, provider).toEqual(["getUser", "rpc", "signOut"]);
-    }
+  it("네이버 회원인데 네이버 스위치가 꺼져 있으면 재로그인 없이 바로 탈퇴 + 안내 한 줄(withdrawn-unlinked), 카카오는 부르지 않는다", async () => {
+    getUser.mockImplementationOnce(async () => {
+      calls.push("getUser");
+      return userWith([
+        { provider: "custom:naver", id: "9", identity_data: {} },
+      ]);
+    });
+    const res = await post();
+    expect(res.headers.get("location")).toBe(
+      `${ORIGIN}/?account=withdrawn-unlinked`,
+    );
+    expect(calls).toEqual(["getUser", "rpc", "signOut"]);
+    expect(signInWithOAuth).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -294,5 +311,168 @@ describe("/auth/withdraw — 스위치를 켜면", () => {
     for (const secret of [KEY, "someone@example.com", "777"]) {
       expect(logged(), secret).not.toContain(secret);
     }
+  });
+});
+
+describe("/auth/withdraw — 구글 · 네이버 회원은 재인증으로 시작한다 (이슈 #197, 결정 0068)", () => {
+  const googleUser = () =>
+    getUser.mockImplementation(async () => {
+      calls.push("getUser");
+      return userWith(
+        [{ provider: "google", id: "g1", identity_data: {} }],
+        "google",
+      );
+    });
+  beforeEach(() => {
+    vi.stubEnv("MEMBERS_ENABLED", "true");
+    vi.stubEnv("KAKAO_ADMIN_KEY", KEY);
+    vi.stubEnv("KAKAO_API_BASE", BASE);
+    googleUser();
+  });
+
+  it("아직 아무것도 지우지 않고 공급자 로그인 화면으로 303 — 탈퇴 함수 · 카카오 · 로그아웃 호출 0", async () => {
+    const res = await post();
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe(
+      "http://127.0.0.1:54321/auth/v1/authorize?x=1",
+    );
+    expect(calls).toEqual(["getUser", "signIn"]);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("구글: 계정 고르기(prompt=select_account), 돌아올 곳은 기존 콜백 + flow=withdraw", async () => {
+    await post();
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: "google",
+      options: {
+        redirectTo: `${ORIGIN}/auth/callback?flow=withdraw`,
+        skipBrowserRedirect: true,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+  });
+
+  it("탈퇴 의도 쿠키 cm_wd: HttpOnly · SameSite=Lax · Path=/auth/callback · Max-Age=300, 내용은 회원 번호의 해시 · 공급자 · 만료(회원 번호 자체는 없음)", async () => {
+    const res = await post();
+    const setCookie = res.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("cm_wd=");
+    expect(setCookie).toMatch(/HttpOnly/i);
+    expect(setCookie).toMatch(/SameSite=lax/i);
+    expect(setCookie).toContain("Path=/auth/callback");
+    expect(setCookie).toContain("Max-Age=300");
+    // http 주소(내 컴퓨터)에서는 Secure 를 안 붙인다 — 붙이면 브라우저가 저장하지 않는다
+    expect(setCookie).not.toMatch(/Secure/i);
+    const value = /cm_wd=([^;]+)/.exec(setCookie)![1];
+    const text = Buffer.from(value, "base64url").toString("utf8");
+    const json = JSON.parse(text);
+    expect(json).toMatchObject({ v: 1, who: who(USER_ID), p: "google" });
+    expect(typeof json.exp).toBe("number");
+    expect(setCookie).not.toContain(USER_ID);
+    expect(text).not.toContain(USER_ID);
+  });
+
+  it("https 주소에서는 Secure 가 붙는다", async () => {
+    const res = await POST(
+      new Request("https://cropmon.example/auth/withdraw", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "confirm=on",
+      }),
+    );
+    expect(res.headers.get("set-cookie") ?? "").toMatch(/Secure/i);
+    expect(signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          redirectTo: "https://cropmon.example/auth/callback?flow=withdraw",
+        }),
+      }),
+    );
+  });
+
+  it("네이버(스위치 켬): custom:naver, 재인증 옵션 auth_type=reauthenticate", async () => {
+    vi.stubEnv("NAVER_LOGIN_ENABLED", "true");
+    getUser.mockImplementation(async () => {
+      calls.push("getUser");
+      return userWith(
+        [{ provider: "custom:naver", id: "n1", identity_data: {} }],
+        "custom:naver",
+      );
+    });
+    const res = await post();
+    expect(res.status).toBe(303);
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: "custom:naver",
+      options: {
+        redirectTo: `${ORIGIN}/auth/callback?flow=withdraw`,
+        skipBrowserRedirect: true,
+        queryParams: { auth_type: "reauthenticate" },
+      },
+    });
+    const value = /cm_wd=([^;]+)/.exec(res.headers.get("set-cookie") ?? "")![1];
+    expect(JSON.parse(Buffer.from(value, "base64url").toString("utf8")).p).toBe(
+      "naver",
+    );
+  });
+
+  it("카카오 + 구글 회원도 구글로 재인증한다 (카카오는 콜백에서 어드민 키로)", async () => {
+    getUser.mockImplementation(async () => {
+      calls.push("getUser");
+      return userWith(
+        [
+          {
+            provider: "kakao",
+            id: "777",
+            identity_data: { provider_id: "777" },
+          },
+          { provider: "google", id: "g1", identity_data: {} },
+        ],
+        "kakao",
+      );
+    });
+    await post();
+    expect(signInWithOAuth).toHaveBeenCalledTimes(1);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("카카오만 있는 회원은 재로그인 없이 L6-1 그대로 (signInWithOAuth 호출 0, 쿠키 없음)", async () => {
+    getUser.mockImplementation(async () => {
+      calls.push("getUser");
+      return kakaoUser;
+    });
+    const res = await post();
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/?account=withdrawn`);
+    expect(signInWithOAuth).not.toHaveBeenCalled();
+    expect(res.headers.get("set-cookie") ?? "").not.toContain("cm_wd");
+  });
+
+  it("공급자 시작에 실패하면(오류 · 주소 없음 · 던짐) 쿠키를 심지 않고 아무것도 지우지 않은 채 ?withdraw=failed", async () => {
+    for (const impl of [
+      async () => ({ data: { url: null }, error: { code: "boom" } }),
+      async () => ({ data: { url: null }, error: null }),
+      async () => {
+        throw new Error("no network someone@example.com");
+      },
+    ]) {
+      signInWithOAuth.mockImplementationOnce(impl);
+      const res = await post();
+      expect(res.headers.get("location")).toBe(
+        `${ORIGIN}/account/withdraw?withdraw=failed`,
+      );
+      expect(res.headers.get("set-cookie") ?? "").not.toContain("cm_wd=");
+    }
+    expect(rpc).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(logged()).not.toContain("someone@example.com");
+  });
+
+  it("확인 칸이 없으면 재인증도 시작하지 않는다", async () => {
+    const res = await post({}, "");
+    expect(res.headers.get("location")).toBe(
+      `${ORIGIN}/account/withdraw?withdraw=confirm`,
+    );
+    expect(signInWithOAuth).not.toHaveBeenCalled();
   });
 });

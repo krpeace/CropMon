@@ -10,6 +10,9 @@ import { postLoginDestination } from "@/domain/consent";
 import { logAuthError } from "@/infra/supabase/auth-log";
 import { readMyConsent } from "@/infra/supabase/member-consent";
 import { createSupabaseServerClient } from "@/app/_lib/supabase/server-client";
+import { cookieValue, WITHDRAW_INTENT_COOKIE } from "@/domain/withdraw-intent";
+
+import { clearIntentCookie, handleWithdrawCallback } from "./withdraw-flow";
 
 /**
  * 공급자(카카오 · 구글 · 네이버)에서 돌아오는 곳 `GET /auth/callback` (이슈 #182, 결정 0061).
@@ -22,6 +25,8 @@ import { createSupabaseServerClient } from "@/app/_lib/supabase/server-client";
  * - `ensure_my_member` 는 가입 트리거가 오류를 삼켜 `members` 줄이 빠진 경우를 메운다. **이 호출이 실패해도 로그인은 계속한다.**
  * - 실패 · 취소: 돌아갈 화면 주소에 `login=cancelled`(사용자가 공급자 화면에서 취소) 또는 `login=failed` 하나만 붙인다.
  *   코드도 오류도 없이 돌아오면(오류가 주소의 `#` 뒤로 온 것 — 서버는 `#` 뒤를 못 본다) `login=failed`.
+ * - **`?flow=withdraw`**(이슈 #197, 결정 0068)는 탈퇴 재인증 콜백이다 — `withdraw-flow.ts` 가 따로 처리하고 위의 로그인 일은 하지 않는다.
+ *   일반 로그인 콜백은 탈퇴하려다 그만둔 사람에게 남은 **탈퇴 의도 쿠키(`cm_wd`)를 지운다.**
  * - **원문 오류 · 이메일 · 이름 · 사용자 ID · `code` · 토큰은 화면 · 주소 · 응답 · 서버 기록 어디에도 넣지 않는다.**
  *   서버 기록에는 단계와 오류 코드만(`logAuthError`).
  */
@@ -31,14 +36,22 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 404 });
 
   const { searchParams, origin } = new URL(request.url);
+  if (searchParams.get("flow") === "withdraw") {
+    return handleWithdrawCallback(request);
+  }
   const code = searchParams.get("code");
   const next = validateRedirectPath(searchParams.get("next"));
   const error = searchParams.get("error");
   const errorCode = searchParams.get("error_code");
   const errorDescription = searchParams.get("error_description");
 
-  const back = (path: string) =>
-    NextResponse.redirect(new URL(path, origin), { status: 302 });
+  const staleIntent =
+    cookieValue(request.headers.get("cookie"), WITHDRAW_INTENT_COOKIE) !== null;
+  const back = (path: string) => {
+    const res = NextResponse.redirect(new URL(path, origin), { status: 302 });
+    if (staleIntent) clearIntentCookie(res, origin);
+    return res;
+  };
   const failure = (notice: "cancelled" | "failed") =>
     back(withLoginNotice(next, notice));
 

@@ -41,6 +41,7 @@ const MEMBERS_ON_CHAIN = [
   { name: "members-on-consent", file: "consent", mobile: false },
   { name: "members-on-account", file: "account-settings", mobile: false },
   { name: "members-on-withdraw", file: "account", mobile: false },
+  { name: "members-on-reauth", file: "account-reauth", mobile: false },
   { name: "members-on-mobile", file: "login-sheet-mobile", mobile: true },
   { name: "members-on-consent-mobile", file: "consent-mobile", mobile: true },
   {
@@ -71,7 +72,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
       testIgnore:
-        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile|consent|consent-mobile|account-settings|account-settings-mobile|account|account-mobile)\.spec\.ts/,
+        /(theme|national-mobile|crop-sheet-mobile|tap-targets|selection-mobile|home-mobile|phone-feedback-mobile|font-size-mobile|home-notice|large-text-mobile|legal-mobile|layout-mobile|members-auth|members-sheet|members-naver|login-sheet-mobile|consent|consent-mobile|account-settings|account-settings-mobile|account|account-mobile|account-reauth)\.spec\.ts/,
     },
     // 휴대폰 크기 전용 화면 테스트 (testMatch 의 spec 만 돈다)
     {
@@ -146,6 +147,8 @@ export default defineConfig({
         // 카카오 연결 끊기 시험 (이슈 #195, 결정 0067): 가짜 값 + 가짜 서버(고리 주소만 받는다). 진짜 카카오 호출 0.
         KAKAO_ADMIN_KEY: "e2e-fake-admin-key",
         KAKAO_API_BASE: "http://127.0.0.1:54321",
+        // 구글 토큰 취소 시험 (이슈 #197, 결정 0068): 가짜 서버(고리 주소만 받는다). 네이버는 꺼 둔 서버라 변수를 안 넣는다.
+        GOOGLE_API_BASE: "http://127.0.0.1:54321",
       },
       url: BASE_URL_MEMBERS_ON,
       reuseExistingServer: false,
@@ -157,6 +160,10 @@ export default defineConfig({
         ...serverEnv,
         MEMBERS_ENABLED: "true",
         NAVER_LOGIN_ENABLED: "true",
+        // 네이버 토큰 삭제 시험 (이슈 #197, 결정 0068): 가짜 값 + 가짜 서버(고리 주소만 받는다). 진짜 네이버 호출 0.
+        NAVER_CLIENT_ID: "e2e-fake-naver-id",
+        NAVER_CLIENT_SECRET: "e2e-fake-naver-secret",
+        NAVER_API_BASE: "http://127.0.0.1:54321",
       },
       url: BASE_URL_NAVER_ON,
       reuseExistingServer: false,

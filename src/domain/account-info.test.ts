@@ -8,6 +8,7 @@ import {
   providerOf,
   providersOf,
   withdrawOutcome,
+  withdrawOutcomeFor,
 } from "./account-info";
 import { LEGAL_DOCS } from "./legal";
 
@@ -202,5 +203,33 @@ describe("withdrawOutcome — 알림에 안내 한 줄을 더 붙일지", () => 
   });
   it("공급자를 하나도 못 읽었으면 안내(알 수 없으니 안전한 쪽)", () => {
     expect(withdrawOutcome([], "skipped")).toBe("withdrawn-unlinked");
+  });
+});
+
+describe("withdrawOutcomeFor — 공급자별 끊기 결과 표 (이슈 #197, 결정 0068)", () => {
+  it("연결된 공급자를 모두 끊었을 때만 안내 없이 끝난다", () => {
+    expect(withdrawOutcomeFor(["google"], { google: "ok" })).toBe("withdrawn");
+    expect(withdrawOutcomeFor(["naver"], { naver: "ok" })).toBe("withdrawn");
+    expect(
+      withdrawOutcomeFor(["kakao", "google"], { kakao: "ok", google: "ok" }),
+    ).toBe("withdrawn");
+  });
+  it("하나라도 못 끊으면(실패 · 안 부름 · 토큰 없음 · 표에 없음) 안내를 붙인다", () => {
+    expect(withdrawOutcomeFor(["google"], { google: "failed" })).toBe(
+      "withdrawn-unlinked",
+    );
+    expect(withdrawOutcomeFor(["google"], { google: "skipped" })).toBe(
+      "withdrawn-unlinked",
+    );
+    expect(withdrawOutcomeFor(["google"], {})).toBe("withdrawn-unlinked");
+    expect(withdrawOutcomeFor(["kakao", "google"], { google: "ok" })).toBe(
+      "withdrawn-unlinked",
+    );
+    expect(
+      withdrawOutcomeFor(["kakao", "naver"], { kakao: "ok", naver: "failed" }),
+    ).toBe("withdrawn-unlinked");
+  });
+  it("공급자를 하나도 못 읽었으면 안내", () => {
+    expect(withdrawOutcomeFor([], {})).toBe("withdrawn-unlinked");
   });
 });

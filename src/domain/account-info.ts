@@ -145,14 +145,28 @@ export function pickKakaoUserId(identities: unknown): string | null {
 export type KakaoUnlinkResult = "ok" | "failed" | "skipped";
 
 /**
- * 탈퇴 알림에 안내 한 줄("연결된 서비스는 …")을 더 붙일지. 카카오 하나만 연결했고 끊기가 성공했을 때만 안내 없이 끝난다.
+ * 공급자별 끊기 결과로 알림을 정한다 (이슈 #197, 결정 0068). **연결된 공급자를 모두 끊었을 때만** 안내 없이 끝난다.
+ * 하나라도 못 끊었거나(실패 · 안 부름 · 토큰 없음) 표에 없으면, 공급자를 하나도 못 읽었으면 안내 한 줄을 붙인다(알 수 없으면 안전한 쪽).
+ */
+export function withdrawOutcomeFor(
+  providers: readonly AccountProvider[],
+  results: Partial<Record<AccountProvider, KakaoUnlinkResult>>,
+): AccountNotice {
+  return providers.length > 0 && providers.every((p) => results[p] === "ok")
+    ? "withdrawn"
+    : "withdrawn-unlinked";
+}
+
+/**
+ * 탈퇴 알림에 안내 한 줄("연결된 서비스는 …")을 더 붙일지 — 카카오만 보는 L6-1 모양(`withdrawOutcomeFor` 의 특수한 경우).
+ * 카카오 하나만 연결했고 끊기가 성공했을 때만 안내 없이 끝난다.
  * 구글 · 네이버 · 둘 이상 연결 · 끊기 실패 · 안 부름 · 공급자를 못 읽음은 모두 안내를 붙인다(알 수 없으면 안전한 쪽).
  */
 export function withdrawOutcome(
   providers: readonly AccountProvider[],
   kakao: KakaoUnlinkResult,
 ): AccountNotice {
-  return providers.length === 1 && providers[0] === "kakao" && kakao === "ok"
-    ? "withdrawn"
+  return providers.length === 1
+    ? withdrawOutcomeFor(providers, { kakao })
     : "withdrawn-unlinked";
 }

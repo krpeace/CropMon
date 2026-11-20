@@ -68,3 +68,110 @@ test("로그인 시트의 네이버 버튼이 링크가 되고, 누르면 로그
   );
   expect(cookie?.value).toBe("in");
 });
+
+// 네이버 회원 탈퇴 — 한 번 더 로그인 + 토큰 삭제 (이슈 #197, 결정 0068). 이 서버(3102)는 가짜 NAVER_CLIENT_ID · NAVER_CLIENT_SECRET ·
+// 고리 주소 NAVER_API_BASE 를 가진다(진짜 네이버 호출 0). ⚠ 네이버 공식 문서를 못 읽어 요청 모양은 "우리가 이렇게 보낸다"를 못 박는 것이다.
+test.describe("네이버 회원 탈퇴 (재로그인 + 토큰 삭제)", () => {
+  type NaverCalls = {
+    withdrawn: string[];
+    reauth: {
+      lastProviderToken: string | null;
+      naverDeletes: {
+        contentType: string;
+        params: Record<string, string>;
+      }[];
+      authorizeCalls: {
+        provider: string;
+        authType: string | null;
+        prompt: string | null;
+        flow: string | null;
+      }[];
+    };
+  };
+  const calls = async (request: APIRequestContext) =>
+    (await request.get(`${FAKE}/calls`)).json() as Promise<NaverCalls>;
+
+  async function loginNaver(page: Page, request: APIRequestContext) {
+    await request.post(`${FAKE}/scenario`, { data: { sameUser: true } });
+    await page.goto(
+      `/auth/login?provider=custom%3Anaver&next=${enc("/water?st=105&crop=apple")}`,
+    );
+    await page.waitForURL(/\/water\?/);
+    await expect.poll(() => here(page)).toBe("/water?st=105&crop=apple");
+  }
+  async function pressWithdraw(page: Page) {
+    await page.goto("/account/withdraw");
+    await page.getByRole("checkbox", { name: "위 내용을 확인했어요" }).check();
+    await page.getByRole("button", { name: "탈퇴하기" }).click();
+  }
+
+  test("안내 줄이 네이버로 보인다 → 탈퇴하기 → 재인증 옵션으로 이동 → 돌아오면 지워지고 토큰 삭제 요청이 간다 → '탈퇴했어요' 한 줄", async ({
+    page,
+    request,
+  }) => {
+    await loginNaver(page, request);
+    await page.goto("/account/withdraw");
+    await expect(
+      page.getByText(
+        "탈퇴하기를 누르면 연결을 끊기 위해 네이버 로그인을 한 번 더 해요.",
+      ),
+    ).toBeVisible();
+    await page.getByRole("checkbox", { name: "위 내용을 확인했어요" }).check();
+    await page.getByRole("button", { name: "탈퇴하기" }).click();
+    await page.waitForURL((u) => u.pathname === "/");
+    await expect(page.getByTestId("toast")).toHaveText("탈퇴했어요");
+
+    const c = await calls(request);
+    expect(c.reauth.authorizeCalls.at(-1)).toEqual({
+      provider: "custom:naver",
+      prompt: null,
+      authType: "reauthenticate",
+      flow: "withdraw",
+    });
+    expect(c.withdrawn).toHaveLength(1);
+    expect(c.reauth.naverDeletes).toHaveLength(1);
+    const del = c.reauth.naverDeletes[0];
+    expect(del.contentType).toContain("application/x-www-form-urlencoded");
+    expect(del.params).toEqual({
+      grant_type: "delete",
+      client_id: "e2e-fake-naver-id",
+      client_secret: "e2e-fake-naver-secret",
+      access_token: c.reauth.lastProviderToken,
+      service_provider: "NAVER",
+    });
+  });
+
+  test("토큰 삭제가 실패해도 탈퇴는 끝나고 안내 한 줄이 더 붙는다", async ({
+    page,
+    request,
+  }) => {
+    await loginNaver(page, request);
+    await request.post(`${FAKE}/scenario`, { data: { naverDelete: "fail" } });
+    await pressWithdraw(page);
+    await page.waitForURL((u) => u.pathname === "/");
+    await expect(page.getByTestId("toast")).toContainText(
+      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    );
+    const c = await calls(request);
+    expect(c.withdrawn).toHaveLength(1);
+    expect(c.reauth.naverDeletes).toHaveLength(1);
+  });
+
+  test("다른 네이버 계정으로 다시 로그인하면 아무것도 지우지 않는다", async ({
+    page,
+    request,
+  }) => {
+    await loginNaver(page, request);
+    await page.goto("/account/withdraw");
+    await request.post(`${FAKE}/scenario`, { data: { reauthOther: true } });
+    await page.getByRole("checkbox", { name: "위 내용을 확인했어요" }).check();
+    await page.getByRole("button", { name: "탈퇴하기" }).click();
+    await page.waitForURL((u) => u.pathname === "/");
+    await expect(page.getByTestId("toast")).toContainText(
+      "다른 계정으로 로그인해서 탈퇴하지 않았어요",
+    );
+    const c = await calls(request);
+    expect(c.withdrawn).toHaveLength(0);
+    expect(c.reauth.naverDeletes).toHaveLength(0);
+  });
+});

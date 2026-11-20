@@ -66,6 +66,8 @@
 - **`NAVER_LOGIN_ENABLED`**: 네이버 로그인 스위치(결정 0064). `true`일 때만 켠다. 서버 변수이고 요청 때 읽으므로 값을 바꾸고 다시 배포하면 된다(다시 빌드 안 함). 네이버 설정(2-2)을 마치기 전에는 비워 둔다.
 - **`KAKAO_ADMIN_KEY`**: 카카오 연결 끊기용 서비스 앱 어드민 키(이슈 #195, 결정 0067 — 10장). **비밀값**이라 Vercel **Production · Preview**에 사용자가 직접 넣고 대화창 · 파일 · 이슈에 적지 않는다. 없어도 탈퇴는 되고 끊기만 건너뛴다.
 - **`KAKAO_API_BASE`**: 시험 전용. **운영에 넣지 않는다.** 이 컴퓨터(고리) 주소만 받고 그 밖의 값은 무시한다(10장).
+- **`NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET`**: 네이버 연결 끊기(토큰 삭제)용(이슈 #197, 결정 0068 — 11장). Supabase 대시보드의 네이버 공급자에 넣은 값과 같은 값이고 **비밀값**이라 Vercel **Production · Preview**에 사용자가 직접 넣는다(네이버를 켤 때). 없으면 끊기만 건너뛴다.
+- **`GOOGLE_API_BASE` · `NAVER_API_BASE`**: 시험 전용. **운영에 넣지 않는다.** 이 컴퓨터(고리) 주소만 받고 그 밖의 값은 무시한다(10 · 11장).
 - **`MEMBERS_ENABLED`**: 회원제를 켜는 스위치. `true`일 때만 켠다. 서버 변수이고 요청 때 읽으므로 **값을 바꾸면 빌드를 다시 하지 않아도 된다**(서버 재배포 · 재시작은 필요). 켜기 전에는 비워 두거나 `false`.
 
 ## 3. 시험 방식 (코드보다 먼저)
@@ -125,20 +127,21 @@
 
 ## 7. 이 저장소의 파일
 
-| 무엇                                                                                     | 파일                                                                                                                                                                                         |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 스위치 판단                                                                              | `src/domain/members-switch.ts` · 요청 때 읽기 `src/app/_lib/members.ts`                                                                                                                      |
-| `next` 검사 · 실패 가르기 · 공급자 허용 · 로그인 필요 목록 · 쿠키 모양 · 돌려보내기 주소 | `src/domain/auth.ts`                                                                                                                                                                         |
-| 프록시(폐지 지점 돌려보내기 + 세션 갱신 + 로그인 필요 주소)                              | `src/proxy.ts` · `src/app/_lib/supabase/proxy-client.ts`                                                                                                                                     |
-| 쿠키 세션 클라이언트                                                                     | `src/infra/supabase/cookie-client.ts`(Next.js를 모름) · `src/app/_lib/supabase/server-client.ts`(경로 처리기용)                                                                              |
-| 토큰에서 로그인한 사람(id만) · 서버 기록                                                 | `src/infra/supabase/current-user.ts` · `src/infra/supabase/auth-log.ts`                                                                                                                      |
-| 로그인 시작 · 콜백 · 로그아웃                                                            | `src/app/auth/login/route.ts` · `src/app/auth/callback/route.ts` · `src/app/auth/signout/route.ts`                                                                                           |
-| 로그인 시트 · 내 계정 시트 · 헤더 자리 · 알림                                            | `src/app/_components/shell/Sheets.tsx` · `LoginSlot.tsx` · `LoginNotice.tsx` · `members-state.tsx` · `src/app/_components/ui/Toast.tsx`                                                      |
-| 표시 쿠키 `cm_m` · 시트 주소 · 알림 문구 (순수 함수)                                     | `src/domain/members-state.ts` · `src/domain/login-sheet.ts` · `src/domain/toast.ts`                                                                                                          |
-| 공식 심볼                                                                                | `public/brand/login/` (9장)                                                                                                                                                                  |
-| 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101)                                                                  |
-| 회원 정보 · 탈퇴 · 카카오 연결 끊기 (이슈 #195)                                          | `src/app/auth/withdraw/route.ts` · `src/infra/kakao/unlink.ts` · `src/infra/supabase/member-profile.ts` · `src/domain/account-info.ts` · `src/app/_components/account/` · `src/app/account/` |
-| 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md` · `docs/decisions/0064-login-sheet.md` · `docs/decisions/0067-account-withdraw.md`                                                                   |
+| 무엇                                                                                     | 파일                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 스위치 판단                                                                              | `src/domain/members-switch.ts` · 요청 때 읽기 `src/app/_lib/members.ts`                                                                                                                                                              |
+| `next` 검사 · 실패 가르기 · 공급자 허용 · 로그인 필요 목록 · 쿠키 모양 · 돌려보내기 주소 | `src/domain/auth.ts`                                                                                                                                                                                                                 |
+| 프록시(폐지 지점 돌려보내기 + 세션 갱신 + 로그인 필요 주소)                              | `src/proxy.ts` · `src/app/_lib/supabase/proxy-client.ts`                                                                                                                                                                             |
+| 쿠키 세션 클라이언트                                                                     | `src/infra/supabase/cookie-client.ts`(Next.js를 모름) · `src/app/_lib/supabase/server-client.ts`(경로 처리기용)                                                                                                                      |
+| 토큰에서 로그인한 사람(id만) · 서버 기록                                                 | `src/infra/supabase/current-user.ts` · `src/infra/supabase/auth-log.ts`                                                                                                                                                              |
+| 로그인 시작 · 콜백 · 로그아웃                                                            | `src/app/auth/login/route.ts` · `src/app/auth/callback/route.ts` · `src/app/auth/signout/route.ts`                                                                                                                                   |
+| 로그인 시트 · 내 계정 시트 · 헤더 자리 · 알림                                            | `src/app/_components/shell/Sheets.tsx` · `LoginSlot.tsx` · `LoginNotice.tsx` · `members-state.tsx` · `src/app/_components/ui/Toast.tsx`                                                                                              |
+| 표시 쿠키 `cm_m` · 시트 주소 · 알림 문구 (순수 함수)                                     | `src/domain/members-state.ts` · `src/domain/login-sheet.ts` · `src/domain/toast.ts`                                                                                                                                                  |
+| 공식 심볼                                                                                | `public/brand/login/` (9장)                                                                                                                                                                                                          |
+| 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101)                                                                                                          |
+| 회원 정보 · 탈퇴 · 카카오 연결 끊기 (이슈 #195)                                          | `src/app/auth/withdraw/route.ts` · `src/infra/kakao/unlink.ts` · `src/infra/supabase/member-profile.ts` · `src/domain/account-info.ts` · `src/app/_components/account/` · `src/app/account/`                                         |
+| 구글 · 네이버 끊기 · 탈퇴 재인증 (이슈 #197)                                             | `src/app/auth/callback/withdraw-flow.ts` · `src/app/auth/withdraw/route.ts` · `src/infra/google/revoke.ts` · `src/infra/naver/revoke.ts` · `src/infra/post-form.ts` · `src/infra/loopback-base.ts` · `src/domain/withdraw-intent.ts` |
+| 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md` · `docs/decisions/0064-login-sheet.md` · `docs/decisions/0067-account-withdraw.md` · `docs/decisions/0068-withdraw-reauth.md`                                                                |
 
 ## 8. 미리보기에서 확인할 것 (사용자 · 병합 뒤)
 
@@ -190,3 +193,23 @@
 2. Vercel → Settings → Environment Variables에 **`KAKAO_ADMIN_KEY`**를 **Production · Preview** 둘 다 넣는다. `KAKAO_API_BASE`는 넣지 않는다.
 3. 다시 배포한다(키가 없어도 탈퇴는 되고 끊기만 건너뛴다).
 4. 미리보기에서 카카오 시험 계정으로 로그인 → 회원 정보 → 회원탈퇴. **카카오 계정의 "연결된 서비스"에서 CropMon이 사라졌는지**, 알림이 한 줄("탈퇴했어요")인지 확인한다. 안내 줄이 같이 뜨거나 연결이 남아 있으면 회원번호 필드 이름이 다른 것이니 이슈에 알린다.
+
+## 11. 구글 · 네이버 연결 끊기 — 탈퇴 때 한 번 더 로그인 (이슈 #197, 결정 0068)
+
+구글 · 네이버는 그 회원의 **공급자 토큰**이 있어야 끊을 수 있다. Supabase는 공급자 토큰을 DB에 저장하지 않고 로그인 직후 한 번만 주므로, **탈퇴할 때 그 공급자로 한 번 더 로그인(재인증)**해 새 토큰을 받고 그 자리에서 탈퇴 + 끊기를 한다(토큰을 쌓지 않는 방식). 카카오는 10장 그대로(어드민 키).
+
+**흐름**: [탈퇴하기] → `POST /auth/withdraw`가 **아직 아무것도 지우지 않고** 탈퇴 의도 쿠키(`cm_wd`: 회원 번호의 해시 · 공급자 · 5분 만료, `HttpOnly` · `Path=/auth/callback`)를 심고 공급자 로그인을 다시 시작 → 공급자에서 돌아오는 `/auth/callback?flow=withdraw` → **새로 로그인한 계정의 회원 번호 해시가 의도와 같을 때만** 탈퇴 + 끊기. **다른 계정을 골랐으면 아무것도 지우지 않고** 이 기기만 로그아웃하고 알림. 의도 쿠키가 없거나 만료면 코드 교환도 하지 않는다. 자세한 표는 결정 0068.
+
+| 공급자 | 재인증 시작 옵션                                               | 끊기 요청                                                                                                                                                                                   | 근거 · 상태                                                                                                                                                                                               |
+| ------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 구글   | `prompt=select_account`(계정 고르기, 동의 화면은 다시 안 띄움) | `POST https://oauth2.googleapis.com/revoke`, `Content-Type: application/x-www-form-urlencoded`, 본문 `token=<토큰>` — 성공 200 · 실패 400. 접근 토큰도 되고 짝인 새로고침 토큰도 함께 취소  | 구글 공식 문서 `developers.google.com/identity/protocols/oauth2/web-server`("토큰 취소") · `…/openid-connect`(`prompt`), 2026-11-20 읽음                                                                  |
+| 네이버 | `auth_type=reauthenticate`                                     | `POST https://nid.naver.com/oauth2.0/token`, form 본문 `grant_type=delete` · `client_id` · `client_secret` · `access_token` · `service_provider=NAVER` — 응답 `result`가 `success`여야 성공 | ⚠ **공식 문서 미확인**(`developers.naver.com`을 이 환경에서 못 읽음). 문서를 옮긴 글들이 일치하는 모양을 따랐고 재인증 옵션은 기억에 의존 — **사용자가 공식 문서를 확인하거나 미리보기 실제 탈퇴로 확인** |
+
+**미리보기에서만 알 수 있는 것**(가짜 서버로는 우리가 보낸 모양만 본다): ① Supabase가 `queryParams`(`prompt` · `auth_type`)를 공급자 주소까지 넘기는지 ② 사용자 지정(OIDC) 공급자 네이버가 `provider_token`을 주는지(안 주면 끊기는 실패로 보고 탈퇴는 진행, 안내 줄이 뜸) ③ 구글 계정의 "타사 앱 및 서비스"에서 CropMon이 실제로 사라지는지.
+
+**토큰 · 비밀을 다루는 약속**: 공급자 토큰은 그 요청 안에서만 쓰고 쿠키 · DB · 기록 · 주소에 남기지 않는다. 네이버 클라이언트 시크릿과 토큰은 요청 **본문**으로만 보낸다. 서버 기록에는 단계와 상태 코드(`withdraw/google-revoke` · `withdraw/naver-revoke` + `timeout` · `network` · `400` …)만 남는다. `GOOGLE_API_BASE` · `NAVER_API_BASE`는 **시험 전용**이고 이 컴퓨터 주소일 때만 받는다(`KAKAO_API_BASE`와 같은 규칙). 참고: `@supabase/ssr`가 세션 전체를 쿠키에 쓰므로 보통 로그인에서도 공급자 토큰이 로그인 쿠키에 실린다 — 바꾸지 않았고 O3 점검 목록에 올린다(결정 0068 7절).
+
+**사용자 할 일 (병합 뒤)**:
+
+1. **구글**: 새 변수 없음. 미리보기에서 구글 시험 계정으로 탈퇴 → 계정 고르기 화면이 뜨는지, 같은 계정이면 지워지고 구글 계정의 "타사 앱 및 서비스"에서 CropMon이 사라지는지, **다른 구글 계정을 고르면 아무것도 지워지지 않고 로그아웃되는지**(원래 계정으로 다시 로그인하면 그대로) 확인.
+2. **네이버를 켤 때만**: Vercel(Production · Preview)에 `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET`을 넣고(Supabase 대시보드의 네이버 공급자에 넣은 값과 같은 값, 어디에도 적지 않기), `GOOGLE_API_BASE` · `NAVER_API_BASE`는 넣지 않는다. 다시 배포한 뒤 네이버 공식 문서(접근 토큰 삭제 · 재인증 옵션)를 확인하고 네이버 시험 계정으로 실제 탈퇴해 본다.

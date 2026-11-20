@@ -643,6 +643,15 @@ const authState = {
   profile: {}, // 회원 정보 줄을 덮어쓸 값 { display_name, provider, created_at, ... }
   withdrawMode: "ok", // ok | fail  (rpc delete_my_account 결과)
   kakaoUnlink: "ok", // ok | fail  (카카오 연결 끊기 흉내의 결과)
+  // 탈퇴 재인증 · 구글 취소 · 네이버 삭제 흉내 (이슈 #197, 결정 0068)
+  reauthOther: false, // true 면 탈퇴 재인증(redirect_to 에 flow=withdraw)으로 로그인한 사람이 "다른 계정"이 된다
+  providerToken: "on", // on | off  (토큰 응답에 provider_token 을 싣는가 — 사용자 지정 공급자가 안 주는 경우 흉내)
+  googleRevoke: "ok", // ok | fail  (구글 토큰 취소 결과)
+  naverDelete: "ok", // ok | fail  (네이버 토큰 삭제 결과 — 실패는 HTTP 200 안의 오류 본문으로 흉내)
+  lastProviderToken: null, // 마지막으로 내려 준 공급자 토큰
+  googleRevokes: [], // { token, contentType }
+  naverDeletes: [], // { contentType, params }
+  authorizeCalls: [], // { provider, prompt, authType, flow }
   withdrawCalls: 0,
   withdrawn: [], // 탈퇴한 회원 번호
   kakaoUnlinkCalls: [], // { authorization, body }
@@ -731,6 +740,11 @@ async function handleAuthRoutes(req, res, url) {
     if ("identities" in body) authState.identities = body.identities;
     if (body.profile) authState.profile = body.profile;
     if (body.profileRead) authState.profileRead = body.profileRead;
+    if (typeof body.reauthOther === "boolean")
+      authState.reauthOther = body.reauthOther;
+    if (body.providerToken) authState.providerToken = body.providerToken;
+    if (body.googleRevoke) authState.googleRevoke = body.googleRevoke;
+    if (body.naverDelete) authState.naverDelete = body.naverDelete;
     // 같은 회원(sameUser)의 계정 설정을 미리 채운다 (다른 기기에서 저장해 둔 것처럼)
     if (body.settings) authState.settings.set(SAME_USER_ID, body.settings);
     json(200, { scenario: authState.scenario, ensure: authState.ensure });
@@ -757,6 +771,14 @@ async function handleAuthRoutes(req, res, url) {
     authState.identities = null;
     authState.profile = {};
     authState.profileRead = "ok";
+    authState.reauthOther = false;
+    authState.providerToken = "on";
+    authState.googleRevoke = "ok";
+    authState.naverDelete = "ok";
+    authState.lastProviderToken = null;
+    authState.googleRevokes = [];
+    authState.naverDeletes = [];
+    authState.authorizeCalls = [];
     authState.withdrawMode = "ok";
     authState.kakaoUnlink = "ok";
     authState.withdrawCalls = 0;
@@ -779,6 +801,12 @@ async function handleAuthRoutes(req, res, url) {
       withdrawn: authState.withdrawn,
       kakaoUnlinkCalls: authState.kakaoUnlinkCalls,
       kakaoId: KAKAO_ID,
+      reauth: {
+        lastProviderToken: authState.lastProviderToken,
+        googleRevokes: authState.googleRevokes,
+        naverDeletes: authState.naverDeletes,
+        authorizeCalls: authState.authorizeCalls,
+      },
     });
     return true;
   }
@@ -921,6 +949,39 @@ async function handleAuthRoutes(req, res, url) {
     return true;
   }
 
+  // 구글 토큰 취소 흉내 (GOOGLE_API_BASE 를 이 가짜로 가리킨 서버만 부른다): POST /revoke, form 본문 token=
+  if (url.pathname === "/revoke" && req.method === "POST") {
+    const form = new URLSearchParams(await readText(req));
+    authState.googleRevokes.push({
+      token: form.get("token") ?? "",
+      contentType: req.headers["content-type"] ?? "",
+    });
+    if (authState.googleRevoke === "fail") {
+      json(400, { error: "invalid_token" });
+      return true;
+    }
+    json(200, {});
+    return true;
+  }
+
+  // 네이버 토큰 삭제 흉내 (NAVER_API_BASE): POST /oauth2.0/token, form 본문 grant_type=delete…
+  if (url.pathname === "/oauth2.0/token" && req.method === "POST") {
+    const form = new URLSearchParams(await readText(req));
+    authState.naverDeletes.push({
+      contentType: req.headers["content-type"] ?? "",
+      params: Object.fromEntries(form),
+    });
+    if (authState.naverDelete === "fail") {
+      json(200, { error: "invalid_request", error_description: "fake" });
+      return true;
+    }
+    json(200, {
+      access_token: form.get("access_token") ?? "",
+      result: "success",
+    });
+    return true;
+  }
+
   // 카카오 연결 끊기 흉내 (KAKAO_API_BASE 를 이 가짜로 가리킨 서버만 부른다). 요청 모양을 그대로 적어 둔다.
   if (url.pathname === "/v1/user/unlink" && req.method === "POST") {
     const body = await readText(req);
@@ -960,6 +1021,14 @@ async function handleAuthRoutes(req, res, url) {
     const back = url.searchParams.get("redirect_to") ?? "";
     const sep = back.includes("?") ? "&" : "?";
     const provider = url.searchParams.get("provider") ?? "";
+    // 재인증 확인: 어떤 공급자 · 어떤 옵션(prompt · auth_type)으로 시작했나, 탈퇴 재인증(flow=withdraw)인가
+    const isWithdrawFlow = /[?&]flow=withdraw(&|$)/.test(back);
+    authState.authorizeCalls.push({
+      provider,
+      prompt: url.searchParams.get("prompt"),
+      authType: url.searchParams.get("auth_type"),
+      flow: isWithdrawFlow ? "withdraw" : null,
+    });
     if (authState.scenario === "cancel") {
       return (
         redirect(
@@ -978,7 +1047,10 @@ async function handleAuthRoutes(req, res, url) {
     }
     if (authState.scenario === "no-code") return (redirect(back), true);
     const code = `fake-${randomBytes(8).toString("hex")}`;
-    authState.codes.set(code, provider);
+    authState.codes.set(code, {
+      provider,
+      other: isWithdrawFlow && authState.reauthOther,
+    });
     return (redirect(`${back}${sep}code=${code}`), true);
   }
 
@@ -997,10 +1069,10 @@ async function handleAuthRoutes(req, res, url) {
         });
         return true;
       }
-      const provider = authState.codes.get(body.auth_code);
+      const { provider, other } = authState.codes.get(body.auth_code);
       authState.codes.delete(body.auth_code);
       const user = {
-        id: authState.sameUser ? SAME_USER_ID : randomUUID(),
+        id: !other && authState.sameUser ? SAME_USER_ID : randomUUID(),
         aud: "authenticated",
         role: "authenticated",
         app_metadata: { provider },
@@ -1014,7 +1086,13 @@ async function handleAuthRoutes(req, res, url) {
             p === "kakao" ? { provider_id: KAKAO_ID, sub: KAKAO_ID } : {},
         })),
       };
-      json(200, makeSession(user));
+      const session = makeSession(user);
+      // 공급자 토큰은 로그인 직후 한 번만 준다 (Supabase 와 같음). 끄면(사용자 지정 공급자 흉내) 필드를 싣지 않는다.
+      if (authState.providerToken !== "off") {
+        authState.lastProviderToken = `fake-provider-token-${randomBytes(6).toString("hex")}`;
+        session.provider_token = authState.lastProviderToken;
+      }
+      json(200, session);
       return true;
     }
     if (grant === "refresh_token") {

@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 
 import { membersEnabledNow } from "@/app/_lib/members";
+import { whoOf } from "@/app/_lib/who";
 import { withdrawOutcome, type KakaoUnlinkResult } from "@/domain/account-info";
+import { naverLoginEnabled } from "@/domain/members-switch";
+import {
+  encodeIntent,
+  reauthLoginProvider,
+  reauthTarget,
+  WITHDRAW_INTENT_COOKIE,
+  WITHDRAW_INTENT_MAX_AGE,
+  WITHDRAW_INTENT_PATH,
+  type ReauthProvider,
+} from "@/domain/withdraw-intent";
 import { unlinkKakao } from "@/infra/kakao/unlink";
 import { logAuthError } from "@/infra/supabase/auth-log";
 import { deleteMyAccount, readIdentity } from "@/infra/supabase/member-profile";
@@ -12,7 +23,9 @@ import { createSupabaseServerClient } from "@/app/_lib/supabase/server-client";
  *
  * 1. 스위치 끔 404 · `Origin` 이 있고 이 사이트가 아니면 403(로그아웃 · 동의와 같은 규칙) ·
  *    확인 칸(`confirm=on`)이 없으면 아무것도 안 하고 탈퇴 화면으로(`?withdraw=confirm`) — 화면의 막기와 별개로 서버도 본다.
- * 2. **지우기 전에** 로그인 정보(공급자 목록 · 카카오 회원번호)를 읽는다(지운 뒤에는 못 읽음). 못 읽으면 아무것도 안 하고 실패 쪽으로 —
+ * 2. **구글 · 네이버 회원은 먼저 재인증한다**(이슈 #197, 결정 0068): 아직 아무것도 지우지 않고 **탈퇴 의도 쿠키**(`cm_wd`)를 심은 뒤 그 공급자로
+ *    로그인을 다시 시작한다(`/auth/callback?flow=withdraw`가 이어받음 — 새 공급자 토큰으로 끊기 위해). 카카오만 있으면 바로 아래 3~5.
+ * 2'. **지우기 전에** 로그인 정보(공급자 목록 · 카카오 회원번호)를 읽는다(지운 뒤에는 못 읽음). 못 읽으면 아무것도 안 하고 실패 쪽으로 —
  *    카카오 회원번호를 모른 채 지우면 끊을 수 없다.
  * 3. `delete_my_account()` (회원 세션 — 서버 키 안 씀). **실패하면 아무것도 끊지 않고** 탈퇴 화면으로(`?withdraw=failed`).
  * 4. 카카오 identity 가 있으면 카카오 연결 끊기. **실패해도 탈퇴는 이미 끝난 것**이다(안내 한 줄만 더 붙는다).
@@ -57,6 +70,15 @@ export async function POST(request: Request): Promise<Response> {
   const identity = await readIdentity(supabase);
   if (!identity) return failed();
 
+  const target = reauthTarget({
+    providers: identity.providers,
+    signupProvider: identity.signupProvider,
+    naverEnabled: naverLoginEnabled(process.env),
+  });
+  if (target) {
+    return startReauth({ supabase, origin, target, userId: identity.userId });
+  }
+
   if (!(await deleteMyAccount(supabase))) return failed();
 
   // 탈퇴는 끝났다. 여기부터의 실패는 탈퇴를 되돌리지 않는다.
@@ -85,4 +107,64 @@ export async function GET(): Promise<Response> {
   if (!(await membersEnabledNow()))
     return new NextResponse(null, { status: 404 });
   return new NextResponse(null, { status: 405, headers: { Allow: "POST" } });
+}
+
+/**
+ * 재인증 시작: 탈퇴 의도 쿠키를 심고 그 공급자 로그인 화면으로 보낸다. 아무것도 지우지 않는다.
+ * 구글은 계정 고르기(`prompt=select_account`, 동의 화면을 다시 띄우지 않음), 네이버는 재인증 옵션(`auth_type=reauthenticate`).
+ * 시작에 실패하면 쿠키를 심지 않고 탈퇴 화면의 실패 줄로.
+ */
+async function startReauth(input: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  origin: string;
+  target: ReauthProvider;
+  userId: string;
+}): Promise<Response> {
+  const { supabase, origin, target, userId } = input;
+  const failed = () =>
+    NextResponse.redirect(
+      new URL("/account/withdraw?withdraw=failed", origin),
+      { status: 303 },
+    );
+  try {
+    const redirectTo = new URL("/auth/callback", origin);
+    redirectTo.searchParams.set("flow", "withdraw");
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      // 네이버는 사용자 지정(custom) 공급자라 타입에 없는 이름이다
+      provider: reauthLoginProvider(target) as Parameters<
+        typeof supabase.auth.signInWithOAuth
+      >[0]["provider"],
+      options: {
+        redirectTo: redirectTo.toString(),
+        skipBrowserRedirect: true,
+        queryParams:
+          target === "google"
+            ? { prompt: "select_account" }
+            : { auth_type: "reauthenticate" },
+      },
+    });
+    if (error || !data?.url) {
+      logAuthError("withdraw/reauth-start", error?.code);
+      return failed();
+    }
+    const res = NextResponse.redirect(data.url, { status: 303 });
+    res.cookies.set({
+      name: WITHDRAW_INTENT_COOKIE,
+      value: encodeIntent({
+        who: whoOf(userId),
+        provider: target,
+        nowMs: Date.now(),
+      }),
+      httpOnly: true,
+      sameSite: "lax",
+      // http 주소(내 컴퓨터 시험)에서는 Secure 쿠키가 저장되지 않는다. 운영은 https.
+      secure: origin.startsWith("https:"),
+      path: WITHDRAW_INTENT_PATH,
+      maxAge: WITHDRAW_INTENT_MAX_AGE,
+    });
+    return res;
+  } catch {
+    logAuthError("withdraw/reauth-start");
+    return failed();
+  }
 }

@@ -98,3 +98,55 @@ test("글씨 150%: 탈퇴하기 버튼이 잘리지 않고, 확인 칸을 켜면
   await page.waitForURL((u) => u.pathname === "/");
   expect((await calls(request)).withdrawCalls).toBe(1);
 });
+
+test("구글 회원: 글씨 150%에서 재로그인 안내 줄이 붙어도 탈퇴하기 버튼이 잘리지 않고, 두 번 눌러도 한 번 (이슈 #197)", async ({
+  page,
+  request,
+}) => {
+  await request.post(`${FAKE}/scenario`, { data: { sameUser: true } });
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "cropmon-font-scale",
+      JSON.stringify({ v: 1, step: "xxlarge", follow: false }),
+    );
+  });
+  await page.goto(
+    `/auth/login?provider=google&next=${enc("/water?st=105&crop=apple")}`,
+  );
+  await page.waitForURL(/\/water\?/);
+  await page.goto("/account/withdraw");
+  await page.waitForLoadState("networkidle");
+  const hint = page.getByText(
+    "탈퇴하기를 누르면 연결을 끊기 위해 구글 로그인을 한 번 더 해요.",
+  );
+  await expect(hint).toBeVisible();
+  const button = page.getByRole("button", { name: "탈퇴하기" });
+  // 맨 아래까지 내렸을 때 버튼이 화면 안에서 끝까지 보이고, 탭바 같은 것이 위에서 덮지 않는다
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const box = (await button.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(
+    page.viewportSize()!.height + 1,
+  );
+  const topmost = await page.evaluate(
+    ({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest("button")?.textContent ?? "",
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  );
+  expect(topmost).toContain("탈퇴하기");
+  const hintBox = (await hint.boundingBox())!;
+  expect(hintBox.x + hintBox.width).toBeLessThanOrEqual(
+    page.viewportSize()!.width,
+  );
+  await expectNoHorizontalScroll(page);
+  await page.getByRole("checkbox", { name: "위 내용을 확인했어요" }).check();
+  await button.dblclick();
+  await page.waitForURL((u) => u.pathname === "/");
+  const c = (await (await request.get(`${FAKE}/calls`)).json()) as {
+    withdrawCalls: number;
+    reauth: { authorizeCalls: unknown[] };
+  };
+  expect(c.withdrawCalls).toBe(1);
+  expect(c.reauth.authorizeCalls.length).toBe(2); // 로그인 + 탈퇴 재로그인(두 번 눌러도 재로그인 한 번)
+});

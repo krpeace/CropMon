@@ -22,6 +22,7 @@ describe("readIdentity — 로그인 정보(메일 · 공급자 · 카카오 회
           user: {
             id: "11111111-2222-3333-4444-555555555555",
             email: "tester@example.invalid",
+            app_metadata: { provider: "google" },
             identities: [
               {
                 provider: "kakao",
@@ -40,7 +41,28 @@ describe("readIdentity — 로그인 정보(메일 · 공급자 · 카카오 회
       email: "tester@example.invalid",
       providers: ["kakao", "google"],
       kakaoUserId: "777",
+      signupProvider: "google",
     });
+  });
+
+  it("처음 가입한 공급자(app_metadata.provider)가 없거나 모르는 값이면 null", async () => {
+    spy();
+    for (const meta of [undefined, {}, { provider: "email" }]) {
+      const r = await readIdentity(
+        client(async () => ({
+          data: {
+            user: {
+              id: "u",
+              email: "a@example.invalid",
+              app_metadata: meta,
+              identities: [],
+            },
+          },
+          error: null,
+        })),
+      );
+      expect(r?.signupProvider, JSON.stringify(meta)).toBeNull();
+    }
   });
 
   it("메일이 없으면 null", async () => {

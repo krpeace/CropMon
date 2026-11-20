@@ -194,6 +194,23 @@ test.describe("회원제 스위치 끔 — 동의 화면", () => {
     expect(fake.kakaoUnlinkCalls).toHaveLength(0);
   });
 
+  test("탈퇴 재인증 콜백(/auth/callback?flow=withdraw)도 404 — 코드 교환 · 탈퇴 호출 0, 쿠키 안 건드림 (이슈 #197)", async ({
+    request,
+  }) => {
+    await request.post(`${FAKE}/reset`);
+    const res = await request.get("/auth/callback?flow=withdraw&code=abc", {
+      maxRedirects: 0,
+      headers: { cookie: "cm_wd=anything" },
+    });
+    expect(res.status()).toBe(404);
+    expect(res.headers()["set-cookie"]).toBeUndefined();
+    expect(res.headers()["location"]).toBeUndefined();
+    const fake = await (await request.get(`${FAKE}/calls`)).json();
+    expect(fake.withdrawCalls).toBe(0);
+    expect(fake.reauth.googleRevokes).toHaveLength(0);
+    expect(fake.reauth.naverDeletes).toHaveLength(0);
+  });
+
   test("/auth/consent 는 POST · GET 모두 404 이고 쿠키를 심지 않는다", async ({
     request,
   }) => {
