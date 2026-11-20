@@ -240,7 +240,7 @@ test.describe("체크 칸 · 큰 버튼", () => {
       },
       {
         method: "post",
-        action: `/auth/signout?next=${enc(NEXT)}`,
+        action: `/auth/consent/decline?next=${enc(NEXT)}`,
         submit: "동의하지 않고 나가기",
         inputs: [],
       },

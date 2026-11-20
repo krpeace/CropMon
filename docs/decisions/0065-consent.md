@@ -22,7 +22,7 @@
 - **콜백**(`/auth/callback`): `ensure_my_member()` 뒤 **자기 `members` 줄의 `terms_version` · `privacy_version` 두 열만** 읽는다(`readMyConsent`, RLS로 자기 줄만). 동의가 필요하면 `next` 대신 **`/consent?next=<원래 next>`**, 아니면 지금처럼 `next?login=ok`(`postLoginDestination`). **읽기에 실패해도 로그인은 막지 않고 동의 화면으로 보낸다**(동의 화면이 다시 확인). 서버 기록에는 단계와 오류 코드만(`consent/read`), 원문 · 개인 값은 안 남긴다(0061 `logAuthError`).
 - **`/consent`**: 로그인 필요 주소(`LOGIN_REQUIRED_PATHS`에 추가). 들어올 때 서버에서 다시 확인한다 — 스위치 끔 404 · 로그인 안 함 → 로그인 시트 · **이미 동의함 → `next`로 이동**(스트리밍 중 `redirect()`: HTML 200 + 이동 표시. 콜백이 이미 동의한 사람을 `/consent`로 보내지 않으므로 드문 갈래) · 동의 전(읽기 실패 포함) → 그린다.
 - **동의하고 시작하기**: `POST /auth/consent?next=…`가 `record_my_consent`를 부르고 303으로 `next?login=ok`(첫 로그인의 "로그인했어요"는 동의 뒤 한 번). **판 값은 서버가 `legal.ts`에서 넣고 폼 · 주소로 온 값은 읽지도 않는다**(위조해도 무시). 체크 칸 상태와 상관없이 셋 모두로 기록하며 체크 칸은 큰 버튼 **글자만** 바꾼다. 실패하면 `/consent?next=…&consent=failed`로 돌아와 한 줄을 띄운다.
-- **동의하지 않고 나가기**: `POST /auth/signout?next=…`(있는 경로) → 보던 화면, 알림 없음.
+- **동의하지 않고 나가기**: ~~`POST /auth/signout?next=…`(로그아웃만)~~ → **결정 0069(이슈 #199)로 바뀌었다**: `POST /auth/consent/decline?next=…` — 첫 동의 전이면 그 자리에서 계정을 지우고, 예전 판 동의자는 로그아웃만 한다. 보던 화면 · 알림 없음은 그대로.
 - **다른 사이트 막기**: `POST /auth/consent`는 로그아웃과 같게 `Origin`이 있고 이 사이트가 아니면 403, 없으면 통과한다. 근거: **로그인 쿠키가 `SameSite=Lax`라서 다른 사이트에서 보낸 `POST`에는 세션이 실리지 않는다** — e2e가 로그인 뒤 세션 쿠키의 `sameSite`가 `Lax`임을 확인한다(`@supabase/ssr` 기본값). `GET`은 405(링크 미리 불러오기가 기록하지 않게).
 - **`/consent`는 공통 관문을 지나지 않는다**(자기 자신으로 돌고 도는 일 없음). `consentGate`의 `onConsentPage`가 이 갈래를 한 함수에 못 박고(`consent`는 어떤 입력으로도 안 나옴), e2e가 "동의 전 회원이 `/consent`를 여러 번 열어도 그대로"를 시험한다.
 

@@ -4,7 +4,9 @@ import {
   CONSENT_COPY,
   CONSENT_SAVE_FAILED_TEXT,
   consentButtonLabel,
+  consentDeclineAction,
   consentHref,
+  declineAction,
   consentGate,
   consentPostAction,
   postLoginDestination,
@@ -240,5 +242,55 @@ describe("consentGate — 로그인 필요 쪽의 공통 관문 판단", () => {
         }
       }
     }
+  });
+});
+
+describe("동의하지 않고 나가기 (이슈 #199, 결정 0069)", () => {
+  it("declineAction: 동의한 적이 한 번도 없으면(두 열이 모두 비어 있음) 지운다", () => {
+    expect(
+      declineAction({ ok: true, termsVersion: null, privacyVersion: null }),
+    ).toBe("delete");
+  });
+
+  it("declineAction: 예전 판에 동의했던 회원은 지우지 않고 로그아웃만 한다 (농장 · 관수 기록이 있을 수 있다)", () => {
+    expect(
+      declineAction({
+        ok: true,
+        termsVersion: "terms-2026-01-01",
+        privacyVersion: "privacy-2026-01-01",
+      }),
+    ).toBe("signout-only");
+  });
+
+  it("declineAction: 한 열만 값이 있어도 · 지금 판이어도 지우지 않는다", () => {
+    expect(
+      declineAction({ ok: true, termsVersion: "x", privacyVersion: null }),
+    ).toBe("signout-only");
+    expect(
+      declineAction({ ok: true, termsVersion: null, privacyVersion: "x" }),
+    ).toBe("signout-only");
+    expect(
+      declineAction({
+        ok: true,
+        termsVersion: LEGAL_DOCS.terms.version,
+        privacyVersion: LEGAL_DOCS.privacy.version,
+      }),
+    ).toBe("signout-only");
+  });
+
+  it("declineAction: 동의 기록을 읽지 못하면 지우지 않고 로그아웃만 한다", () => {
+    expect(declineAction({ ok: false })).toBe("signout-only");
+  });
+
+  it("consentDeclineAction: 나가기 폼이 보낼 곳 — POST /auth/consent/decline?next=… (위험한 next · 동의 화면 자신은 /)", () => {
+    expect(consentDeclineAction("/water?st=105&crop=apple")).toBe(
+      "/auth/consent/decline?next=%2Fwater%3Fst%3D105%26crop%3Dapple",
+    );
+    expect(consentDeclineAction("https://evil.example/")).toBe(
+      "/auth/consent/decline?next=%2F",
+    );
+    expect(consentDeclineAction("/consent?next=%2Fwater")).toBe(
+      "/auth/consent/decline?next=%2F",
+    );
   });
 });

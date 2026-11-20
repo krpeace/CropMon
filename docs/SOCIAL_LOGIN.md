@@ -141,6 +141,7 @@
 | 가짜 Supabase로 하는 화면 시험                                                           | `e2e/fake-supabase.mjs`(로그인 흉내) · `e2e/members-off.spec.ts`(끔, 서버 3100) · `e2e/members-auth.spec.ts`(켬, 서버 3101)                                                                                                          |
 | 회원 정보 · 탈퇴 · 카카오 연결 끊기 (이슈 #195)                                          | `src/app/auth/withdraw/route.ts` · `src/infra/kakao/unlink.ts` · `src/infra/supabase/member-profile.ts` · `src/domain/account-info.ts` · `src/app/_components/account/` · `src/app/account/`                                         |
 | 구글 · 네이버 끊기 · 탈퇴 재인증 (이슈 #197)                                             | `src/app/auth/callback/withdraw-flow.ts` · `src/app/auth/withdraw/route.ts` · `src/infra/google/revoke.ts` · `src/infra/naver/revoke.ts` · `src/infra/post-form.ts` · `src/infra/loopback-base.ts` · `src/domain/withdraw-intent.ts` |
+| 동의하지 않고 나가기 = 첫 동의 전이면 계정 바로 지우기 (이슈 #199)                       | `src/app/auth/consent/decline/route.ts` · `src/domain/consent.ts`(`declineAction`)                                                                                                                                                   |
 | 결정 기록                                                                                | `docs/decisions/0061-login-plumbing.md` · `docs/decisions/0064-login-sheet.md` · `docs/decisions/0067-account-withdraw.md` · `docs/decisions/0068-withdraw-reauth.md`                                                                |
 
 ## 8. 미리보기에서 확인할 것 (사용자 · 병합 뒤)
@@ -199,6 +200,8 @@
 구글 · 네이버는 그 회원의 **공급자 토큰**이 있어야 끊을 수 있다. Supabase는 공급자 토큰을 DB에 저장하지 않고 로그인 직후 한 번만 주므로, **탈퇴할 때 그 공급자로 한 번 더 로그인(재인증)**해 새 토큰을 받고 그 자리에서 탈퇴 + 끊기를 한다(토큰을 쌓지 않는 방식). 카카오는 10장 그대로(어드민 키).
 
 **흐름**: [탈퇴하기] → `POST /auth/withdraw`가 **아직 아무것도 지우지 않고** 탈퇴 의도 쿠키(`cm_wd`: 회원 번호의 해시 · 공급자 · 5분 만료, `HttpOnly` · `Path=/auth/callback`)를 심고 공급자 로그인을 다시 시작 → 공급자에서 돌아오는 `/auth/callback?flow=withdraw` → **새로 로그인한 계정의 회원 번호 해시가 의도와 같을 때만** 탈퇴 + 끊기. **다른 계정을 골랐으면 아무것도 지우지 않고** 이 기기만 로그아웃하고 알림. 의도 쿠키가 없거나 만료면 코드 교환도 하지 않는다. 자세한 표는 결정 0068.
+
+**동의하지 않고 나가기**(이슈 #199, 결정 0069): 동의 화면의 [동의하지 않고 나가기]는 `POST /auth/consent/decline`이 **첫 동의 전인 회원만** 그 자리에서 지운다(`delete_my_account()` → 카카오 끊기 · 구글/네이버는 세션에 공급자 토큰이 있을 때만 끊기, 재인증 없음 → 이 기기 로그아웃). 예전 판에 동의했던 회원 · 읽기 실패는 로그아웃만 하고, 탭을 그냥 닫고 떠난 사람은 O2가 24시간 뒤 정리한다. 알림은 없다.
 
 | 공급자 | 재인증 시작 옵션                                               | 끊기 요청                                                                                                                                                                                   | 근거 · 상태                                                                                                                                                                                               |
 | ------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
