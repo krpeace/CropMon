@@ -809,9 +809,9 @@ begin
     -- ===================================================================
     -- 11. 사전 · 시드
     -- ===================================================================
-    res := pg_temp.item(res, '11a 포도 작목: Kc 0.30/0.85/0.45 · Zr 1.0 · p 0.35 · 높이 2.0 · 기준온도 10, 적산 단계와 라벨은 비어 있다',
+    res := pg_temp.item(res, '11a 포도 작목: Kc 0.30/0.85/0.45 · Zr 1.0 · p 0.35 · 높이 2.0 · 기준온도 10, 적산 단계와 라벨은 새 값과 같다 (v2.4 시드 20261121000000 을 Run 한 뒤에만 true)',
       (select kc_ini = 0.30 and kc_mid = 0.85 and kc_end = 0.45 and zr_m = 1.0 and p = 0.35 and h_m = 2.0 and t_base_c = 10
-          and gdd_stages is null and gdd_stage_labels is null and name_ko = '포도'
+          and gdd_stages = '{370,1040,2050}' and gdd_stage_labels = '{만개,변색기,수확기}' and name_ko = '포도'
         from public.crops where crop_id = 'grape'));
     res := pg_temp.item(res, '11b 포도 재배 방식 grape-k1: 번호 1 · 이름 "기본" · 기본 · Kc 0.30/0.85/0.45',
       (select set_no = 1 and name_ko = '기본' and is_default and kc_ini = 0.30 and kc_mid = 0.85 and kc_end = 0.45 and crop_id = 'grape'
