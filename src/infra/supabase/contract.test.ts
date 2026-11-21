@@ -105,8 +105,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v2.3 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v2\.3\b/);
+  it("계약서의 현재 버전이 v2.4 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.4\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -1902,5 +1902,115 @@ describe("동의 기록 (v2.3, 결정 0065, 이슈 #191)", () => {
         /`display_name`, `layout`, `font_scale`, `theme`/,
       );
     });
+  });
+});
+
+describe("포도 적산온도 단계 시드 (v2.4, 결정 0070, 이슈 #201)", () => {
+  const CHECKS_DIR = join(ROOT, "supabase/checks");
+  const read = (dir: string, name: string) =>
+    readFileSync(join(dir, name), "utf8");
+  const strip = (text: string) =>
+    text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/--.*$/, ""))
+      .join("\n");
+  const CHECK = read(CHECKS_DIR, "grape_gdd_check.sql");
+  const ROLLBACK = strip(read(CHECKS_DIR, "grape_gdd_rollback.sql"));
+  const D1_2 = read(CHECKS_DIR, "d1_2_farms_check.sql");
+  const OLD_SOURCE =
+    "FAO-56 Table 12 식용 포도, 대표 품종 샤인머스캣. 기준온도 10 °C: Paredes 2025b Table 3, Winkler 1944";
+
+  it("계약서: v2.4 는 구조 그대로 · 사전 값만이고, 새 값 · 근거 · 비가림 기준 · 다음 구조 변경은 v2.5 를 말한다", () => {
+    expect(CONTRACT).toMatch(/\|\s*v2\.4\s*\|/);
+    expect(CONTRACT).toMatch(/\*\*v2\.4:\*\*[^\n]*구조 그대로[^\n]*사전 값만/);
+    for (const phrase of [
+      "20261121000000_seed_grape_gdd_stages.sql",
+      "370",
+      "1040",
+      "2050",
+      "만개",
+      "변색기",
+      "수확기",
+      "비가림 04-20 기준",
+      "croplib-dp #126",
+      "v2.5",
+    ]) {
+      expect(CONTRACT, phrase).toContain(phrase);
+    }
+    // 옛 설명("비워 둡니다" · "나중에 넣는다")이 남아 있지 않다
+    expect(CONTRACT).not.toContain(
+      "`gdd_stages` · `gdd_stage_labels`는 비워 둡니다",
+    );
+    expect(CONTRACT).not.toContain("포도는 단계 숫자와 함께 나중에 넣는다");
+  });
+
+  it("확인 SQL: 되돌림 방식, 맨 끝 all_ok, 항목 수가 맞고, 이슈의 항목을 모두 덮는다", () => {
+    expect(CHECK).toMatch(/raise exception 'grape_gdd_check_rollback'/);
+    expect(CHECK).toContain("all_ok");
+    const items = strip(CHECK).match(/pg_temp\.item\(res,/g)?.length ?? 0;
+    expect(items).toBeGreaterThanOrEqual(10);
+    expect(CHECK).toMatch(new RegExp(String.raw`count\(\*\) = ${items}\b`));
+    for (const phrase of [
+      "영향받은 줄 1",
+      "단계 세 값",
+      "라벨 세 값",
+      "길이 같음",
+      "기준온도 10",
+      "나머지 열이 실행 전과 같음",
+      "원래 글",
+      "두 번 안 붙음",
+      "사과 · 배추 · 공통",
+      "줄 수 그대로",
+      "비가림 04-20",
+      "시설가온 비어 있음",
+    ]) {
+      expect(CHECK, phrase).toContain(phrase);
+    }
+  });
+
+  it("확인 SQL: 한 일 → 변수 → 상태 확인 — 실행 전 스냅샷과 영향받은 줄 수를 먼저 변수에 담은 뒤 상태 항목을 쓴다(한 식 안의 (select …)는 함수 호출보다 먼저 계산될 수 있다, InitPlan)", () => {
+    const body = strip(CHECK);
+    const snapshot = body.indexOf("before_");
+    const act = body.search(/update public\.crops\s+set gdd_stages/);
+    const rows = body.search(/get diagnostics n = row_count/);
+    const firstItem = body.indexOf("pg_temp.item(res,");
+    expect(snapshot).toBeGreaterThan(-1);
+    expect(act).toBeGreaterThan(snapshot);
+    expect(rows).toBeGreaterThan(act);
+    expect(firstItem).toBeGreaterThan(rows);
+    // 한 식에 "함수 호출 결과 = 값 and (select …)"로 쓰지 않는다
+    expect(body).not.toMatch(/row_count\s*=\s*1\s+and\s+\(select/);
+  });
+
+  it("확인 SQL 의 update 는 시드 파일의 update 와 글자까지 같다 (둘이 어긋나지 않게)", () => {
+    const flat = (t: string) => t.replace(/\s+/g, " ").trim();
+    const seed = flat(
+      strip(
+        readFileSync(
+          join(MIGRATIONS_DIR, "20261121000000_seed_grape_gdd_stages.sql"),
+          "utf8",
+        ),
+      ),
+    );
+    expect(flat(strip(CHECK))).toContain(seed.replace(/;$/, ""));
+  });
+
+  it("되돌리기 SQL: 두 열을 다시 비우고 source 를 원래 글로 돌린다 (포도 한 줄만, 여러 번 실행해도 같음)", () => {
+    const flat = ROLLBACK.replace(/\s+/g, " ").trim();
+    expect(flat).toMatch(/^update public\.crops set /);
+    expect(flat).toContain("gdd_stages = null");
+    expect(flat).toContain("gdd_stage_labels = null");
+    expect(flat).toContain(`source = '${OLD_SOURCE}'`);
+    expect(flat).toMatch(/where crop_id = 'grape';$/);
+    expect(flat.match(/\bupdate\b/g)).toHaveLength(1);
+  });
+
+  it("d1_2 확인 SQL 11a: 적산 단계 · 라벨이 비어 있다 → 새 값과 같다로 맞췄다 (항목 수 118 그대로)", () => {
+    const block = D1_2.slice(D1_2.indexOf("'11a "), D1_2.indexOf("'11b "));
+    expect(block).toContain("새 값과 같다");
+    expect(block).toContain("gdd_stages = '{370,1040,2050}'");
+    expect(block).toMatch(/gdd_stage_labels = '\{만개,변색기,수확기\}'/);
+    expect(block).not.toContain("gdd_stages is null");
+    expect(D1_2).toMatch(/count\(\*\) = 118\b/);
   });
 });

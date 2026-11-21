@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -12,6 +12,7 @@ import { STATIONS } from "@/infra/stations";
  *   - 20261107000000_seed_scenarios_2027.sql: 2027년 계산 조건 (2026년 줄과 연도만 다름)
  *   - 20261120010000_seed_grape_dictionary.sql: 포도 작목 · 재배 방식 · 작형 둘, 배추 기준온도 (v2.1, 결정 0062)
  *   - 20261120020000_seed_scenarios_grape_2027.sql: 2027 포도 계산 조건 194개 (v2.1)
+ *   - 20261121000000_seed_grape_gdd_stages.sql: 포도(비가림) 적산온도 단계 370 · 1040 · 2050 과 라벨 (v2.4, 결정 0070)
  * 계산 값(TAW, RAW, 작기 끝)은 FAO-56 식으로 다시 계산해 같은지 본다.
  */
 
@@ -36,6 +37,7 @@ const SEED_MEASURES_SUNLIGHT = read(
 const SEED_NON_REP = read("20261110000000_seed_scenarios_non_rep.sql");
 const SEED_GRAPE_DICT = read("20261120010000_seed_grape_dictionary.sql");
 const SEED_GRAPE_2027 = read("20261120020000_seed_scenarios_grape_2027.sql");
+const SEED_GRAPE_GDD = read("20261121000000_seed_grape_gdd_stages.sql");
 const CSV_STATIONS_GRID = existsSync(
   join(process.cwd(), "docs/data/stations_grid_20261108.csv"),
 )
@@ -1492,5 +1494,111 @@ describe("사전 자료: 2027 포도 계산 조건 194개 (v2.1, 결정 0062)", 
     expect(read("20261120000000_data_contract_v2_1_farms.sql")).toMatch(
       /create unique index if not exists scenarios_one_default\s+on public\.scenarios \(stn_id, season_type_id, season_year\)\s+where is_default;/,
     );
+  });
+});
+
+describe("사전 자료: 포도 적산온도 단계 (v2.4, 결정 0070, 이슈 #201)", () => {
+  /** 주석을 지운 SQL — 머리말 설명이 아니라 실제 문장만 본다. */
+  const sql = SEED_GRAPE_GDD.split(/\r?\n/)
+    .map((line) => line.replace(/--.*$/, ""))
+    .join(" ");
+  const flat = sql.replace(/\s+/g, " ").trim();
+  const OLD_SOURCE =
+    "FAO-56 Table 12 식용 포도, 대표 품종 샤인머스캣. 기준온도 10 °C: Paredes 2025b Table 3, Winkler 1944";
+  const newSource = () =>
+    flat.match(/source = '((?:[^']|'')*)'/)?.[1].replace(/''/g, "'") ?? "";
+
+  it("새 시드 파일이 있고 이름 순서가 기존 마지막 마이그레이션보다 뒤다", () => {
+    expect(SEED_GRAPE_GDD).not.toBe("");
+    const last = readdirSync(join(process.cwd(), "supabase/migrations"))
+      .filter((n) => n !== "20261121000000_seed_grape_gdd_stages.sql")
+      .sort()
+      .at(-1)!;
+    expect("20261121000000_seed_grape_gdd_stages.sql" > last).toBe(true);
+    // 포도 작목 줄을 만드는 옛 시드보다도 뒤라야 이 값이 덮이지 않는다
+    expect(
+      "20261121000000_seed_grape_gdd_stages.sql" >
+        "20261120010000_seed_grape_dictionary.sql",
+    ).toBe(true);
+  });
+
+  it("문장은 포도 한 줄(where crop_id = 'grape')만 고치는 update 하나다", () => {
+    expect(flat.match(/\bupdate\b/g)).toHaveLength(1);
+    expect(flat).toMatch(/^update public\.crops set /);
+    expect(flat).toMatch(/where crop_id = 'grape';$/);
+    // 다른 표 · 다른 문장은 없다
+    expect(flat).not.toMatch(/\b(insert|delete|alter|drop|create)\b/);
+  });
+
+  it('단계는 {370,1040,2050}, 라벨은 {"만개","변색기","수확기"} (croplib-dp #126 확정값)', () => {
+    expect(flat).toContain("gdd_stages = '{370,1040,2050}'");
+    expect(flat).toContain(`gdd_stage_labels = '{"만개","변색기","수확기"}'`);
+  });
+
+  it("단계는 오름차순이고 라벨 수와 같다 (제약 crops_gdd_stage_labels_len)", () => {
+    const stages = flat
+      .match(/gdd_stages = '\{([\d,]+)\}'/)![1]
+      .split(",")
+      .map(Number);
+    const labels = flat.match(/gdd_stage_labels = '\{(.+?)\}'/)![1].split(",");
+    expect(stages).toEqual([370, 1040, 2050]);
+    expect(stages).toEqual([...stages].sort((a, b) => a - b));
+    expect(labels).toHaveLength(stages.length);
+  });
+
+  it("출처(source)는 지금 글을 그대로 앞에 두고 뒤에 근거를 덧붙인다 — 비가림 04-20 기준 · 평년 2016–2025 · 다섯 지점 · 10 단위 반올림 · 기준온도 10", () => {
+    const src = newSource();
+    expect(src.startsWith(OLD_SOURCE)).toBe(true);
+    expect(src.length).toBeGreaterThan(OLD_SOURCE.length);
+    for (const phrase of [
+      "비가림 04-20 기준",
+      "기준온도 10",
+      "2016–2025",
+      "구미",
+      "영천",
+      "상주",
+      "추풍령",
+      "거창",
+      "10 단위로 반올림",
+      "croplib-dp #126",
+    ]) {
+      expect(src, phrase).toContain(phrase);
+    }
+  });
+
+  it("여러 번 실행해도 결과가 같다 — source 는 글을 통째로 지정하고(덧붙이기 || · concat · replace 없음) 같은 값을 다시 넣는다", () => {
+    expect(flat).toMatch(/source = '/);
+    expect(flat).not.toContain("||");
+    expect(flat).not.toMatch(/concat|replace\(|coalesce\(source/i);
+  });
+
+  it("Kc · Zr · p · 높이 · 기준온도 · 이름 같은 다른 열은 건드리지 않는다", () => {
+    const setPart = flat.match(/^update public\.crops set (.+) where /)![1];
+    const columns = [...setPart.matchAll(/(\w+) = '/g)].map((m) => m[1]);
+    expect(columns.sort()).toEqual(
+      ["gdd_stage_labels", "gdd_stages", "source"].sort(),
+    );
+  });
+
+  it('머리말에 실행 방법과 "옛 포도 시드를 다시 돌렸다면 이 파일도 이어서" 안내가 있다', () => {
+    const head = SEED_GRAPE_GDD.split(/\r?\n/)
+      .filter((l) => l.startsWith("--"))
+      .join(" ");
+    expect(head).toContain("20261120010000_seed_grape_dictionary.sql");
+    expect(head).toContain("SQL Editor");
+    expect(head).toMatch(/다시 돌렸다면 이 파일도 이어서/);
+    expect(head).toContain("grape_gdd_check.sql");
+    expect(head).toContain("grape_gdd_rollback.sql");
+  });
+
+  it("옛 포도 시드 파일은 고치지 않았다 (단계 열 없음 · '비워 둔다' 설명 그대로)", () => {
+    expect(Object.keys(rowsOf("crops", SEED_GRAPE_DICT)[0])).not.toContain(
+      "gdd_stages",
+    );
+    expect(SEED_GRAPE_DICT).toContain("비워 둔다");
+  });
+
+  it("옛 시드의 포도 source 글이 이 파일이 앞에 두는 글과 같다 (글이 어긋나면 되돌리기도 어긋난다)", () => {
+    expect(String(rowsOf("crops", SEED_GRAPE_DICT)[0].source)).toBe(OLD_SOURCE);
   });
 });
