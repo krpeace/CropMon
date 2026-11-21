@@ -4,8 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 import { removeSearchKeys } from "@/domain/login-sheet";
+import { parseMembersFromCookieHeader } from "@/domain/members-state";
 import {
-  ACCOUNT_TOAST,
+  accountToast,
   LOGIN_TOAST_TEXT,
   readAccountNotice,
   readLoginNotice,
@@ -26,7 +27,12 @@ export function LoginNotice() {
     // 탈퇴에서 돌아왔으면(`account=`, 이슈 #195) 알림 한 번 + 주소에서 지움. `login=` 과 같은 방식이다.
     const account = readAccountNotice(window.location.search);
     if (account) {
-      const { text, ms } = ACCOUNT_TOAST[account];
+      // 네이버 로그인이 열렸는지는 표시 쿠키 `cm_m` 의 `n` 에서 읽는다(프록시가 서버의 `naverLoginEnabled` 로 만든 값, 개인 값 없음, 결정 0071).
+      // `useMembersState()` 는 하이드레이션 첫 효과에서 서버 값("끔")을 줄 수 있어 쓰지 않고 쿠키를 바로 읽는다.
+      const { text, ms } = accountToast(
+        account,
+        parseMembersFromCookieHeader(document.cookie).naver,
+      );
       showToast(text, ms);
       window.history.replaceState(
         window.history.state,

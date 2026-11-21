@@ -3,6 +3,7 @@
  * 알림 부품은 공통이라 앞으로 "탈퇴했어요" · "기록을 지웠어요"도 같은 부품을 쓴다.
  */
 import type { LoginNotice } from "./auth";
+import { withdrawUnlinkedText } from "./withdraw-copy";
 
 /** 알림이 화면에 떠 있는 시간(ms). */
 export const TOAST_MS = 4000;
@@ -29,14 +30,18 @@ export type AccountNotice =
 /** 안내가 붙는 알림은 긴 글(두 줄)이라 더 오래 띄운다. */
 export const ACCOUNT_TOAST_LONG_MS = 7000;
 
-/** `account` 표시별 알림. 두 줄은 한 알림 안의 줄바꿈(`\n`) — 화면은 `whitespace-pre-line` 로 그린다. */
+/**
+ * `account` 표시별 알림. 두 줄은 한 알림 안의 줄바꿈(`\n`) — 화면은 `whitespace-pre-line` 로 그린다.
+ * **`withdrawn-unlinked` 는 네이버 켬 기준 값이다. 화면 코드는 이 표를 직접 읽지 말고 `accountToast` 를 쓴다**(이슈 #205, 결정 0071 —
+ * 네이버 로그인이 열리지 않았으면 문구에서 "네이버"를 뺀다).
+ */
 export const ACCOUNT_TOAST: Record<
   AccountNotice,
   { text: string; ms: number }
 > = {
   withdrawn: { text: "탈퇴했어요", ms: TOAST_MS },
   "withdrawn-unlinked": {
-    text: "탈퇴했어요\n연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    text: withdrawUnlinkedText(true),
     ms: ACCOUNT_TOAST_LONG_MS,
   },
   // 탈퇴 재인증에서 다른 계정을 골랐다(이슈 #197, 결정 0068) — 아무것도 지우지 않았고 이 기기는 로그아웃됐다
@@ -45,6 +50,20 @@ export const ACCOUNT_TOAST: Record<
     ms: ACCOUNT_TOAST_LONG_MS,
   },
 };
+
+/**
+ * `account` 표시에 맞는 알림. 화면은 이 함수만 부른다. 끊기 실패 알림(`withdrawn-unlinked`)만 `naverOn` 에 따라 글이 갈리고
+ * (켬 "카카오·네이버·구글" · 끔 "카카오·구글"), 나머지는 그대로다. 시간(7초)도 같다.
+ */
+export function accountToast(
+  notice: AccountNotice,
+  naverOn: boolean,
+): { text: string; ms: number } {
+  if (notice === "withdrawn-unlinked") {
+    return { text: withdrawUnlinkedText(naverOn), ms: ACCOUNT_TOAST_LONG_MS };
+  }
+  return ACCOUNT_TOAST[notice];
+}
 
 /** 주소 검색어에서 `account` 표시를 읽는다. 모르는 값은 null. */
 export function readAccountNotice(search: string): AccountNotice | null {

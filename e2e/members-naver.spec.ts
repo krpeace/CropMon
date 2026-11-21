@@ -105,6 +105,20 @@ test.describe("네이버 회원 탈퇴 (재로그인 + 토큰 삭제)", () => {
     await page.getByRole("button", { name: "탈퇴하기" }).click();
   }
 
+  test("탈퇴 화면의 연결 줄에 네이버가 들어간다 (네이버 켬) — 옛 '각 계정 설정에서 해제' 줄은 화면에 없다 (이슈 #205)", async ({
+    page,
+    request,
+  }) => {
+    await loginNaver(page, request);
+    await page.goto("/account/withdraw");
+    await expect(
+      page.getByText("탈퇴하면 카카오·네이버·구글 연결도 함께 끊어요."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("각 계정 설정에서 해제할 수 있어요"),
+    ).toHaveCount(0);
+  });
+
   test("안내 줄이 네이버로 보인다 → 탈퇴하기 → 재인증 옵션으로 이동 → 돌아오면 지워지고 토큰 삭제 요청이 간다 → '탈퇴했어요' 한 줄", async ({
     page,
     request,
@@ -149,8 +163,8 @@ test.describe("네이버 회원 탈퇴 (재로그인 + 토큰 삭제)", () => {
     await request.post(`${FAKE}/scenario`, { data: { naverDelete: "fail" } });
     await pressWithdraw(page);
     await page.waitForURL((u) => u.pathname === "/");
-    await expect(page.getByTestId("toast")).toContainText(
-      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    await expect(page.getByTestId("toast")).toHaveText(
+      "탈퇴했어요. 카카오·네이버·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
     );
     const c = await calls(request);
     expect(c.withdrawn).toHaveLength(1);

@@ -87,11 +87,9 @@ test.describe("탈퇴 화면의 안내 줄", () => {
     const hintY = (await hint.boundingBox())!.y;
     const buttonY = (await withdrawButton(page).boundingBox())!.y;
     expect(hintY).toBeLessThan(buttonY);
-    // 확정 문구의 연결 해제 안내 줄은 그대로 있다
+    // 확정 문구의 연결 줄이 있다 (네이버 로그인이 열리지 않은 서버라 "네이버"를 뺀다, 이슈 #205)
     await expect(
-      page.getByText(
-        "카카오·네이버·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
-      ),
+      page.getByText("탈퇴하면 카카오·구글 연결도 함께 끊어요."),
     ).toBeVisible();
   });
 
@@ -180,9 +178,8 @@ test.describe("같은 구글 계정으로 다시 로그인", () => {
     await openWithdraw(page);
     await pressWithdraw(page);
     await page.waitForURL((u) => u.pathname === "/");
-    await expect(toast(page)).toContainText("탈퇴했어요");
-    await expect(toast(page)).toContainText(
-      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    await expect(toast(page)).toHaveText(
+      "탈퇴했어요. 카카오·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
     );
     const c = await calls(request);
     expect(c.withdrawn).toHaveLength(1);
@@ -198,8 +195,8 @@ test.describe("같은 구글 계정으로 다시 로그인", () => {
     await openWithdraw(page);
     await pressWithdraw(page);
     await page.waitForURL((u) => u.pathname === "/");
-    await expect(toast(page)).toContainText(
-      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    await expect(toast(page)).toHaveText(
+      "탈퇴했어요. 카카오·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
     );
     const c = await calls(request);
     expect(c.withdrawn).toHaveLength(1);
@@ -356,8 +353,8 @@ test.describe("그 밖의 갈래", () => {
     const before = (await calls(request)).reauth.authorizeCalls.length;
     await pressWithdraw(page);
     await page.waitForURL((u) => u.pathname === "/");
-    await expect(toast(page)).toContainText(
-      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    await expect(toast(page)).toHaveText(
+      "탈퇴했어요. 카카오·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
     );
     const c = await calls(request);
     expect(c.withdrawn).toHaveLength(1);
