@@ -196,11 +196,17 @@ test.describe("회원탈퇴 확인 화면", () => {
     for (const text of [
       "바로 지워지고 되돌릴 수 없어요",
       "알아볼 수 없게 묶은 통계 자료와 최대 7일 보관 뒤 자동으로 지워지는 암호화 백업은 예외예요.",
-      "카카오·네이버·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
+      // 네이버 로그인이 열리지 않은 서버(3101)라 "네이버"를 뺀다 (이슈 #205, 확정 문구)
+      "탈퇴하면 카카오·구글 연결도 함께 끊어요.",
       "같은 계정으로 다시 로그인하면 새 회원으로 시작해요",
     ]) {
       await expect(main.getByText(text, { exact: false }), text).toBeVisible();
     }
+    // 옛 줄("… 각 계정 설정에서 해제할 수 있어요")은 이제 끊기 실패 알림에만 있고 화면에는 없다
+    await expect(
+      main.getByText("각 계정 설정에서 해제할 수 있어요"),
+    ).toHaveCount(0);
+    await expect(main.getByText("카카오·네이버·구글")).toHaveCount(0);
     await expect(agree(page)).not.toBeChecked();
   });
 
@@ -306,9 +312,8 @@ test.describe("탈퇴하기", () => {
     await agree(page).check();
     await withdrawButton(page).click();
     await page.waitForURL((u) => u.pathname === "/");
-    await expect(toast(page)).toContainText("탈퇴했어요");
-    await expect(toast(page)).toContainText(
-      "연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+    await expect(toast(page)).toHaveText(
+      "탈퇴했어요. 카카오·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
     );
     const c = await calls(request);
     expect(c.withdrawn).toHaveLength(1);

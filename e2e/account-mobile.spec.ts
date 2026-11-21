@@ -150,3 +150,30 @@ test("구글 회원: 글씨 150%에서 재로그인 안내 줄이 붙어도 탈�
   expect(c.withdrawCalls).toBe(1);
   expect(c.reauth.authorizeCalls.length).toBe(2); // 로그인 + 탈퇴 재로그인(두 번 눌러도 재로그인 한 번)
 });
+
+test("캡처(이슈 #205): 탈퇴 확인 화면의 연결 줄 · 끊기 실패 알림 (휴대폰 폭, 네이버 끔)", async ({
+  page,
+  request,
+}, testInfo) => {
+  await request.post(`${FAKE}/scenario`, { data: { kakaoUnlink: "fail" } });
+  await login(page);
+  await page.goto("/account/withdraw");
+  const line = page.getByText("탈퇴하면 카카오·구글 연결도 함께 끊어요.");
+  await expect(line).toBeVisible();
+  await line.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath("withdraw-screen-mobile.png"),
+  });
+
+  await page.getByRole("checkbox", { name: "위 내용을 확인했어요" }).check();
+  await page.getByRole("button", { name: "탈퇴하기" }).click();
+  await page.waitForURL((u) => u.pathname === "/");
+  const toast = page.getByTestId("toast");
+  await expect(toast).toHaveText(
+    "탈퇴했어요. 카카오·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
+  );
+  await expectNoHorizontalScroll(page);
+  await page.screenshot({
+    path: testInfo.outputPath("withdraw-failed-toast-mobile.png"),
+  });
+});

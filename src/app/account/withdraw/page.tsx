@@ -33,13 +33,15 @@ async function Withdraw({
   const params = await searchParams;
   const value = typeof params.withdraw === "string" ? params.withdraw : null;
 
+  // 네이버 로그인이 열렸는지는 한 번만 읽어 재인증 대상과 연결 줄 문구(#205, "네이버"를 뺄지)에 같이 쓴다 — 판단이 하나다.
+  const naverOn = naverLoginEnabled(process.env);
   // 구글 · 네이버 회원은 탈퇴하기를 누르면 재인증을 한다(이슈 #197) — 안내 줄을 보이려고 서버가 대상 여부를 안다. 못 읽으면 줄만 뺀다.
   const identity = await readIdentity(await createSupabaseServerClient());
   const reauth = identity
     ? reauthTarget({
         providers: identity.providers,
         signupProvider: identity.signupProvider,
-        naverEnabled: naverLoginEnabled(process.env),
+        naverEnabled: naverOn,
       })
     : null;
 
@@ -51,6 +53,7 @@ async function Withdraw({
           : null
       }
       reauth={reauth}
+      naverOn={naverOn}
     />
   );
 }

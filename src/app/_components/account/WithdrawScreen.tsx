@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 
+import { withdrawLinkLine } from "@/domain/withdraw-copy";
+
 /** 탈퇴를 마치지 못했을 때 맨 위 한 줄 (확정 문구 밖 — 검토 채팅 승인 11/20). */
 export const WITHDRAW_FAILED_TEXT =
   "탈퇴를 마치지 못했어요. 잠시 뒤 다시 해 주세요";
@@ -28,7 +30,8 @@ const GONE = [
 
 /**
  * 회원탈퇴 확인 화면 (이슈 #195, 결정 0067, 시안 v0.4.6). **문구는 확정 문구 그대로**: 지워지는 것 6줄 · 굵은 줄 · 남는 것(작게) ·
- * 연결 해제 안내(이번에는 늘 보임, 구글 · 네이버 끊기는 L6-2) · 다시 로그인 안내 · 확인 칸 · 탈퇴하기.
+ * 연결 줄("탈퇴하면 카카오·네이버·구글 연결도 함께 끊어요.", 네이버가 열리지 않았으면 "네이버"를 뺌 — 이슈 #205, 결정 0071. 옛 "각 계정 설정에서 해제"
+ * 안내는 끊기 실패 알림으로 옮겨졌다) · 다시 로그인 안내 · 확인 칸 · 탈퇴하기.
  *
  * - 확인 칸을 켜야 [탈퇴하기]가 눌린다(`aria-disabled` 로 막고, 누르려 하면 안내 줄). 폼 `POST` 라 서버도 확인 칸(`confirm`)을 본다.
  * - 한 번 누르면 진행 표시로 바뀌고 두 번째 누름은 막는다(두 번 탈퇴 요청이 가지 않게).
@@ -38,10 +41,13 @@ const GONE = [
 export function WithdrawScreen({
   notice,
   reauth,
+  naverOn,
 }: {
   notice: "failed" | "confirm" | "expired" | null;
   /** 구글 · 네이버 회원이면 그 공급자(안내 줄을 보인다). 카카오만이면 null. */
   reauth: "google" | "naver" | null;
+  /** 네이버 로그인이 열렸는지(`naverLoginEnabled`). 닫혀 있으면 연결 줄에서 "네이버"를 뺀다(이슈 #205, 결정 0071). */
+  naverOn: boolean;
 }) {
   const [checked, setChecked] = useState(false);
   const [needHint, setNeedHint] = useState(notice === "confirm");
@@ -91,8 +97,7 @@ export function WithdrawScreen({
           암호화 백업은 예외예요.
         </p>
         <p className="text-14 text-ink-2/85 m-0 leading-snug text-pretty">
-          카카오·네이버·구글 계정의 &apos;연결된 서비스&apos;에 남은 CropMon은
-          각 계정 설정에서 해제할 수 있어요.
+          {withdrawLinkLine(naverOn)}
         </p>
         <p className="text-14 text-ink-2/85 m-0 leading-snug text-pretty">
           같은 계정으로 다시 로그인하면 새 회원으로 시작해요

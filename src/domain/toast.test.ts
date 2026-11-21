@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCOUNT_TOAST,
+  accountToast,
   LOGIN_TOAST_TEXT,
   readAccountNotice,
   readLoginNotice,
@@ -63,8 +64,31 @@ describe("account= 알림 (이슈 #195, 결정 0067)", () => {
       ms: TOAST_MS,
     });
     expect(ACCOUNT_TOAST["withdrawn-unlinked"].text).toBe(
-      "탈퇴했어요\n연결된 서비스는 각 계정 설정에서 해제할 수 있어요",
+      "탈퇴했어요.\n카카오·네이버·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
     );
     expect(ACCOUNT_TOAST["withdrawn-unlinked"].ms).toBe(7000);
+  });
+
+  it("accountToast: 네이버 켬이면 카카오·네이버·구글, 끔이면 카카오·구글 (끊기 실패 알림만 갈린다)", () => {
+    expect(accountToast("withdrawn-unlinked", true)).toEqual({
+      text: "탈퇴했어요.\n카카오·네이버·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
+      ms: 7000,
+    });
+    expect(accountToast("withdrawn-unlinked", false)).toEqual({
+      text: "탈퇴했어요.\n카카오·구글 계정의 '연결된 서비스'에 남은 CropMon은 각 계정 설정에서 해제할 수 있어요.",
+      ms: 7000,
+    });
+  });
+
+  it("accountToast: 끊기 성공('탈퇴했어요')과 다른 계정 알림은 네이버 켬 · 끔과 상관없이 그대로", () => {
+    for (const naverOn of [true, false]) {
+      expect(accountToast("withdrawn", naverOn)).toEqual({
+        text: "탈퇴했어요",
+        ms: TOAST_MS,
+      });
+      expect(accountToast("withdraw-other", naverOn)).toEqual(
+        ACCOUNT_TOAST["withdraw-other"],
+      );
+    }
   });
 });
