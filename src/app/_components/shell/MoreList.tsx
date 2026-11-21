@@ -13,8 +13,13 @@ import { useMenus } from "./menu-store";
 import { ICON_PATH, MENU_ICON } from "./pages";
 import { useThemeToggle } from "./ThemeToggle";
 
+/**
+ * 메뉴 줄 한 줄의 모양. **글자 색(`text-ink`)을 여기서 한 번에 정한다** (이슈 #200, 시안 v0.4.6: 더보기 · 내 계정 시트의 모든 줄 글자는 `--cm-ink`, 아이콘만 `--cm-brand-ink`).
+ * 색이 없으면 링크 줄(`<a>`)은 기본 층 `a { color: brand-ink }`(다크는 연두), 버튼 줄은 부모의 ink(다크는 흰색)를 받아 줄마다 달라 보인다.
+ * utilities 층이 base 층을 이기므로 `a:hover` 초록 바뀜도 이 줄에는 걸리지 않는다(시안의 줄은 버튼이라 호버로 색이 바뀌지 않는다).
+ */
 export const ROW =
-  "text-17 border-ink-2/14 flex fh-54 items-center gap-3 border-t-(length:--hairline) font-semibold first:border-t-0";
+  "text-17 text-ink border-ink-2/14 flex fh-54 items-center gap-3 border-t-(length:--hairline) font-semibold first:border-t-0";
 
 const GROUP = "rounded-card bg-card m-0 flex list-none flex-col px-4 py-0.5";
 
