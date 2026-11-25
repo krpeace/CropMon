@@ -34,6 +34,8 @@ croplib-dp (Python, 별도 저장소)  →  Supabase (DB)  →  이 저장소 (N
 - **파비콘·앱 아이콘** (이슈 #29): Next.js 파일 규칙에 따라 `src/app/` 에 `favicon.ico`(16·32·48), `icon.png`(512×512), `apple-icon.png`(180×180, iOS 흰 배경)를 둡니다. `<head>` 연결 태그가 자동으로 들어가므로 직접 `<link>` 나 `metadata.icons` 를 쓰지 않습니다.
 - `e2e` — 실제 브라우저로 쪽을 열어 보는 화면 테스트(Playwright).
 
+- `/robots.txt` — `src/app/robots.ts` 가 만듭니다(결정 0073). AI 학습 로봇은 전부 막고, 나머지는 메뉴 기본 주소만 보게 하며 물음표 조합 주소 · 개인 · 내부 주소는 막습니다.
+
 ## 화면 공통 규칙
 
 - **디자인 토큰**: 색·글꼴·글자 크기·모서리·그림자·배치 기준 폭은 `src/app/tokens.css` 한 곳에 둡니다. 화면은 토큰 이름(`bg-brand`, `text-15`, `rounded-card` …)만 씁니다. Tailwind 기본 색·글자 크기·모서리는 지워 두어, 토큰에 없는 값은 효과가 없습니다.
