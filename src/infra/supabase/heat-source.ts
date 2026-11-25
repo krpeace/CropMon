@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { HeatSeries } from "./accum-series";
 import { getSupabaseClient } from "./client";
 import { nums, TIMEOUT_MS, unwrap, type Result } from "./water-source";
 
 /**
- * 온도 화면이 읽는 DB 자료 (데이터 계약 v1.4, 결정 0013). 읽기만 한다. 공개 키(anon)로 읽고, 권한은 RLS 가 막는다.
+ * 온도 화면이 읽는 DB 자료 (데이터 계약 v2.2 heat_series_daily, 결정 0013 · 0063 · 0072). 읽기만 한다.
+ * 지점 × 적산온도 계열(기준온도 · 누적 시작 월-일)로 읽는다. 작물 → 계열은 accum-series 가 찾는다. 공개 키(anon)로 읽고, 권한은 RLS 가 막는다.
  * 열은 필요한 것만 적는다. 읽는 방식(8초 제한, 재시도 끔)은 물 화면(water-source)과 같다.
  */
 
@@ -31,35 +33,36 @@ export type HeatLatestRow = {
 
 /** 온도 화면에 필요한 읽기. 서비스는 이 모양만 알고, 테스트에서는 가짜를 넣는다. */
 export type HeatSource = {
-  /** 그해 1월 1일 ~ 12월 31일, 날짜 순 (아직 오지 않은 날은 평년 값만). */
-  year(stnId: string, cropId: string, year: number): Promise<HeatRow[]>;
+  /** 그해 1월 1일 ~ 12월 31일(계열 줄이 있는 날만 — 누적 시작 전 날은 줄이 없다), 날짜 순 (아직 오지 않은 날은 평년 값만). */
+  year(stnId: string, series: HeatSeries, year: number): Promise<HeatRow[]>;
   /** 여러 지점의 한 날 값 (한 번에). */
   onDate(
     stnIds: string[],
-    cropId: string,
+    series: HeatSeries,
     date: string,
   ): Promise<HeatLatestRow[]>;
   /** 여러 지점의 최근 며칠 중 올해 값이 있는 줄, 날짜 순 (onDate 에 없는 지점 보충). */
   recent(
     stnIds: string[],
-    cropId: string,
+    series: HeatSeries,
     from: string,
     until: string,
   ): Promise<HeatLatestRow[]>;
   /** 작물 사전의 적산온도 단계. 없으면 null. */
   stages(cropId: string): Promise<number[] | null>;
   /** 이 지점 줄 중 가장 늦은 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 줄이 없으면 null. */
-  lastUpdated(stnId: string): Promise<string | null>;
+  lastUpdated(stnId: string, series: HeatSeries): Promise<string | null>;
 };
 
 export const COLUMNS = {
-  heat_daily:
+  heat_series:
     "date,t_base_c,gdd_day,gdd_cum,gdd_normal_cum,lead_days,normal_from,normal_to,filled",
   heat_latest: "stn_id,date,lead_days,gdd_cum,gdd_normal_cum",
   updated: "updated_at",
   crops: "gdd_stages",
 } as const;
 
+const TABLE = "heat_series_daily";
 const TEXT = ["stn_id", "date"];
 const PAGE_SIZE = 1000;
 
@@ -73,14 +76,15 @@ export function createHeatSource(
   ) => unwrap(table, await r).map((x) => nums(x, TEXT));
 
   return {
-    year: (stnId, cropId, year) =>
+    year: (stnId, series, year) =>
       many<HeatRow>(
-        "heat_daily",
+        TABLE,
         client
-          .from("heat_daily")
-          .select(COLUMNS.heat_daily)
+          .from(TABLE)
+          .select(COLUMNS.heat_series)
           .eq("stn_id", stnId)
-          .eq("crop_id", cropId)
+          .eq("t_base_c", series.tBaseC)
+          .eq("cum_start_mmdd", series.cumStartMmdd)
           .gte("date", `${year}-01-01`)
           .lte("date", `${year}-12-31`)
           .order("date")
@@ -88,32 +92,34 @@ export function createHeatSource(
           .retry(false)
           .abortSignal(signal()),
       ),
-    onDate: (stnIds, cropId, date) =>
+    onDate: (stnIds, series, date) =>
       stnIds.length === 0
         ? Promise.resolve([])
         : many<HeatLatestRow>(
-            "heat_daily",
+            TABLE,
             client
-              .from("heat_daily")
+              .from(TABLE)
               .select(COLUMNS.heat_latest)
               .in("stn_id", stnIds)
-              .eq("crop_id", cropId)
+              .eq("t_base_c", series.tBaseC)
+              .eq("cum_start_mmdd", series.cumStartMmdd)
               .eq("date", date)
               .retry(false)
               .abortSignal(signal()),
           ),
-    recent: async (stnIds, cropId, from, until) => {
+    recent: async (stnIds, series, from, until) => {
       if (stnIds.length === 0) return [];
       const all: HeatLatestRow[] = [];
       let pageFrom = 0;
       while (true) {
         const batch = await many<HeatLatestRow>(
-          "heat_daily",
+          TABLE,
           client
-            .from("heat_daily")
+            .from(TABLE)
             .select(COLUMNS.heat_latest)
             .in("stn_id", stnIds)
-            .eq("crop_id", cropId)
+            .eq("t_base_c", series.tBaseC)
+            .eq("cum_start_mmdd", series.cumStartMmdd)
             .gte("date", from)
             .lte("date", until)
             .not("gdd_cum", "is", null)
@@ -129,13 +135,15 @@ export function createHeatSource(
       }
       return all;
     },
-    lastUpdated: async (stnId) => {
+    lastUpdated: async (stnId, series) => {
       const rows = await many<{ updated_at: string }>(
-        "heat_daily",
+        TABLE,
         client
-          .from("heat_daily")
+          .from(TABLE)
           .select(COLUMNS.updated)
           .eq("stn_id", stnId)
+          .eq("t_base_c", series.tBaseC)
+          .eq("cum_start_mmdd", series.cumStartMmdd)
           .order("updated_at", { ascending: false })
           .limit(1)
           .retry(false)

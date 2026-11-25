@@ -4,6 +4,10 @@ import { connection } from "next/server";
 import type { Crop } from "@/domain/selection";
 import { CROP_DB_ID, koreanDate } from "@/domain/water-outlook";
 import { STATIONS } from "@/infra/stations";
+import {
+  createSeriesFinder,
+  seriesOrThrow,
+} from "@/infra/supabase/accum-series";
 import { createHeatSource } from "@/infra/supabase/heat-source";
 import { createSunSource } from "@/infra/supabase/sun-source";
 import {
@@ -39,16 +43,25 @@ export async function fetchHomeHeat(
   crop: Crop,
   today: string,
 ): Promise<Record<number, HeatLatest>> {
-  return readHeatLatest(createHeatSource(), CROP_DB_ID[crop], today, "active");
+  // 계열을 못 읽으면 던진다 → 캐시 저장 취소, 화면은 "자료 없음"
+  const { heat } = seriesOrThrow(
+    await createSeriesFinder().find(CROP_DB_ID[crop]),
+  );
+  if (!heat) return {}; // 적산온도를 안 내는 작형: 실패가 아니라 빈 표
+  return readHeatLatest(createHeatSource(), heat, today, "active");
 }
 
 /**
  * 종합 화면 적산일사 DB 읽기. 실패 시 Error를 던져 Next.js 캐시 저장을 취소한다 (결정 0017·0038·0040).
  */
 export async function fetchHomeSun(
+  crop: Crop,
   today: string,
 ): Promise<Record<number, SunLatest>> {
-  return readSunLatest(createSunSource(), today, "active");
+  const { sun } = seriesOrThrow(
+    await createSeriesFinder().find(CROP_DB_ID[crop]),
+  );
+  return readSunLatest(createSunSource(), sun, today, "active");
 }
 
 /**
@@ -86,13 +99,13 @@ async function cachedHeat(crop: Crop, today: string) {
 }
 
 /**
- * 종합 화면 적산일사 캐시 (작물 무관, 30분).
+ * 종합 화면 적산일사 캐시 (작물의 일사 계열마다 한 벌, 30분).
  * 실패 시 Error가 던져져 캐시 저장이 취소된다.
  */
-async function cachedSun(today: string) {
+async function cachedSun(crop: Crop, today: string) {
   "use cache";
   cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 });
-  return fetchHomeSun(today);
+  return fetchHomeSun(crop, today);
 }
 
 /**
@@ -106,7 +119,7 @@ export async function loadGrowth(crop: Crop): Promise<HomeGrowth> {
 
   const [heatResult, sunResult] = await Promise.allSettled([
     cachedHeat(crop, today),
-    cachedSun(today),
+    cachedSun(crop, today),
   ]);
 
   const heatOk = heatResult.status === "fulfilled";

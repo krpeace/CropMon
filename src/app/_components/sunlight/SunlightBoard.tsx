@@ -23,7 +23,7 @@ type Props = {
 
 /**
  * 햇빛 화면 (시안 그대로, 결정 0013·0016): 올해 쌓인 햇빛 → 적산일사 누적 → 월별 | 지역 비교 → 자료 상자.
- * 그 지점 sun_daily 줄이 없으면 "햇빛을 재지 않아요" 화면. 값은 DB(데이터 계약 v1.4 sun_daily)에서 읽는다.
+ * 그 지점 일사 계열 줄이 없으면 "햇빛을 재지 않아요" 화면. 값은 DB(데이터 계약 v2.2 sun_series_daily, 결정 0072)에서 읽는다.
  * 주소창(searchParams)을 읽는 부분은 <Suspense> 안에 둔다 (cacheComponents 규칙).
  */
 export function SunlightBoard({ searchParams }: Props) {
@@ -41,8 +41,8 @@ async function ResolvedSunlightBoard({ searchParams }: Props) {
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
   const today = koreanDate(new Date().toISOString());
   const view = await loadSunlight(selection, station, today);
-  // 자료 상자도 본문과 같은 기준: sun_daily 에 이 지점 줄이 있는가 (사전 measuresSunlight 는 쓰지 않는다, 결정 0035).
-  // 갱신 시각 = sun_daily 마지막 계산 시각(매일 09:20 heat-sun). 평년 기간도 DB 값으로 붙인다.
+  // 자료 상자도 본문과 같은 기준: sun_series_daily 에 이 지점 줄이 있는가 (사전 measuresSunlight 는 쓰지 않는다, 결정 0035).
+  // 갱신 시각 = sun_series_daily 마지막 계산 시각(매일 09:20 heat-sun). 평년 기간도 DB 값으로 붙인다.
   const base = getPageMeta(
     "sunlight",
     station,

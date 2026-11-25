@@ -1,3 +1,4 @@
+import { isBeforeSeason } from "@/domain/season";
 import type { Selection } from "@/domain/selection";
 import { nearestStations } from "@/domain/nearby";
 import {
@@ -8,11 +9,17 @@ import {
   sunSummary,
 } from "@/domain/sun";
 import {
+  CROP_DB_ID,
   extraCompareDateTag,
   koreanDate,
   observedBasis,
   summarizeObservedDates,
 } from "@/domain/water-outlook";
+import {
+  createSeriesFinder,
+  type SeriesLookup,
+  type SunSeries,
+} from "@/infra/supabase/accum-series";
 import {
   createSunSource,
   type SunRow,
@@ -25,7 +32,7 @@ import type { Station } from "./shell";
 import type { HeatDay } from "./temperature";
 
 /**
- * 햇빛 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.4, 결정 0013·0016).
+ * 햇빛 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.4·v2.2, 결정 0013·0016·0072).
  * 계산하지 않는다. 평년 대비 %·월별 합·가장 적은 달은 표시용 순수 함수(src/domain/sun.ts)로만 만든다.
  */
 
@@ -59,15 +66,19 @@ export type NearbyStation = {
 };
 
 export type SunlightView = {
-  /** data: 자료 있음 · notMeasured: 그 지점 sun_daily 줄이 없음 (햇빛을 재지 않음) · error: 읽지 못함 */
-  kind: "data" | "notMeasured" | "error";
+  /**
+   * data: 자료 있음 · notMeasured: 그 지점 일사 계열 줄이 없음 (햇빛을 재지 않음, 결정 0035) ·
+   * beforeSeason: 그 계열 누적 시작일 전 (날짜로 정함, 결정 0072 — notMeasured 보다 먼저 판단한다) ·
+   * needSeasonType: 작형이 필요함 · error: 읽지 못함
+   */
+  kind: "data" | "notMeasured" | "beforeSeason" | "needSeasonType" | "error";
   basis: string | null;
   /** "올해 햇빛은 평년의 96%" 또는 "자료 없음" */
   verdict: string;
   numbers: { thisYear: string; normal: string } | null;
   /** 마지막 관측일 "2026-10-24". 올해 누적이 아직 없으면 null. */
   observedDate: string | null;
-  /** 이 지점 sun_daily 를 마지막으로 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 모르면 null. */
+  /** 이 지점 sun_series_daily 를 마지막으로 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 모르면 null. */
   updatedAt: string | null;
   /** "평년보다 조금 적었어요. 3월이 가장 적었어요 (평년의 85%)." */
   summary: string | null;
@@ -96,7 +107,12 @@ const NEARBY_COUNT = 2;
 const NEARBY_LOOKBACK_DAYS = 14;
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
-type Deps = { createSource?: () => SunSource; now?: () => Date };
+type Deps = {
+  createSource?: () => SunSource;
+  /** 작물 → 적산 계열 찾기 (crop_accum_series 뷰). 시험에서는 가짜를 넣는다. */
+  findSeries?: (cropId: string) => Promise<SeriesLookup>;
+  now?: () => Date;
+};
 type Main = Omit<
   SunlightView,
   "today" | "compare" | "compareNote" | "compareProblem"
@@ -122,7 +138,11 @@ const EMPTY: Main = {
 export async function getSunlightView(
   selection: Selection,
   station: Station,
-  { createSource = () => createSunSource(), now = () => new Date() }: Deps = {},
+  {
+    createSource = () => createSunSource(),
+    findSeries = (cropId) => createSeriesFinder().find(cropId),
+    now = () => new Date(),
+  }: Deps = {},
 ): Promise<SunlightView> {
   const today = koreanDate(now().toISOString());
   let db: SunSource | null = null;
@@ -132,27 +152,54 @@ export async function getSunlightView(
     console.error("[sunlight] DB 연결 준비 실패:", error);
   }
 
+  // 일사 계열은 고른 작물에서 한 번만 찾아 본문과 지역 비교가 함께 쓴다.
+  const lookup: Lookup = findSeries(CROP_DB_ID[selection.crop]).then(
+    (l) => ({ ok: true as const, l }),
+    (e: unknown) => ({ ok: false as const, e }),
+  );
   const [main, compare] = await Promise.all([
-    readMain(db, station, today),
-    readCompare(db, selection.stationId, today),
+    readMain(db, station, today, lookup),
+    readCompare(db, selection.stationId, today, lookup),
   ]);
   return { ...main, ...compare, today };
 }
+
+type Lookup = Promise<
+  { ok: true; l: SeriesLookup } | { ok: false; e: unknown }
+>;
 
 async function readMain(
   db: SunSource | null,
   station: Station,
   today: string,
+  lookup: Lookup,
 ): Promise<Main> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
+    const looked = await lookup;
+    if (!looked.ok) throw looked.e;
+    if (looked.l.kind === "needSeasonType")
+      return {
+        ...EMPTY,
+        kind: "needSeasonType",
+        problem: "작형을 먼저 골라 주세요.",
+      };
+    if (looked.l.kind !== "ok") throw new Error("적산 계열을 찾지 못했어요");
+    const series = looked.l.sun;
+    // 작기 전은 줄이 있는지 보기 전에 날짜로 먼저 정한다 — 그래야 "재지 않아요"가 작기 전을 덮지 않는다 (결정 0072)
+    if (isBeforeSeason(today, series.cumStartMmdd))
+      return {
+        ...EMPTY,
+        kind: "beforeSeason",
+        problem: "아직 작기 전이에요.",
+      };
     const [rows, updatedAt] = await Promise.all([
-      db.year(String(station.id), Number(today.slice(0, 4))),
-      readUpdatedAt(db, station.id),
+      db.year(String(station.id), series, Number(today.slice(0, 4))),
+      readUpdatedAt(db, station.id, series),
     ]);
     // 햇빛을 재지 않는 지점은 DB 에 줄이 없거나 올해 유효 값(rs_cum_mj)이 모두 비어 있다 (stations.ts 가 아니라 DB 기준)
     if (!rows.some((r) => r.rs_cum_mj != null)) {
-      const nearby = await findNearbyMeasured(db, station.id, today);
+      const nearby = await findNearbyMeasured(db, station.id, today, series);
       return { ...EMPTY, kind: "notMeasured", nearby };
     }
     return { ...mainView(rows, today), updatedAt };
@@ -167,9 +214,13 @@ async function readMain(
 }
 
 /** 올린 시각만 못 읽어도 화면 자료는 보여 준다 (갱신 시각만 "자료 없음"). */
-async function readUpdatedAt(db: SunSource, stationId: number) {
+async function readUpdatedAt(
+  db: SunSource,
+  stationId: number,
+  series: SunSeries,
+) {
   try {
-    return await db.lastUpdated(String(stationId));
+    return await db.lastUpdated(String(stationId), series);
   } catch (error) {
     console.error("[sunlight] 계산 시각 읽기 실패:", error);
     return null;
@@ -228,6 +279,7 @@ async function findNearbyMeasured(
   db: SunSource,
   stationId: number,
   today: string,
+  series: SunSeries,
 ): Promise<NearbyStation[]> {
   const origin = STATIONS.find((s) => s.id === stationId);
   if (!origin) return [];
@@ -250,6 +302,7 @@ async function findNearbyMeasured(
     const measuredIds = new Set(
       await db.measured(
         candidates.map((c) => String(c.item.id)),
+        series,
         from,
         today,
       ),
@@ -317,20 +370,30 @@ async function readCompare(
   db: SunSource | null,
   selectedId: number,
   today: string,
+  lookup: Lookup,
 ): Promise<Pick<SunlightView, "compare" | "compareNote" | "compareProblem">> {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
+    const looked = await lookup;
+    if (!looked.ok) throw looked.e;
+    // 작형이 필요하면 읽을 계열이 없어 지역 비교는 비운다
+    if (looked.l.kind === "needSeasonType")
+      return { compare: [], compareNote: null, compareProblem: null };
+    if (looked.l.kind !== "ok") throw new Error("적산 계열을 찾지 못했어요");
+    const series = looked.l.sun;
     const isRep = STATIONS.some(
       (s) => s.id === selectedId && s.isRepresentative,
     );
     const [found, extra] = await Promise.all([
-      readSunLatest(db, today),
+      readSunLatest(db, series, today),
       isRep
         ? Promise.resolve<Record<number, SunLatest>>({})
-        : readSunLatest(db, today, "rep", [selectedId]).catch((error) => {
-            console.error("[sunlight] 선택 지점 지역 비교 읽기 실패:", error);
-            return {};
-          }),
+        : readSunLatest(db, series, today, "rep", [selectedId]).catch(
+            (error) => {
+              console.error("[sunlight] 선택 지점 지역 비교 읽기 실패:", error);
+              return {};
+            },
+          ),
     ]);
     return {
       ...buildSunCompare({ ...found, ...extra }, selectedId, today),

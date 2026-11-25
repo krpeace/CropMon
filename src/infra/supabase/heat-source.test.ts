@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import { COLUMNS, createHeatSource } from "./heat-source";
 
+const SERIES = { tBaseC: 4, cumStartMmdd: "01-01" };
+
 const SQL = readdirSync(join(process.cwd(), "supabase/migrations"))
   .filter((n) => n.endsWith(".sql"))
   .map((n) =>
@@ -59,12 +61,13 @@ describe("heat-source", () => {
 
   it("그해 1월 1일 ~ 12월 31일, 날짜 순", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
-    await createHeatSource(client).year("101", "apple", 2026);
+    await createHeatSource(client).year("101", SERIES, 2026);
     expect(calls).toEqual([
-      "from(heat_daily)",
-      `select(${JSON.stringify(COLUMNS.heat_daily)})`,
+      "from(heat_series_daily)",
+      `select(${JSON.stringify(COLUMNS.heat_series)})`,
       'eq("stn_id","101")',
-      'eq("crop_id","apple")',
+      'eq("t_base_c",4)',
+      'eq("cum_start_mmdd","01-01")',
       'gte("date","2026-01-01")',
       'lte("date","2026-12-31")',
       'order("date")',
@@ -74,16 +77,13 @@ describe("heat-source", () => {
 
   it("지역 비교는 지점 여러 곳을 한 번에, 날짜 하나로", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
-    await createHeatSource(client).onDate(
-      ["101", "216"],
-      "apple",
-      "2026-10-24",
-    );
+    await createHeatSource(client).onDate(["101", "216"], SERIES, "2026-10-24");
     expect(calls).toEqual([
-      "from(heat_daily)",
+      "from(heat_series_daily)",
       `select(${JSON.stringify(COLUMNS.heat_latest)})`,
       'in("stn_id",["101","216"])',
-      'eq("crop_id","apple")',
+      'eq("t_base_c",4)',
+      'eq("cum_start_mmdd","01-01")',
       'eq("date","2026-10-24")',
     ]);
   });
@@ -92,15 +92,16 @@ describe("heat-source", () => {
     const { client, calls } = fakeClient({ data: [], error: null });
     await createHeatSource(client).recent(
       ["119"],
-      "apple",
+      SERIES,
       "2026-10-11",
       "2026-10-24",
     );
     expect(calls).toEqual([
-      "from(heat_daily)",
+      "from(heat_series_daily)",
       `select(${JSON.stringify(COLUMNS.heat_latest)})`,
       'in("stn_id",["119"])',
-      'eq("crop_id","apple")',
+      'eq("t_base_c",4)',
+      'eq("cum_start_mmdd","01-01")',
       'gte("date","2026-10-11")',
       'lte("date","2026-10-24")',
       'not("gdd_cum","is",null)',
@@ -177,7 +178,7 @@ describe("heat-source", () => {
     const client = { from } as unknown as SupabaseClient;
     const db = createHeatSource(client);
     const stnIds = Array.from(new Set(mockRows.map((r) => r.stn_id)));
-    const result = await db.recent(stnIds, "apple", "2026-10-01", "2026-10-12");
+    const result = await db.recent(stnIds, SERIES, "2026-10-01", "2026-10-12");
 
     // 1. 고정 정렬 확인 (date asc, stn_id asc)
     expect(calls).toContain('order("date",{"ascending":true})');
@@ -209,7 +210,7 @@ describe("heat-source", () => {
       error: null,
     });
     expect(
-      await createHeatSource(client).onDate(["101"], "apple", "2026-10-24"),
+      await createHeatSource(client).onDate(["101"], SERIES, "2026-10-24"),
     ).toEqual([
       {
         stn_id: "101",
@@ -226,13 +227,15 @@ describe("heat-source", () => {
       data: [{ updated_at: "2026-11-08T00:20:05.123+00:00" }],
       error: null,
     });
-    expect(await createHeatSource(client).lastUpdated("101")).toBe(
+    expect(await createHeatSource(client).lastUpdated("101", SERIES)).toBe(
       "2026-11-08T00:20:05.123+00:00",
     );
     expect(calls).toEqual([
-      "from(heat_daily)",
+      "from(heat_series_daily)",
       `select(${JSON.stringify(COLUMNS.updated)})`,
       'eq("stn_id","101")',
+      'eq("t_base_c",4)',
+      'eq("cum_start_mmdd","01-01")',
       'order("updated_at",{"ascending":false})',
       "limit(1)",
     ]);
@@ -240,7 +243,9 @@ describe("heat-source", () => {
 
   it("줄이 없으면 마지막 계산 시각은 null", async () => {
     const { client } = fakeClient({ data: [], error: null });
-    expect(await createHeatSource(client).lastUpdated("101")).toBeNull();
+    expect(
+      await createHeatSource(client).lastUpdated("101", SERIES),
+    ).toBeNull();
   });
 
   it("작물 사전의 적산온도 단계", async () => {
@@ -263,7 +268,7 @@ describe("heat-source", () => {
       error: { message: "permission denied" },
     });
     await expect(
-      createHeatSource(client).year("101", "apple", 2026),
-    ).rejects.toThrow("heat_daily 읽기 실패: permission denied");
+      createHeatSource(client).year("101", SERIES, 2026),
+    ).rejects.toThrow("heat_series_daily 읽기 실패: permission denied");
   });
 });

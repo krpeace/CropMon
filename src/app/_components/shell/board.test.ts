@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Crop } from "@/domain/selection";
 import * as growthLatest from "@/services/growth-latest";
@@ -29,6 +29,23 @@ vi.mock("@/infra/supabase/heat-source", () => ({
 vi.mock("@/infra/supabase/sun-source", () => ({
   createSunSource: vi.fn(() => ({})),
 }));
+
+// 계열 찾기(crop_accum_series 뷰 읽기) 모킹. 시험마다 find 를 바꿔 끼운다.
+const find = vi.hoisted(() => vi.fn());
+vi.mock("@/infra/supabase/accum-series", async (orig) => ({
+  ...(await orig<typeof import("@/infra/supabase/accum-series")>()),
+  createSeriesFinder: vi.fn(() => ({ find })),
+}));
+const OK_SERIES = {
+  kind: "ok",
+  heat: { tBaseC: 4, cumStartMmdd: "01-01" },
+  sun: { cumStartMmdd: "01-01" },
+};
+beforeEach(() => {
+  // 중괄호 필수: 값을 돌려주면 vitest 가 그것을 시험 뒤 정리 함수로 부른다
+  find.mockReset();
+  find.mockResolvedValue(OK_SERIES);
+});
 
 describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
   describe("fetchStationBoard & loadBoard", () => {
@@ -110,7 +127,7 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
       };
       vi.spyOn(growthLatest, "readSunLatest").mockResolvedValueOnce(mockSun);
 
-      const result = await fetchHomeSun("2026-11-09");
+      const result = await fetchHomeSun("apple", "2026-11-09");
       expect(result).toBe(mockSun);
       expect(result[101]?.cum).toBe(4500);
       expect(result[212]).toBeUndefined();
@@ -121,8 +138,58 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
         new Error("sun_daily connection error"),
       );
 
-      await expect(fetchHomeSun("2026-11-09")).rejects.toThrow(
+      await expect(fetchHomeSun("apple", "2026-11-09")).rejects.toThrow(
         "sun_daily connection error",
+      );
+    });
+  });
+
+  describe("계열 찾기 (결정 0072)", () => {
+    it("찾은 계열을 읽기에 넘기고, 작물 번호로 뷰를 찾는다", async () => {
+      const spy = vi
+        .spyOn(growthLatest, "readHeatLatest")
+        .mockResolvedValueOnce({});
+      await fetchHomeHeat("cabbage", "2026-11-09");
+      expect(find).toHaveBeenCalledWith("kimchi_cabbage");
+      expect(spy.mock.calls[0]?.[1]).toEqual({
+        tBaseC: 4,
+        cumStartMmdd: "01-01",
+      });
+    });
+
+    it("일사도 그 작물의 일사 계열로 읽는다", async () => {
+      const spy = vi
+        .spyOn(growthLatest, "readSunLatest")
+        .mockResolvedValueOnce({});
+      await fetchHomeSun("apple", "2026-11-09");
+      expect(spy.mock.calls[0]?.[1]).toEqual({ cumStartMmdd: "01-01" });
+    });
+
+    it("적산온도 안 냄(heat null)은 던지지 않고 빈 표", async () => {
+      find.mockResolvedValueOnce({ ...OK_SERIES, heat: null });
+      await expect(fetchHomeHeat("apple", "2026-11-09")).resolves.toEqual({});
+    });
+
+    it("뷰를 읽지 못하면 Error 로 캐시 저장을 취소하고, 화면은 '자료 없음'(ok:false)으로 간다", async () => {
+      find.mockImplementation(async () => {
+        throw new Error("view down");
+      });
+      await expect(fetchHomeHeat("apple", "2026-11-09")).rejects.toThrow(
+        "view down",
+      );
+      await expect(fetchHomeSun("apple", "2026-11-09")).rejects.toThrow(
+        "view down",
+      );
+      const r = await loadGrowth("apple");
+      expect(r.heatOk).toBe(false);
+      expect(r.sunOk).toBe(false);
+      expect(r.heat).toEqual({});
+    });
+
+    it("작형이 필요하면 추측하지 않고 던진다", async () => {
+      find.mockResolvedValueOnce({ kind: "needSeasonType" });
+      await expect(fetchHomeHeat("apple", "2026-11-09")).rejects.toThrow(
+        /작형/,
       );
     });
   });

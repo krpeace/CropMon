@@ -156,7 +156,7 @@ export function listRegionPicker(
 }
 
 /**
- * 온도·햇빛 자료를 마지막으로 계산해 올린 시각(heat_daily·sun_daily 의 updated_at, 계약 v1.8)과
+ * 온도·햇빛 자료를 마지막으로 계산해 올린 시각(heat_series_daily·sun_series_daily 의 updated_at, 계약 v1.8)과
  * 마지막 관측일. 관측일을 모르면 date 는 null.
  */
 export type Calculated = { date: string | null; updatedAt: string } | null;
@@ -183,10 +183,10 @@ export function getPageMeta(
   // 물 화면은 DB 값으로 따로 만든다 (src/services/water.ts)
   page: Exclude<PageKey, "home" | "water">,
   station: Station,
-  /** 그 지점 온도·햇빛 자료의 마지막 계산 시각 (heat_daily·sun_daily). 모르면 null. */
+  /** 그 지점 온도·햇빛 자료의 마지막 계산 시각 (heat_series_daily·sun_series_daily). 모르면 null. */
   calculated: Calculated = null,
   /**
-   * 햇빛 화면 전용: sun_daily 에 이 지점 줄이 있는가 (DB 기준, 결정 0035).
+   * 햇빛 화면 전용: sun_series_daily 에 이 지점 일사 계열 줄이 있는가 (DB 기준, 결정 0035).
    * 사전(`measuresSunlight`)은 쓰지 않는다. 읽기에 실패했을 때는 줄이 있는 것으로 둔다.
    */
   measured = true,

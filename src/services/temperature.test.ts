@@ -7,7 +7,18 @@ import type {
   HeatSource,
 } from "@/infra/supabase/heat-source";
 
+import type { SeriesLookup } from "@/infra/supabase/accum-series";
+
 import { getTemperatureView } from "./temperature";
+
+const OK = (tBaseC: number | null, heatStart: string, sunStart = heatStart) =>
+  ({
+    kind: "ok",
+    heat: tBaseC == null ? null : { tBaseC, cumStartMmdd: heatStart },
+    sun: { cumStartMmdd: sunStart },
+  }) satisfies SeriesLookup;
+/** 사과 (4, 01-01): 지금 화면 작물은 모두 01-01 계열이다. */
+const FIND = async () => OK(4, "01-01");
 
 /**
  * 가짜 DB. 값은 지어낸 것이다. 오늘 = 2026-10-25 (한국), 마지막 관측일 = 10월 24일.
@@ -81,6 +92,7 @@ describe("getTemperatureView — 정상", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.problem).toBeNull();
     expect(v.basis).toBe("어제까지 관측 기준");
@@ -99,6 +111,7 @@ describe("getTemperatureView — 정상", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.updatedAt).toBe("2026-10-25T00:20:05.123+00:00");
     expect(v.observedDate).toBe("2026-10-24");
@@ -109,6 +122,7 @@ describe("getTemperatureView — 정상", () => {
       createSource: () =>
         source({ lastUpdated: async () => Promise.reject(new Error("x")) }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.updatedAt).toBeNull();
     expect(v.problem).toBeNull();
@@ -119,6 +133,7 @@ describe("getTemperatureView — 정상", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.stages).toEqual([
       // 3500 ÷ 14 = 250번째 날(9/7), 3500 ÷ 13 → 270번째 날(9/27)
@@ -148,6 +163,7 @@ describe("getTemperatureView — 정상", () => {
           stages: async () => [1300, 1500],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(slow.stages[0]).toMatchObject({
       thisYear: "5월 10일",
@@ -163,6 +179,7 @@ describe("getTemperatureView — 정상", () => {
           stages: async () => [1300, 1500],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(same.stages[0].lag).toEqual({ text: "평년과 같음", tone: "same" });
 
@@ -174,6 +191,7 @@ describe("getTemperatureView — 정상", () => {
           stages: async () => [5000, 5500],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(only.stages[0]).toMatchObject({
       reached: true,
@@ -186,6 +204,7 @@ describe("getTemperatureView — 정상", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source({ stages: async () => [1000, 5000] }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.stages[1]).toEqual({
       title: "적산온도 5,000℃",
@@ -200,6 +219,7 @@ describe("getTemperatureView — 정상", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.today).toBe("2026-10-25");
     expect(v.days).toHaveLength(365);
@@ -211,6 +231,7 @@ describe("getTemperatureView — 정상", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.compareProblem).toBeNull();
     expect(v.compare).toHaveLength(10);
@@ -230,28 +251,35 @@ describe("getTemperatureView — 정상", () => {
     expect(by.get("안동")).toMatchObject({ diff: null, text: "자료 없음" });
   });
 
-  it("배추는 DB 에서 kimchi_cabbage 로, 작물 공통은 common 으로 묻는다", async () => {
+  it("배추는 kimchi_cabbage 로, 작물 공통은 common 으로 계열을 찾고 사전 단계도 그 작물로 읽는다", async () => {
     const asked: string[] = [];
     await getTemperatureView({ stationId: 101, crop: "cabbage" }, CHUNCHEON, {
       createSource: () =>
         source({
-          year: async (_s, crop) => (asked.push(crop), yearRows()),
-          stages: async (crop) => (asked.push(crop), [300, 600]),
+          stages: async (crop) => (asked.push(`단계 ${crop}`), [300, 600]),
         }),
       now: NOW,
+      findSeries: async (crop) => (asked.push(`계열 ${crop}`), OK(5, "01-01")),
     });
-    expect(asked).toEqual(["kimchi_cabbage", "kimchi_cabbage"]);
+    expect(new Set(asked)).toEqual(
+      new Set(["계열 kimchi_cabbage", "단계 kimchi_cabbage"]),
+    );
 
     const askedCommon: string[] = [];
     await getTemperatureView({ stationId: 101, crop: "common" }, CHUNCHEON, {
       createSource: () =>
         source({
-          year: async (_s, crop) => (askedCommon.push(crop), yearRows()),
-          stages: async (crop) => (askedCommon.push(crop), [1000, 2000]),
+          stages: async (crop) => (askedCommon.push(`단계 ${crop}`), [1000]),
         }),
       now: NOW,
+      findSeries: async (crop) => (
+        askedCommon.push(`계열 ${crop}`),
+        OK(5, "01-01")
+      ),
     });
-    expect(askedCommon).toEqual(["common", "common"]);
+    expect(new Set(askedCommon)).toEqual(
+      new Set(["계열 common", "단계 common"]),
+    );
   });
 });
 
@@ -261,6 +289,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source({ year: async () => yearRows(null, 20) }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.verdict).toBe("평년보다 +2,079℃");
   });
@@ -269,6 +298,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source({ year: async () => yearRows(null, 13) }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.verdict).toBe("평년과 같아요");
   });
@@ -277,6 +307,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source({ year: async () => [] }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
     expect(v.verdict).toBe("자료 없음");
@@ -296,6 +327,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
       {
         createSource: () => source({ year: async () => [] }),
         now: NOW,
+        findSeries: FIND,
       },
     );
     expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
@@ -322,6 +354,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
       {
         createSource: () => source({ year: async () => [] }),
         now: NOW,
+        findSeries: FIND,
       },
     );
     expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
@@ -348,6 +381,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
       {
         createSource: () => source({ year: async () => [] }),
         now: NOW,
+        findSeries: FIND,
       },
     );
     expect(vOut.problem).toBe("이 지역·작물의 2026 적산온도가 아직 없어요.");
@@ -363,6 +397,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
           },
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.problem).toBe(
       "온도 자료를 불러오지 못했어요. 잠시 뒤 다시 확인해 주세요.",
@@ -384,6 +419,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
           },
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.problem).toBeNull();
     expect(v.compare).toEqual([]);
@@ -398,6 +434,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
         throw new Error("env");
       },
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.problem).not.toBeNull();
     expect(v.compareProblem).not.toBeNull();
@@ -409,6 +446,7 @@ describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
     const mixed = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(mixed.compareNote).toBe(
       `${OBSERVED_DATE_COPY.yesterdayValue} ${OBSERVED_DATE_COPY.mixedSuffix}`,
@@ -425,6 +463,7 @@ describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
           recent: async () => [],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(allYesterday.compareNote).toBeNull();
     expect(allYesterday.compare.every((r) => r.dateTag === null)).toBe(true);
@@ -442,6 +481,7 @@ describe("지역 비교 적산 기준일 다름 (후보 3 #128 PR 2)", () => {
           recent: async () => [],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(allPast.compareNote).toBe("10월 22일까지의 값이에요");
     expect(allPast.compare.every((r) => r.dateTag === null)).toBe(true);
@@ -477,6 +517,7 @@ describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
                 ],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.compareProblem).toBeNull();
     expect(v.compare).toHaveLength(11);
@@ -496,6 +537,7 @@ describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
     const v = await getTemperatureView(SEL_SEOUL, SEOUL, {
       createSource: () => source(),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.compareProblem).toBeNull();
     expect(v.compare).toHaveLength(11);
@@ -524,6 +566,7 @@ describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
           },
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.compareProblem).toBeNull();
     expect(v.compare).toHaveLength(11);
@@ -559,9 +602,91 @@ describe("대표 밖 지점 지역 비교 함께 표시 (#79)", () => {
               : [],
         }),
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.compareNote).toBeNull();
     expect(v.compare[0]).toMatchObject({ id: 108, dateTag: "10/21" });
     expect(v.compare.slice(1).every((r) => r.dateTag === null)).toBe(true);
+  });
+});
+
+describe("getTemperatureView — 계열 (결정 0072)", () => {
+  const sel = { stationId: 101, crop: "apple" as const };
+  const run = (
+    find: () => Promise<SeriesLookup>,
+    now: Date,
+    over: Partial<HeatSource> = {},
+  ) =>
+    getTemperatureView(sel, CHUNCHEON, {
+      createSource: () => source(over),
+      findSeries: find,
+      now: () => now,
+    });
+
+  it("소스에는 작물 번호가 아니라 찾은 계열을 넘긴다", async () => {
+    const seen: unknown[] = [];
+    await run(async () => OK(4.0, "01-01"), NOW(), {
+      year: async (_s, series) => (seen.push(series), yearRows()),
+      onDate: async (_i, series) => (seen.push(series), []),
+    });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const x of seen)
+      expect(x).toEqual({ tBaseC: 4, cumStartMmdd: "01-01" });
+  });
+
+  // 포도 비가림 (10, 04-20) 기준
+  const GRAPE = async () => OK(10, "04-20");
+  const empty = { year: async () => [], onDate: async () => [] };
+
+  it("작기 전: 시작일(04-20)보다 앞선 날은 줄이 없어도 '작기 전'이다 (04-19)", async () => {
+    const v = await run(GRAPE, new Date("2026-04-19T03:00:00Z"), empty);
+    expect(v.status).toBe("beforeSeason");
+    expect(v.failed).toBe(false);
+  });
+
+  it("작기 전: 줄이 있어도(평년 값만) 시작일 앞이면 '작기 전'이다", async () => {
+    const v = await run(GRAPE, new Date("2026-04-19T03:00:00Z"));
+    expect(v.status).toBe("beforeSeason");
+  });
+
+  it("시작일(04-20) 당일 · 줄 있음 → 정상", async () => {
+    const v = await run(GRAPE, new Date("2026-04-20T03:00:00Z"));
+    expect(v.status).toBe("ok");
+  });
+
+  it("시작일 뒤인데 줄이 없음 → '작기 전'이 아니라 '자료 없음'", async () => {
+    const v = await run(GRAPE, new Date("2026-06-01T03:00:00Z"), empty);
+    expect(v.status).toBe("noData");
+    expect(v.problem).toMatch(/아직 없어요/);
+  });
+
+  it("적산온도 안 냄(시설가온, heat null)은 따로 구별하고 DB 를 읽지 않는다", async () => {
+    let read = 0;
+    const v = await run(async () => OK(null, "01-01"), NOW(), {
+      year: async () => (read++, yearRows()),
+    });
+    expect(v.status).toBe("noHeat");
+    expect(read).toBe(0);
+  });
+
+  it("작형이 필요한 작물은 추측하지 않고 '작형 필요'", async () => {
+    const v = await run(async () => ({ kind: "needSeasonType" }), NOW());
+    expect(v.status).toBe("needSeasonType");
+  });
+
+  it("계열 뷰를 읽지 못하면 화면이 깨지지 않고 읽기 실패와 같은 '불러오지 못했어요'", async () => {
+    const v = await run(
+      async () => Promise.reject(new Error("view down")),
+      NOW(),
+    );
+    expect(v.status).toBe("error");
+    expect(v.failed).toBe(true);
+    expect(v.problem).toMatch(/불러오지 못했어요/);
+    expect(v.days).toEqual([]);
+  });
+
+  it("정상일 때 status 는 ok", async () => {
+    const v = await run(FIND, NOW());
+    expect(v.status).toBe("ok");
   });
 });
