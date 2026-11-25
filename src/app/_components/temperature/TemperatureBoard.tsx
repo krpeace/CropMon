@@ -19,7 +19,7 @@ type Props = {
 
 /**
  * 온도 화면 (시안 그대로, 결정 0013·0015): 생육 속도 → 적산온도 단계 → 누적 그래프 →
- * 저온요구량 | 지역 비교 → 자료 상자. 값은 DB(데이터 계약 v1.4 heat_daily)에서 읽는다.
+ * 저온요구량 | 지역 비교 → 자료 상자. 값은 DB(데이터 계약 v2.2 heat_series_daily, 결정 0072)에서 읽는다.
  * 주소창(searchParams)을 읽는 부분은 <Suspense> 안에 둔다 (cacheComponents 규칙).
  */
 export function TemperatureBoard({ searchParams }: Props) {
@@ -37,7 +37,7 @@ async function ResolvedTemperatureBoard({ searchParams }: Props) {
   await connection(); // 요청마다 DB를 읽는다 (미리 만들어 두지 않음)
   const today = koreanDate(new Date().toISOString());
   const view = await loadTemperature(selection, station, today);
-  // 자료 상자의 갱신 시각 = heat_daily 마지막 계산 시각(매일 09:20 heat-sun). 평년 기간도 DB 값으로 붙인다.
+  // 자료 상자의 갱신 시각 = heat_series_daily 마지막 계산 시각(매일 09:20 heat-sun). 평년 기간도 DB 값으로 붙인다.
   const base = getPageMeta(
     "temperature",
     station,

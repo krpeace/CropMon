@@ -166,6 +166,7 @@ async function fallbackTemperature(
     compare = [];
   }
   return {
+    status: "error",
     basis: null,
     verdict: "자료 없음",
     numbers: null,
@@ -191,7 +192,7 @@ async function fallbackSunlight(
   let compare: SunCompareRow[] = [];
   let compareNote: string | null = null;
   try {
-    const sunMap = await fetchHomeSun(today);
+    const sunMap = await fetchHomeSun(selection.crop, today);
     ({ compare, compareNote } = buildSunCompare(
       sunMap,
       selection.stationId,

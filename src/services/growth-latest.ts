@@ -1,6 +1,13 @@
 import type { Crop } from "@/domain/selection";
 import { addDays, CROP_DB_ID, koreanDate } from "@/domain/water-outlook";
 import {
+  createSeriesFinder,
+  seriesOrThrow,
+  type HeatSeries,
+  type SeriesLookup,
+  type SunSeries,
+} from "@/infra/supabase/accum-series";
+import {
   createHeatSource,
   type HeatLatestRow,
   type HeatSource,
@@ -79,7 +86,7 @@ function targetIds(
 
 export async function readHeatLatest(
   db: HeatSource,
-  cropId: string,
+  series: HeatSeries,
   today: string,
   stationScope: StationScope = "rep",
   stationIds?: readonly number[],
@@ -88,8 +95,8 @@ export async function readHeatLatest(
     today,
     targetIds(stationScope, stationIds),
     (r) => r.gdd_cum != null,
-    (ids, date) => db.onDate(ids, cropId, date),
-    (ids, from, until) => db.recent(ids, cropId, from, until),
+    (ids, date) => db.onDate(ids, series, date),
+    (ids, from, until) => db.recent(ids, series, from, until),
   );
   const out: Record<number, HeatLatest> = {};
   for (const [id, r] of rows) {
@@ -104,6 +111,7 @@ export async function readHeatLatest(
 
 export async function readSunLatest(
   db: SunSource,
+  series: SunSeries,
   today: string,
   stationScope: StationScope = "rep",
   stationIds?: readonly number[],
@@ -112,8 +120,8 @@ export async function readSunLatest(
     today,
     targetIds(stationScope, stationIds),
     (r) => r.rs_cum_mj != null,
-    (ids, date) => db.onDate(ids, date),
-    (ids, from, until) => db.recent(ids, from, until),
+    (ids, date) => db.onDate(ids, series, date),
+    (ids, from, until) => db.recent(ids, series, from, until),
   );
   const out: Record<number, SunLatest> = {};
   for (const [id, r] of rows) {
@@ -129,6 +137,8 @@ export async function readSunLatest(
 type Deps = {
   createHeat?: () => HeatSource;
   createSun?: () => SunSource;
+  /** 작물 → 적산 계열 찾기 (crop_accum_series 뷰). 시험에서는 가짜를 넣는다. */
+  findSeries?: (cropId: string) => Promise<SeriesLookup>;
   now?: () => Date;
   stationScope?: StationScope;
 };
@@ -139,16 +149,26 @@ export async function getHomeGrowth(
   {
     createHeat = () => createHeatSource(),
     createSun = () => createSunSource(),
+    findSeries = (cropId) => createSeriesFinder().find(cropId),
     now = () => new Date(),
     stationScope = "rep",
   }: Deps = {},
 ): Promise<HomeGrowth> {
   const today = koreanDate(now().toISOString());
+  // 계열 뷰를 못 읽으면 두 쪽 모두 읽기 실패("자료 없음")로 간다.
+  const lookup = findSeries(CROP_DB_ID[crop]).then(seriesOrThrow);
+  lookup.catch(() => {});
   const [heat, sun] = await Promise.all([
-    attempt("적산온도", () =>
-      readHeatLatest(createHeat(), CROP_DB_ID[crop], today, stationScope),
-    ),
-    attempt("적산일사", () => readSunLatest(createSun(), today, stationScope)),
+    attempt("적산온도", async () => {
+      const { heat } = await lookup;
+      // 적산온도를 안 내는 작형(시설가온)은 실패가 아니라 빈 표
+      if (!heat) return {};
+      return readHeatLatest(createHeat(), heat, today, stationScope);
+    }),
+    attempt("적산일사", async () => {
+      const { sun } = await lookup;
+      return readSunLatest(createSun(), sun, today, stationScope);
+    }),
   ]);
   return {
     heatOk: heat != null,

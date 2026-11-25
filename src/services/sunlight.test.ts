@@ -7,7 +7,18 @@ import type {
   SunSource,
 } from "@/infra/supabase/sun-source";
 
+import type { SeriesLookup } from "@/infra/supabase/accum-series";
+
 import { getSunlightView } from "./sunlight";
+
+const OK = (sunStart: string, heat = true) =>
+  ({
+    kind: "ok",
+    heat: heat ? { tBaseC: 4, cumStartMmdd: sunStart } : null,
+    sun: { cumStartMmdd: sunStart },
+  }) satisfies SeriesLookup;
+/** 지금 화면 작물은 모두 일사 01-01 계열이다. */
+const FIND = async () => OK("01-01");
 
 /**
  * 가짜 DB. 값은 지어낸 것이다. 오늘 = 2026-10-25 (한국), 마지막 관측일 = 10월 24일.
@@ -78,6 +89,7 @@ const SEL = { stationId: 101, crop: "apple" as const };
 const opts = (over: Partial<SunSource> = {}) => ({
   createSource: () => source(over),
   now: NOW,
+  findSeries: FIND,
 });
 
 describe("getSunlightView — 정상", () => {
@@ -235,6 +247,7 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
         throw new Error("env");
       },
       now: NOW,
+      findSeries: FIND,
     });
     expect(v.kind).toBe("error");
     expect(v.compareProblem).not.toBeNull();
@@ -440,12 +453,13 @@ describe("가까운 실측 지점 추천 (#78)", () => {
     const first = await getSunlightView(SEL_JINDO, JINDO, {
       createSource: () => db,
       now: NOW,
+      findSeries: FIND,
     });
     const rec = first.nearby[0];
     const next = await getSunlightView(
       { stationId: rec.id, crop: "apple" },
       { id: rec.id, name: rec.name, measuresSunlight: true },
-      { createSource: () => db, now: NOW },
+      { createSource: () => db, now: NOW, findSeries: FIND },
     );
     expect(next.kind).toBe("data");
   });
@@ -496,5 +510,72 @@ describe("가까운 실측 지점 추천 (#78)", () => {
     expect(v.kind).toBe("data");
     expect(v.nearby).toEqual([]);
     expect(calls).toBe(0);
+  });
+});
+
+describe("getSunlightView — 계열 (결정 0072)", () => {
+  const run = (
+    find: () => Promise<SeriesLookup>,
+    now: Date,
+    over: Partial<SunSource> = {},
+  ) =>
+    getSunlightView(SEL, CHUNCHEON, {
+      createSource: () => source(over),
+      findSeries: find,
+      now: () => now,
+    });
+  const GRAPE = async () => OK("04-20");
+
+  it("소스에는 찾은 일사 계열을 넘긴다 (작물 번호가 아니라)", async () => {
+    const seen: unknown[] = [];
+    await run(GRAPE, new Date("2026-10-25T03:00:00Z"), {
+      year: async (_s, series) => (seen.push(series), yearRows()),
+      onDate: async (_i, series) => (seen.push(series), []),
+    });
+    expect(seen.length).toBeGreaterThan(0);
+    for (const x of seen) expect(x).toEqual({ cumStartMmdd: "04-20" });
+  });
+
+  it("일사를 재는 지점 + 04-20 계열 + 3월 날짜 → 작기 전 ('재지 않아요'가 아님)", async () => {
+    const v = await run(GRAPE, new Date("2026-03-10T03:00:00Z"), {
+      year: async () => [],
+      measured: async () => ["101"],
+    });
+    expect(v.kind).toBe("beforeSeason");
+    expect(v.kind).not.toBe("notMeasured");
+  });
+
+  it("작기 전은 줄이 아직 하나도 없어도 '재지 않아요'를 덮는다 (04-19)", async () => {
+    const v = await run(GRAPE, new Date("2026-04-19T03:00:00Z"), {
+      year: async () => [],
+    });
+    expect(v.kind).toBe("beforeSeason");
+  });
+
+  it("시작일 당일부터는 지금처럼: 값이 있으면 data", async () => {
+    const v = await run(GRAPE, new Date("2026-10-25T03:00:00Z"));
+    expect(v.kind).toBe("data");
+  });
+
+  it("시작일 뒤인데 그 지점 줄이 없으면 '작기 전'이 아니라 '재지 않아요'(0035)", async () => {
+    const v = await run(GRAPE, new Date("2026-06-01T03:00:00Z"), {
+      year: async () => [],
+    });
+    expect(v.kind).toBe("notMeasured");
+  });
+
+  it("작형이 필요한 작물은 추측하지 않고 '작형 필요'", async () => {
+    const v = await run(async () => ({ kind: "needSeasonType" }), NOW());
+    expect(v.kind).toBe("needSeasonType");
+  });
+
+  it("계열 뷰를 읽지 못하면 화면이 깨지지 않고 읽기 실패 쪽(error · failed)", async () => {
+    const v = await run(
+      async () => Promise.reject(new Error("view down")),
+      NOW(),
+    );
+    expect(v.kind).toBe("error");
+    expect(v.failed).toBe(true);
+    expect(v.problem).toMatch(/불러오지 못했어요/);
   });
 });

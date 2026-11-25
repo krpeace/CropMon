@@ -8,6 +8,7 @@ import {
   stageLag,
   type StageLag,
 } from "@/domain/heat";
+import { isBeforeSeason } from "@/domain/season";
 import type { Selection } from "@/domain/selection";
 import {
   CROP_DB_ID,
@@ -16,6 +17,11 @@ import {
   observedBasis,
   summarizeObservedDates,
 } from "@/domain/water-outlook";
+import {
+  createSeriesFinder,
+  type HeatSeries,
+  type SeriesLookup,
+} from "@/infra/supabase/accum-series";
 import {
   createHeatSource,
   type HeatRow,
@@ -27,7 +33,7 @@ import { readHeatLatest, type HeatLatest } from "./growth-latest";
 import type { Station } from "./shell";
 
 /**
- * 온도 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.4, 결정 0013·0015·0032).
+ * 온도 화면에 필요한 값을 DB에서 읽어 화면용으로 정리한다 (데이터 계약 v1.4·v2.2, 결정 0013·0015·0032·0072).
  * 계산하지 않는다. 숫자는 반올림해 문구로 바꾸고, 단계 도달일은 표에서 처음 넘는 날을 찾기만 한다.
  */
 
@@ -62,7 +68,16 @@ export type CompareRow = {
   dateTag: string | null;
 };
 
+/**
+ * 온도 자료 상태 (결정 0072). 화면 글자는 G1 이 정한다 — 지금은 구별만 해 둔다.
+ * ok 정상 · beforeSeason 그 계열 누적 시작일 전(날짜로 정함) · noHeat 적산온도 안 냄(시설가온 등) ·
+ * needSeasonType 작형이 필요함 · noData 시작일 뒤인데 줄이 없음("자료 없음") · error 읽지 못함
+ */
+export type HeatStatus =
+  "ok" | "beforeSeason" | "noHeat" | "needSeasonType" | "noData" | "error";
+
 export type TemperatureView = {
+  status: HeatStatus;
   /** "어제까지 관측 기준" */
   basis: string | null;
   /** "평년보다 +180℃" · "평년과 같아요" · "자료 없음" */
@@ -70,7 +85,7 @@ export type TemperatureView = {
   numbers: { thisYear: string; normal: string; diff: string } | null;
   /** 마지막 관측일 "2026-10-24". 올해 누적이 아직 없으면 null. */
   observedDate: string | null;
-  /** 이 지점 heat_daily 를 마지막으로 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 모르면 null. */
+  /** 이 지점 heat_series_daily 를 마지막으로 올린 시각 (매일 09:20 heat-sun, 계약 v1.8). 모르면 null. */
   updatedAt: string | null;
   /** 계산에 쓴 기준온도 (℃) */
   baseTemp: number | null;
@@ -92,7 +107,12 @@ export type TemperatureView = {
 const NO_DATA = "자료 없음";
 const nf = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
-type Deps = { createSource?: () => HeatSource; now?: () => Date };
+type Deps = {
+  createSource?: () => HeatSource;
+  /** 작물 → 적산 계열 찾기 (crop_accum_series 뷰). 시험에서는 가짜를 넣는다. */
+  findSeries?: (cropId: string) => Promise<SeriesLookup>;
+  now?: () => Date;
+};
 
 type Main = Omit<
   TemperatureView,
@@ -100,6 +120,7 @@ type Main = Omit<
 >;
 
 const EMPTY: Main = {
+  status: "error",
   basis: null,
   verdict: NO_DATA,
   numbers: null,
@@ -118,6 +139,7 @@ export async function getTemperatureView(
   station: Station,
   {
     createSource = () => createHeatSource(),
+    findSeries = (cropId) => createSeriesFinder().find(cropId),
     now = () => new Date(),
   }: Deps = {},
 ): Promise<TemperatureView> {
@@ -130,11 +152,56 @@ export async function getTemperatureView(
     console.error("[temperature] DB 연결 준비 실패:", error);
   }
 
+  // 계열은 한 번만 찾아 본문과 지역 비교가 함께 쓴다. 못 읽으면 둘 다 읽기 실패와 같은 쪽으로 간다.
+  const lookup: Lookup = findSeries(cropId).then(
+    (l) => ({ ok: true as const, l }),
+    (e: unknown) => ({ ok: false as const, e }),
+  );
   const [main, compare] = await Promise.all([
-    readMain(db, station, cropId, today),
-    readCompare(db, selection.stationId, cropId, today),
+    readMain(db, station, cropId, today, lookup),
+    readCompare(db, selection.stationId, today, lookup),
   ]);
   return { ...main, ...compare, today };
+}
+
+type Lookup = Promise<
+  { ok: true; l: SeriesLookup } | { ok: false; e: unknown }
+>;
+
+/** 읽을 계열이 있으면 그 계열, 없으면(작형 필요 · 안 냄 · 작기 전) 그 이유를 담은 본문. */
+function pickHeat(
+  l: SeriesLookup,
+  today: string,
+): { series: HeatSeries } | { main: Main } {
+  if (l.kind === "needSeasonType") {
+    return {
+      main: {
+        ...EMPTY,
+        status: "needSeasonType",
+        problem: "작형을 먼저 골라 주세요.",
+      },
+    };
+  }
+  if (l.kind !== "ok") throw new Error("적산 계열을 찾지 못했어요");
+  if (!l.heat) {
+    return {
+      main: {
+        ...EMPTY,
+        status: "noHeat",
+        problem: "이 작형은 적산온도를 계산하지 않아요.",
+      },
+    };
+  }
+  if (isBeforeSeason(today, l.heat.cumStartMmdd)) {
+    return {
+      main: {
+        ...EMPTY,
+        status: "beforeSeason",
+        problem: "아직 작기 전이에요.",
+      },
+    };
+  }
+  return { series: l.heat };
 }
 
 async function readMain(
@@ -142,18 +209,25 @@ async function readMain(
   station: Station,
   cropId: string,
   today: string,
+  lookup: Lookup,
 ): Promise<Main> {
   const year = Number(today.slice(0, 4));
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
+    const looked = await lookup;
+    if (!looked.ok) throw looked.e;
+    const picked = pickHeat(looked.l, today);
+    if ("main" in picked) return picked.main;
+    const series = picked.series;
     const [rows, stages, updatedAt] = await Promise.all([
-      db.year(String(station.id), cropId, year),
+      db.year(String(station.id), series, year),
       db.stages(cropId),
-      readUpdatedAt(db, station.id),
+      readUpdatedAt(db, station.id, series),
     ]);
     if (rows.length === 0) {
       return {
         ...EMPTY,
+        status: "noData",
         problem: `이 지역·작물의 ${year} 적산온도가 아직 없어요.`,
       };
     }
@@ -169,9 +243,13 @@ async function readMain(
 }
 
 /** 올린 시각만 못 읽어도 화면 자료는 보여 준다 (갱신 시각만 "자료 없음"). */
-async function readUpdatedAt(db: HeatSource, stationId: number) {
+async function readUpdatedAt(
+  db: HeatSource,
+  stationId: number,
+  series: HeatSeries,
+) {
   try {
-    return await db.lastUpdated(String(stationId));
+    return await db.lastUpdated(String(stationId), series);
   } catch (error) {
     console.error("[temperature] 계산 시각 읽기 실패:", error);
     return null;
@@ -189,6 +267,7 @@ function mainView(
   const first = rows[0];
 
   return {
+    status: "ok",
     basis: last ? observedBasis(last.date, today) : null,
     verdict: heatVerdict(cum, last?.gdd_normal_cum ?? null),
     numbers:
@@ -269,21 +348,29 @@ export function buildHeatCompare(
 async function readCompare(
   db: HeatSource | null,
   selectedId: number,
-  cropId: string,
   today: string,
+  lookup: Lookup,
 ): Promise<
   Pick<TemperatureView, "compare" | "compareNote" | "compareProblem">
 > {
   try {
     if (!db) throw new Error("DB 연결 정보 없음");
+    const looked = await lookup;
+    if (!looked.ok) throw looked.e;
+    const l = looked.l;
+    if (l.kind === "notFound") throw new Error("적산 계열을 찾지 못했어요");
+    // 적산온도를 안 내거나 작형이 필요하면 읽을 계열이 없어 지역 비교는 비운다
+    if (l.kind === "needSeasonType" || !l.heat)
+      return { compare: [], compareNote: null, compareProblem: null };
+    const series = l.heat;
     const isRep = STATIONS.some(
       (s) => s.id === selectedId && s.isRepresentative,
     );
     const [found, extra] = await Promise.all([
-      readHeatLatest(db, cropId, today),
+      readHeatLatest(db, series, today),
       isRep
         ? Promise.resolve<Record<number, HeatLatest>>({})
-        : readHeatLatest(db, cropId, today, "rep", [selectedId]).catch(
+        : readHeatLatest(db, series, today, "rep", [selectedId]).catch(
             (error) => {
               console.error(
                 "[temperature] 선택 지점 지역 비교 읽기 실패:",

@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 
 import { COLUMNS, createSunSource } from "./sun-source";
 
+const SERIES = { cumStartMmdd: "01-01" };
+const SERIES_EQ = 'eq("cum_start_mmdd","01-01")';
+
 const SQL = readdirSync(join(process.cwd(), "supabase/migrations"))
   .filter((n) => n.endsWith(".sql"))
   .map((n) =>
@@ -58,11 +61,12 @@ describe("sun-source", () => {
 
   it("그해 1월 1일 ~ 12월 31일, 날짜 순", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
-    await createSunSource(client).year("101", 2026);
+    await createSunSource(client).year("101", SERIES, 2026);
     expect(calls).toEqual([
-      "from(sun_daily)",
-      `select(${JSON.stringify(COLUMNS.sun_daily)})`,
+      "from(sun_series_daily)",
+      `select(${JSON.stringify(COLUMNS.sun_series)})`,
       'eq("stn_id","101")',
+      SERIES_EQ,
       'gte("date","2026-01-01")',
       'lte("date","2026-12-31")',
       'order("date")',
@@ -72,22 +76,29 @@ describe("sun-source", () => {
 
   it("지역 비교는 지점 여러 곳을 한 번에, 날짜 하나로", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
-    await createSunSource(client).onDate(["101", "216"], "2026-10-24");
+    await createSunSource(client).onDate(["101", "216"], SERIES, "2026-10-24");
     expect(calls).toEqual([
-      "from(sun_daily)",
+      "from(sun_series_daily)",
       `select(${JSON.stringify(COLUMNS.sun_latest)})`,
       'in("stn_id",["101","216"])',
+      SERIES_EQ,
       'eq("date","2026-10-24")',
     ]);
   });
 
   it("빠진 지점은 최근 며칠 중 올해 값이 있는 줄로 보충", async () => {
     const { client, calls } = fakeClient({ data: [], error: null });
-    await createSunSource(client).recent(["119"], "2026-10-11", "2026-10-24");
+    await createSunSource(client).recent(
+      ["119"],
+      SERIES,
+      "2026-10-11",
+      "2026-10-24",
+    );
     expect(calls).toEqual([
-      "from(sun_daily)",
+      "from(sun_series_daily)",
       `select(${JSON.stringify(COLUMNS.sun_latest)})`,
       'in("stn_id",["119"])',
+      SERIES_EQ,
       'gte("date","2026-10-11")',
       'lte("date","2026-10-24")',
       'not("rs_cum_mj","is",null)',
@@ -119,6 +130,10 @@ describe("sun-source", () => {
         ),
         in: (col: string, vals: unknown[]) => (
           calls.push(`in(${JSON.stringify(col)},${JSON.stringify(vals)})`),
+          builder
+        ),
+        eq: (col: string, val: unknown) => (
+          calls.push(`eq(${JSON.stringify(col)},${JSON.stringify(val)})`),
           builder
         ),
         gte: (col: string, val: unknown) => (
@@ -159,7 +174,7 @@ describe("sun-source", () => {
     const client = { from } as unknown as SupabaseClient;
     const db = createSunSource(client);
     const stnIds = Array.from(new Set(mockRows.map((r) => r.stn_id)));
-    const result = await db.recent(stnIds, "2026-10-01", "2026-10-12");
+    const result = await db.recent(stnIds, SERIES, "2026-10-01", "2026-10-12");
 
     // 1. 고정 정렬 확인 (date asc, stn_id asc)
     expect(calls).toContain('order("date",{"ascending":true})');
@@ -189,16 +204,16 @@ describe("sun-source", () => {
       ],
       error: null,
     });
-    expect(await createSunSource(client).onDate(["101"], "2026-10-24")).toEqual(
-      [
-        {
-          stn_id: "101",
-          date: "2026-10-24",
-          rs_cum_mj: 3218.4,
-          rs_normal_cum_mj: 3352,
-        },
-      ],
-    );
+    expect(
+      await createSunSource(client).onDate(["101"], SERIES, "2026-10-24"),
+    ).toEqual([
+      {
+        stn_id: "101",
+        date: "2026-10-24",
+        rs_cum_mj: 3218.4,
+        rs_normal_cum_mj: 3352,
+      },
+    ]);
   });
 
   it("마지막 계산 시각: 그 지점 줄 중 가장 늦은 updated_at 한 줄 (v1.8)", async () => {
@@ -206,13 +221,14 @@ describe("sun-source", () => {
       data: [{ updated_at: "2026-11-08T00:20:05.123+00:00" }],
       error: null,
     });
-    expect(await createSunSource(client).lastUpdated("101")).toBe(
+    expect(await createSunSource(client).lastUpdated("101", SERIES)).toBe(
       "2026-11-08T00:20:05.123+00:00",
     );
     expect(calls).toEqual([
-      "from(sun_daily)",
+      "from(sun_series_daily)",
       `select(${JSON.stringify(COLUMNS.updated)})`,
       'eq("stn_id","101")',
+      SERIES_EQ,
       'order("updated_at",{"ascending":false})',
       "limit(1)",
     ]);
@@ -220,7 +236,7 @@ describe("sun-source", () => {
 
   it("줄이 없으면(햇빛을 재지 않는 지점) 마지막 계산 시각은 null", async () => {
     const { client } = fakeClient({ data: [], error: null });
-    expect(await createSunSource(client).lastUpdated("216")).toBeNull();
+    expect(await createSunSource(client).lastUpdated("216", SERIES)).toBeNull();
   });
 
   it("DB 오류는 표 이름과 함께 던진다 (서비스가 잡아 '자료 없음'으로 바꾼다)", async () => {
@@ -228,8 +244,25 @@ describe("sun-source", () => {
       data: null,
       error: { message: "permission denied" },
     });
-    await expect(createSunSource(client).year("101", 2026)).rejects.toThrow(
-      "sun_daily 읽기 실패: permission denied",
-    );
+    await expect(
+      createSunSource(client).year("101", SERIES, 2026),
+    ).rejects.toThrow("sun_series_daily 읽기 실패: permission denied");
+  });
+
+  it("measured: 그 일사 계열 줄 중 값이 있는 지점만, 계열 조건으로 읽는다", async () => {
+    const { client, calls } = fakeClient({
+      data: [{ stn_id: "101" }, { stn_id: "101" }],
+      error: null,
+    });
+    expect(
+      await createSunSource(client).measured(
+        ["101"],
+        SERIES,
+        "2026-10-11",
+        "2026-10-24",
+      ),
+    ).toEqual(["101"]);
+    expect(calls[0]).toBe("from(sun_series_daily)");
+    expect(calls).toContain(SERIES_EQ);
   });
 });

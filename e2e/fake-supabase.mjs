@@ -560,14 +560,71 @@ for (const date of yearDays) {
   });
 }
 
+// 적산 계열 새 표 (결정 0063 · 0072). 옛 표 값과 같은 숫자를 계열 키(기준온도 · 누적 시작)로 옮긴다.
+// 사과 (4, 01-01) · 배추 = 작물 공통 (5, 01-01) · 일사 01-01. 배추와 공통은 같은 계열이라 한 벌만 둔다.
+// 포도 비가림 (10, 04-20) 줄은 화면이 아직 안 읽으므로 두지 않는다 (G1).
+const heat_series_daily = heat_daily
+  .filter((r) => r.crop_id === "apple" || r.crop_id === "common")
+  .map((r) => {
+    const row = { ...r, cum_start_mmdd: "01-01" };
+    delete row.crop_id; // 새 표에는 작물 열이 없다
+    return row;
+  });
+const sun_series_daily = sun_daily.map((r) => ({
+  ...r,
+  cum_start_mmdd: "01-01",
+}));
+// 계열 목록 뷰 (crop_accum_series). 운영 뷰의 5줄과 같은 모양. 숫자는 문자로 와도(4.0) 화면이 수로 읽는다.
+const crop_accum_series = [
+  {
+    crop_id: "apple",
+    season_type_id: "apple-main",
+    heat_t_base_c: 4,
+    heat_cum_start_mmdd: "01-01",
+    sun_cum_start_mmdd: "01-01",
+  },
+  {
+    crop_id: "kimchi_cabbage",
+    season_type_id: "kimchi_cabbage-summer",
+    heat_t_base_c: 5,
+    heat_cum_start_mmdd: "01-01",
+    sun_cum_start_mmdd: "01-01",
+  },
+  {
+    crop_id: "grape",
+    season_type_id: "grape-rainshelter",
+    heat_t_base_c: 10,
+    heat_cum_start_mmdd: "04-20",
+    sun_cum_start_mmdd: "04-20",
+  },
+  {
+    crop_id: "grape",
+    season_type_id: "grape-heated",
+    heat_t_base_c: null,
+    heat_cum_start_mmdd: null,
+    sun_cum_start_mmdd: "01-01",
+  },
+  {
+    crop_id: "common",
+    season_type_id: null,
+    heat_t_base_c: 5,
+    heat_cum_start_mmdd: "01-01",
+    sun_cum_start_mmdd: "01-01",
+  },
+];
+
+// 옛 표는 화면이 읽으면 안 된다 (결정 0072): 읽으면 오류를 돌려줘 e2e 가 깨지게 한다.
+const OLD_TABLES = new Set(["heat_daily", "sun_daily"]);
+
 const TABLES = {
   stations,
   crops,
   soil_types,
   soil_water_daily,
   soil_water_latest,
-  heat_daily,
-  sun_daily,
+  heat_series_daily,
+  sun_series_daily,
+  crop_accum_series,
   weather_daily,
   crop_kc_sets: kcSets,
   scenarios,
@@ -1160,6 +1217,11 @@ http
     // 태백(216)만 묻는 읽기는 일부러 오류 (여러 지점을 한꺼번에 묻는 읽기는 정상)
     if (/eq\.216\b|eq\.216-/.test(decodeURIComponent(url.search))) {
       return send(500, { message: "가짜 오류 (화면 테스트)" });
+    }
+    if (OLD_TABLES.has(table)) {
+      return send(500, {
+        message: `옛 표 ${table} 는 화면이 읽지 않는다 (결정 0072)`,
+      });
     }
     const rows = TABLES[table];
     if (!rows) return send(404, { message: `없는 표 ${table}` });
