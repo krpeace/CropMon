@@ -1508,13 +1508,17 @@ describe("사전 자료: 포도 적산온도 단계 (v2.4, 결정 0070, 이슈 #
   const newSource = () =>
     flat.match(/source = '((?:[^']|'')*)'/)?.[1].replace(/''/g, "'") ?? "";
 
-  it("새 시드 파일이 있고 이름 순서가 기존 마지막 마이그레이션보다 뒤다", () => {
+  it("새 시드 파일이 있고, 이름 순서가 뒤인 마이그레이션은 적산 단계 값을 건드리지 않는다", () => {
     expect(SEED_GRAPE_GDD).not.toBe("");
-    const last = readdirSync(join(process.cwd(), "supabase/migrations"))
-      .filter((n) => n !== "20261121000000_seed_grape_gdd_stages.sql")
-      .sort()
-      .at(-1)!;
-    expect("20261121000000_seed_grape_gdd_stages.sql" > last).toBe(true);
+    const dir = join(process.cwd(), "supabase/migrations");
+    const touching = readdirSync(dir)
+      .filter((n) => n > "20261121000000_seed_grape_gdd_stages.sql")
+      .filter((n) =>
+        /\bgdd_stage(s|_labels)\b/.test(
+          readFileSync(join(dir, n), "utf8").replace(/--.*$/gm, ""),
+        ),
+      );
+    expect(touching).toEqual([]);
     // 포도 작목 줄을 만드는 옛 시드보다도 뒤라야 이 값이 덮이지 않는다
     expect(
       "20261121000000_seed_grape_gdd_stages.sql" >

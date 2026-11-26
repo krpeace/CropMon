@@ -107,7 +107,7 @@ describe("getSunlightView — 정상", () => {
     expect(v.normalPeriod).toBe("2016–2025");
   });
 
-  it("마지막 계산 시각(sun_daily 올린 시각)과 마지막 관측일을 함께 준다", async () => {
+  it("마지막 계산 시각(sun_series_daily 올린 시각)과 마지막 관측일을 함께 준다", async () => {
     const v = await getSunlightView(SEL, CHUNCHEON, opts());
     expect(v.updatedAt).toBe("2026-10-25T00:20:05.123+00:00");
     expect(v.observedDate).toBe("2026-10-24");
@@ -164,7 +164,7 @@ describe("getSunlightView — 정상", () => {
 });
 
 describe("getSunlightView — 재지 않는 지점·실패", () => {
-  it("sun_daily 에 그 지점 줄이 없으면 '햇빛을 재지 않는 지점'", async () => {
+  it("sun_series_daily 에 그 지점 줄이 없으면 '햇빛을 재지 않는 지점'", async () => {
     const v = await getSunlightView(
       { stationId: 192, crop: "apple" },
       { id: 192, name: "진주", measuresSunlight: true },
@@ -177,7 +177,7 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
     expect(v.compare).toHaveLength(10);
   });
 
-  it("sun_daily 에 365줄이 있어도 rs_cum_mj 가 모두 null(미측정 7개 지점 유형)이면 '햇빛을 재지 않는 지점'", async () => {
+  it("sun_series_daily 에 365줄이 있어도 rs_cum_mj 가 모두 null(미측정 7개 지점 유형)이면 '햇빛을 재지 않는 지점'", async () => {
     const nullOnlyYearRows: SunRow[] = yearRows().map((r) => ({
       ...r,
       rs_day_mj: null,
@@ -209,7 +209,7 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
       CHUNCHEON,
       opts({
         year: async () => {
-          throw new Error("sun_daily 읽기 실패: 가짜 오류");
+          throw new Error("sun_series_daily 읽기 실패: 가짜 오류");
         },
       }),
     );
@@ -230,7 +230,7 @@ describe("getSunlightView — 재지 않는 지점·실패", () => {
       CHUNCHEON,
       opts({
         onDate: async () => {
-          throw new Error("sun_daily 읽기 실패: 가짜 오류");
+          throw new Error("sun_series_daily 읽기 실패: 가짜 오류");
         },
       }),
     );

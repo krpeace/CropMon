@@ -107,7 +107,7 @@ test("종합: 카드와 전국 표에 '예시' 글자가 없고, 생육 칸은 D
   const chuncheon = table.getByRole("link", { name: /^춘천/ });
   await expect(chuncheon).toContainText("+192℃");
   await expect(chuncheon).toContainText("96%");
-  // 광주는 평년보다 늦고, 진주는 일사 자료(sun_daily)가 없다
+  // 광주는 평년보다 늦고, 진주는 일사 자료(sun_series_daily)가 없다
   await expect(table.getByRole("link", { name: /^광주/ })).toContainText(
     "-50℃",
   );

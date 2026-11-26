@@ -112,11 +112,11 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
 
     it("적산온도 DB 읽기 실패 시 Error를 던져 캐시 저장을 취소한다", async () => {
       vi.spyOn(growthLatest, "readHeatLatest").mockRejectedValueOnce(
-        new Error("heat_daily timeout"),
+        new Error("heat_series_daily timeout"),
       );
 
       await expect(fetchHomeHeat("apple", "2026-11-09")).rejects.toThrow(
-        "heat_daily timeout",
+        "heat_series_daily timeout",
       );
     });
 
@@ -135,11 +135,11 @@ describe("board 캐시 안전성 및 실패 캐시 방지 (#106)", () => {
 
     it("적산일사 DB 읽기 실패 시 Error를 던져 캐시 저장을 취소한다", async () => {
       vi.spyOn(growthLatest, "readSunLatest").mockRejectedValueOnce(
-        new Error("sun_daily connection error"),
+        new Error("sun_series_daily connection error"),
       );
 
       await expect(fetchHomeSun("apple", "2026-11-09")).rejects.toThrow(
-        "sun_daily connection error",
+        "sun_series_daily connection error",
       );
     });
   });

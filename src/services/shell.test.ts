@@ -174,8 +174,8 @@ describe("getPageMeta", () => {
   const chuncheon = getStation(101)!;
   const taebaek = getStation(216)!;
 
-  // 햇빛 자료 상자의 '자료 없음'은 사전(measuresSunlight)이 아니라 sun_daily 에 이 지점 줄이 있는지(DB)로 정한다
-  it("sun_daily 에 줄이 없는 지점은 햇빛 화면이 모두 '자료 없음'이다", () => {
+  // 햇빛 자료 상자의 '자료 없음'은 사전(measuresSunlight)이 아니라 sun_series_daily 에 이 지점 줄이 있는지(DB)로 정한다
+  it("sun_series_daily 에 줄이 없는 지점은 햇빛 화면이 모두 '자료 없음'이다", () => {
     expect(getPageMeta("sunlight", taebaek, null, false)).toEqual({
       source: "기상청 ASOS 태백(216) 일사 관측 · 자료 없음",
       issue: "자료 없음",
@@ -184,7 +184,7 @@ describe("getPageMeta", () => {
     });
   });
 
-  it("사전은 '관측 안 함'이어도 sun_daily 자료가 있으면 자료를 보여 준다", () => {
+  it("사전은 '관측 안 함'이어도 sun_series_daily 자료가 있으면 자료를 보여 준다", () => {
     expect(getPageMeta("sunlight", taebaek, calculated)).toEqual({
       source: "기상청 ASOS 태백(216) 일사 관측",
       issue: "해당 없음 (관측 자료)",
@@ -193,7 +193,7 @@ describe("getPageMeta", () => {
     });
   });
 
-  it("사전은 '관측함'이어도 sun_daily 줄이 없으면 '자료 없음'이다", () => {
+  it("사전은 '관측함'이어도 sun_series_daily 줄이 없으면 '자료 없음'이다", () => {
     expect(getPageMeta("sunlight", chuncheon, null, false)).toMatchObject({
       source: "기상청 ASOS 춘천(101) 일사 관측 · 자료 없음",
       issue: "자료 없음",
@@ -210,7 +210,7 @@ describe("getPageMeta", () => {
     });
   });
 
-  // 온도·햇빛 자료 상자는 heat_daily·sun_daily 의 마지막 계산 시각(updated_at)을 쓴다 (계약 v1.8)
+  // 온도·햇빛 자료 상자는 heat_series_daily·sun_series_daily 의 마지막 계산 시각(updated_at)을 쓴다 (계약 v1.8)
   const calculated = {
     date: "2026-10-24",
     updatedAt: "2026-10-25T00:20:05.123+00:00", // 09:20 KST

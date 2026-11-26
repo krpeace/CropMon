@@ -2,9 +2,10 @@
 
 계산 저장소(croplib-dp, Python)가 Supabase에 올리는 자료와, 이 웹이 읽는 자료의 약속입니다. 테이블을 바꾸면 이 문서와 `supabase/migrations/`를 같은 PR에서 고치고 버전을 올립니다. `src/infra/supabase/contract.test.ts`가 이 문서의 테이블 목록과 마이그레이션이 같은지 자동으로 검사합니다.
 
-## 현재 버전: v2.4 (2026-11-21)
+## 현재 버전: v2.5 (2026-11-26)
 
-- **v2.4:** (구조 그대로, 사전 값만) 포도 작목 `crops.grape`의 적산온도 단계와 단계 이름을 넣었습니다 (`supabase/migrations/20261121000000_seed_grape_gdd_stages.sql`, 이슈 #201, 결정 0070). `gdd_stages` = `{370,1040,2050}`, `gdd_stage_labels` = `{"만개","변색기","수확기"}`(croplib-dp #126 확정값), `source` 글 뒤에 근거를 덧붙였습니다 — **비가림 04-20 기준**, 기준온도 10℃, 평년 2016–2025, 다섯 지점(구미 · 영천 · 상주 · 추풍령 · 거창) 평균을 10 단위로 반올림. 단계는 작목 한 줄에 붙지만 적산온도를 내는 작형은 비가림(`cum_start_mmdd = '04-20'`)뿐이라 사실상 비가림의 값입니다. 표 · 열 · 권한 · croplib-dp 업로드는 바뀌지 않았고 **지금 화면도 바뀌지 않습니다**(`stages()`를 부르는 길이 작물 공통 · 사과 · 배추뿐이라 포도 값은 G1 · G2 에서 처음 쓰입니다). 확인 SQL `supabase/checks/grape_gdd_check.sql`, 되돌리기 `grape_gdd_rollback.sql`. **다음 구조 변경(D1-3 3단계 또는 F1)은 v2.5 가 됩니다.**
+- **v2.5:** 옛 적산 표 `heat_daily` · `sun_daily`를 지웠습니다 (`supabase/migrations/20261126000000_data_contract_v2_5_drop_old_accum.sql`, 이슈 #211, 결정 0074, D1-3 3단계 ②). 같은 값은 계열 표 `heat_series_daily` · `sun_series_daily`(v2.2)에 있고, 화면은 결정 0072부터, croplib-dp는 2026-11-26 09:20 회차부터 옛 표를 쓰지 않습니다. 옛 표에 지난 해 줄은 없었고, 옛 `heat_daily`의 포도 줄(10℃ · 1월 1일 누적, 새 표에 같은 계열 없음 · 화면에서 안 씀)만 사라졌습니다. **되돌릴 수 없습니다**(`supabase/checks/d1_3b_drop_old_rollback.sql`은 빈 표만 다시 만듭니다). 새 표 · 뷰 · 권한 · croplib-dp 업로드는 바뀌지 않습니다. 확인 SQL `supabase/checks/d1_3b_drop_old_check.sql`. **다음 구조 변경은 v2.6이 됩니다.** 아래 이전 판 설명의 `heat_daily` · `sun_daily`는 그때의 기록입니다.
+- **v2.4:** (구조 그대로, 사전 값만) 포도 작목 `crops.grape`의 적산온도 단계와 단계 이름을 넣었습니다 (`supabase/migrations/20261121000000_seed_grape_gdd_stages.sql`, 이슈 #201, 결정 0070). `gdd_stages` = `{370,1040,2050}`, `gdd_stage_labels` = `{"만개","변색기","수확기"}`(croplib-dp #126 확정값), `source` 글 뒤에 근거를 덧붙였습니다 — **비가림 04-20 기준**, 기준온도 10℃, 평년 2016–2025, 다섯 지점(구미 · 영천 · 상주 · 추풍령 · 거창) 평균을 10 단위로 반올림. 단계는 작목 한 줄에 붙지만 적산온도를 내는 작형은 비가림(`cum_start_mmdd = '04-20'`)뿐이라 사실상 비가림의 값입니다. 표 · 열 · 권한 · croplib-dp 업로드는 바뀌지 않았고 **지금 화면도 바뀌지 않습니다**(`stages()`를 부르는 길이 작물 공통 · 사과 · 배추뿐이라 포도 값은 G1 · G2 에서 처음 쓰입니다). 확인 SQL `supabase/checks/grape_gdd_check.sql`, 되돌리기 `grape_gdd_rollback.sql`.
 
 - **v2.3:** 회원제의 동의 기록을 더했습니다 (`supabase/migrations/20261120200000_data_contract_v2_3_consent.sql`, 이슈 #191, 결정 0065). ① 함수 `public.record_my_consent(p_terms_version, p_privacy_version)` — 로그인한 회원이 동의 다섯 열(`terms_version` · `terms_agreed_at` · `privacy_version` · `privacy_confirmed_at` · `age14_confirmed_at`)을 **DB 시각 `now()` 한 값**으로 한 번에 씁니다. ② **회원이 동의 다섯 열을 직접 고치는 권한을 회수**했습니다(v2.0 에서는 열 단위 권한으로 고칠 수 있었음 — 동의 시각을 아무 값으로나 쓸 수 있어 기록으로서 약했음). 직접 고칠 수 있는 열은 `display_name` · `layout` · `font_scale` · `theme` 네 개로 줄었습니다. ③ 도우미 `public.member_has_consented()`와 `farms` · `irrigation_logs`의 **넣기 · 고치기 정책에 "동의한 회원만"** 을 더했습니다(읽기 · 지우기는 그대로 — 판이 바뀌어 다시 동의를 기다리는 회원도 자기 자료를 보고 지울 수 있음). 화면 막기는 편의이고 진짜 막이는 이 RLS 입니다(결정 0061 · 0065). 기존 공개 표와 croplib-dp 업로드는 바뀌지 않습니다. **⚠ v2.1 파일(`20261120000000_data_contract_v2_1_farms.sql`)을 나중에 다시 실행했다면 v2.3 파일도 이어서 다시 실행하세요** — v2.1 파일이 네 정책을 `drop policy` + `create policy`로 다시 만들어 "동의한 회원만" 조건이 빠지기 때문입니다(옛 마이그레이션 파일은 고치지 않습니다).
 
@@ -15,7 +16,7 @@
 - **v1.9:** 작물 공통 토양 물 상태(`soil_water_daily`)의 지점·토성별 최신 1줄을 돌려주는 뷰 `soil_water_latest`를 더했습니다 (`supabase/migrations/20261108010000_data_contract_v1_9.sql`, 이슈 #82). 한국 기준 최근 7일 이내(`date >= ((now() at time zone 'Asia/Seoul')::date - 7)`)의 지점·토성별 최신 1줄만 돌려주며, 전 지점 확대(croplib-dp #28 S2) 때 1,000줄 제한 절단으로 인한 지점 누락을 막고 화면 읽기량을 줄입니다. 정렬 가속을 위한 복합 색인 `(stn_id, soil_code, date desc)`도 함께 더했습니다. 관측 일자료(`weather_daily`)에는 일사 산출 출처(`rs_source`) 칸을 더했습니다 (`supabase/migrations/20261108030000_weather_daily_rs_source.sql`, croplib-dp #28 C7, #76 선행). ETo 계산에 쓴 일사가 관측(`observed`), 일조시간 추정(`sunshine`), 기온차 추정(`temp_range`) 중 무엇인지 남기며, 비어 있으면 일사 없음입니다.
 - **v1.8:** 적산온도(`heat_daily`)·적산일사(`sun_daily`)에 올린 시각 `updated_at`을 더했습니다. 온도·햇빛 화면의 "마지막 갱신 시각"은 이 열의 지점별 가장 늦은 값(매일 09:20 KST `heat-sun`이 올린 시각)을 보여 줍니다. croplib-dp는 고치지 않아도 됩니다. 줄을 고쳐 쓸 때(upsert 포함) DB의 트리거가 `updated_at`을 지금으로 바꿉니다 (`supabase/migrations/20261108000000_data_contract_v1_8.sql`, 결정 0035). 물 화면은 그대로 물 회차 시각을 씁니다.
 
-- 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.4 적산온도 `heat_daily`·적산일사 `sun_daily` + v1.5 작물 공통 토양 물 상태 `soil_water_daily`)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블). v2.0부터 회원 표 `members`(공개 표가 아님, 자기 줄만)와 운영용 `ops.withdrawn_accounts`가 따로 있습니다. v2.1부터 농장 표 7개(`farms` · `farm_seasons` · `irrigation_logs` · `farm_calc_status` · `farm_water_daily` · `farm_water_outlook` · `farm_water_outlook_summary`)가 더해졌고, 이 표들도 공개 표가 아닙니다(회원 본인 줄만, 비회원은 아무 권한 없음). v2.2부터 적산 계열 표 2개(`heat_series_daily` · `sun_series_daily`)가 더해져 공개 표는 16개입니다.
+- 11/06 공개에 필요한 공개 테이블 14개(v1 9개 + v1.1 재배 방식별 Kc `crop_kc_sets` + v1.3 3일 전망 요약 `water_outlook_summary` + v1.5 작물 공통 토양 물 상태 `soil_water_daily` + v2.2 적산 계열 표 2개 `heat_series_daily`·`sun_series_daily`. v1.4의 `heat_daily`·`sun_daily`는 v2.5에서 지움)와, 연결 확인용 `app_health`가 있습니다 (총 15개 테이블). v2.0부터 회원 표 `members`(공개 표가 아님, 자기 줄만)와 운영용 `ops.withdrawn_accounts`가 따로 있습니다. v2.1부터 농장 표 7개(`farms` · `farm_seasons` · `irrigation_logs` · `farm_calc_status` · `farm_water_daily` · `farm_water_outlook` · `farm_water_outlook_summary`)가 더해졌고, 이 표들도 공개 표가 아닙니다(회원 본인 줄만, 비회원은 아무 권한 없음).
 - 회원제는 두 번에 나눠 더했습니다. **v2.0**은 회원 표 `members`와 탈퇴(이슈 #178), **v2.1**은 개인 테이블(내 농장, 작기, 관수 기록, 계산 상태 · 결과)과 포도 사전(이슈 #184)입니다. 농장별 보정값(`crop_overrides`)은 그 뒤 판입니다.
 - 지점 사전(`stations`)은 v1.6에서 기상청 ASOS 지점 105곳(현행 운영 97곳 + 폐지·휴지 보존 8곳)으로 현행화하고, 지역 고르기에 필요한 열(`sido`, `is_representative`, `is_active`, `measures_sunlight`, `synced_at`)을 더했습니다. 물 계산(관측 일자료 기반 물수지·토양수분)은 운영 97곳(`is_active = true`), 단기예보 물수지·전망은 `has_forecast = true`(대표 10곳, croplib-dp S4에서 20곳씩 확대)를 대상으로 합니다. 운영 97곳의 단기예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`로 미리 채워 둡니다.
 - 작물 공통(흙만 본 물 상태)은 v1.5에서 더했습니다. "기준작물(잔디)" 대신 **"작물 공통"**으로 부르며, 고정 조건(겉흙 깊이 0.5 m, 증발 수요 = ETo × 1.0, p = 0.40, 3/1에 Dr = 0(포장용수량)으로 시작, 지표유출·모관상승 0, FAO-56 식 (84)~(88))으로 계산합니다.
@@ -83,11 +84,9 @@
 | `water_balance_daily`               | 관측 물수지와 그날 상태                     | 매일                          | 조건 × 날짜                                  |
 | `water_outlook`                     | 앞으로 3일 전망                             | 회차마다                      | 회차 × 조건 × 대상일                         |
 | `water_outlook_summary`             | 3일 전망 요약 (관수 필요 예상일)            | 회차마다                      | 회차 × 조건                                  |
-| `heat_daily`                        | 적산온도와 평년 (v1.4)                      | 매일                          | 지점 × 작물 × 날짜                           |
-| `sun_daily`                         | 적산일사와 평년 (v1.4)                      | 매일                          | 지점 × 날짜                                  |
 | `soil_water_daily`                  | 작물 공통 토양 물 상태 (v1.5)               | 매일                          | 지점 × 토성 × 날짜                           |
-| `heat_series_daily` (v2.2)          | 적산온도 계열 × 날짜 (기준온도 · 누적 시작) | croplib-dp (2단계부터)        | 지점 × 기준온도 × 누적 시작 × 날짜           |
-| `sun_series_daily` (v2.2)           | 적산일사 계열 × 날짜 (누적 시작)            | croplib-dp (2단계부터)        | 지점 × 누적 시작 × 날짜                      |
+| `heat_series_daily` (v2.2)          | 적산온도 계열 × 날짜 (기준온도 · 누적 시작) | croplib-dp (매일)             | 지점 × 기준온도 × 누적 시작 × 날짜           |
+| `sun_series_daily` (v2.2)           | 적산일사 계열 × 날짜 (누적 시작)            | croplib-dp (매일)             | 지점 × 누적 시작 × 날짜                      |
 | `app_health`                        | 연결 확인용                                 | 처음 한 번                    | 행 하나                                      |
 | `members` (v2.0)                    | 회원: 표시 이름·동의·화면 설정              | 가입 트리거 + 회원 본인       | 회원 한 사람                                 |
 | `farms` (v2.1)                      | 농장: 지점 · 흙 · 면적 · 작물 설정          | 회원 본인                     | 회원 한 사람의 농장                          |
@@ -100,7 +99,7 @@
 
 ## 테이블별 열
 
-만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거는 `20261108000000_data_contract_v1_8.sql`이 더합니다. `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다. `weather_daily`의 `rs_source` 열은 `20261108030000_weather_daily_rs_source.sql`이 더합니다. DB 크기 측정 함수 `db_size_bytes()`는 `20261108050000_db_size_bytes.sql`이 만듭니다.
+만드는 파일은 `supabase/migrations/20261024000000_data_contract_v1.sql`입니다. `crop_kc_sets`와 `scenarios.kc_set_id`는 `20261024020000_data_contract_v1_1.sql`, `app_health`는 `20261022000000_app_health.sql`입니다. `water_outlook.lead_day`의 범위와 Storage 버킷 `raw`는 `20261024040000_data_contract_v1_2.sql`이 고치고, `water_outlook_summary`는 `20261025000000_data_contract_v1_3.sql`, `heat_daily`·`sun_daily`와 작물 사전의 `t_base_c`·`gdd_stages`는 `20261026000000_data_contract_v1_4.sql`이 만듭니다. `soil_water_daily` 표와 `soil_types.is_estimated` 열은 `20261028000000_data_contract_v1_5.sql`이 만들고, 추정 토성 3종 값과 작물 공통(common) 사전은 `20261028010000_seed_soil_estimates.sql`이 넣습니다. `stations`의 현행화 열 5개는 `20261028020000_data_contract_v1_6.sql`이 더하고, 기상청 ASOS 105곳 사전 값은 `20261028030000_seed_stations_asos.sql`이 넣습니다. 2027년 계산 조건은 `20261107000000_seed_scenarios_2027.sql`이 넣습니다. `heat_daily`·`sun_daily`의 올린 시각 `updated_at`과 갱신 트리거 함수 `set_updated_at()`은 `20261108000000_data_contract_v1_8.sql`이 더합니다. 이 두 표는 `20261126000000_data_contract_v2_5_drop_old_accum.sql`이 지웁니다(함수는 계열 표가 계속 씁니다). `soil_water_latest` 뷰와 복합 색인은 `20261108010000_data_contract_v1_9.sql`이 더합니다. 운영 97곳의 예보 격자(`grid_nx`, `grid_ny`)는 `20261108020000_seed_stations_forecast_grid.sql`이 넣습니다. `weather_daily`의 `rs_source` 열은 `20261108030000_weather_daily_rs_source.sql`이 더합니다. DB 크기 측정 함수 `db_size_bytes()`는 `20261108050000_db_size_bytes.sql`이 만듭니다.
 
 ### `public.stations`
 
@@ -398,43 +397,9 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 - 날짜로 바꾸는 법: 예상일 k번째 날 = 그 회차의 주 지표 첫날 + (k − 1)일. 아침 회차의 첫날은 그날(D+0), 저녁 회차는 다음 날(D+1)입니다.
 - 나중에 7일·14일로 늘리면 `horizon_days`만 바뀌고 표 구조는 그대로입니다.
 
-### `public.heat_daily`
-
-> v2.2부터 같은 값을 계열 키로 담는 새 표 `heat_series_daily`가 있습니다(위 · 아래 "적산 계열은 세 단계로 바꿉니다"). 이 표는 3단계까지 그대로 쓰고, 3단계에서 지웁니다.
-> **화면은 결정 0072부터 이 표를 읽지 않습니다(새 표를 읽음). 3-②에서 지웁니다.**
-
-적산온도입니다(v1.4). 온도 화면과 종합 화면이 읽습니다. 키는 지점 × 작물 × 날짜(`stn_id`, `crop_id`, `date`)입니다. 그해 1월 1일부터 12월 31일까지 줄이 있고, 아직 오지 않은 날은 올해 값이 비어 있고 평년 값만 있습니다(그래프의 평년 선).
-
-| 열                                 | 형식            | 뜻                                                                                                                                                         |
-| ---------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `t_base_c`                         | 수              | 계산에 쓴 기준온도 (℃)                                                                                                                                     |
-| `gdd_day`, `gdd_cum`               | 수, 비어도 됨   | 올해 그날 적산온도 = max((최고+최저)/2 − 기준온도, 0), 1월 1일부터의 합 (℃)                                                                                |
-| `gdd_normal_day`, `gdd_normal_cum` | 수, 비어도 됨   | 평년 그날 값(같은 날의 10년 평균)과 1월 1일부터의 합                                                                                                       |
-| `lead_days`                        | 정수, 비어도 됨 | 평년보다 며칠 빠른가 (+ 빠름, − 늦음): 평년 누적이 올해 그날 누적에 닿는 날과 그날의 차. 화면은 쓰지 않고 `gdd_cum − gdd_normal_cum`을 보여 줌 (결정 0032) |
-| `normal_from`, `normal_to`         | 정수            | 평년 기간 (2016, 2025)                                                                                                                                     |
-| `filled`                           | 참/거짓         | 기온 결측을 채운 날                                                                                                                                        |
-| `calc_version`                     | 문자            | 계산 버전                                                                                                                                                  |
-| `updated_at`                       | 시각            | 올린 시각 (v1.8). 줄을 고쳐 쓰면 DB 트리거가 지금으로 바꿈. 화면은 지점별 가장 늦은 값을 "마지막 갱신 시각"으로 보여 줌                                    |
-
-### `public.sun_daily`
-
-> v2.2부터 같은 값을 계열 키로 담는 새 표 `sun_series_daily`가 있습니다. 이 표는 3단계까지 그대로 쓰고, 3단계에서 지웁니다.
-> **화면은 결정 0072부터 이 표를 읽지 않습니다(새 표를 읽음). 3-②에서 지웁니다.**
-
-적산일사입니다(v1.4). 햇빛 화면과 종합 화면이 읽습니다. 키는 지점 × 날짜입니다. 일사를 재지 않는 지점은 줄이 없거나 `rs_cum_mj`가 비어 있으며, 화면은 "자료 없음"(미측정)을 보여 줍니다.
-
-| 열                                     | 형식          | 뜻                                                   |
-| -------------------------------------- | ------------- | ---------------------------------------------------- |
-| `rs_day_mj`, `rs_cum_mj`               | 수, 비어도 됨 | 올해 그날 일사량과 1월 1일부터의 합 (MJ/m²)          |
-| `rs_normal_day_mj`, `rs_normal_cum_mj` | 수, 비어도 됨 | 평년 그날 값(같은 날의 10년 평균)과 1월 1일부터의 합 |
-| `normal_from`, `normal_to`             | 정수          | 평년 기간 (2016, 2025)                               |
-| `filled`                               | 참/거짓       | 일사 결측을 채운 날                                  |
-| `calc_version`                         | 문자          | 계산 버전                                            |
-| `updated_at`                           | 시각          | 올린 시각 (v1.8). `heat_daily`와 같음                |
-
 ### `public.heat_series_daily`
 
-적산온도 **계열** × 날짜입니다(v2.2, 결정 0063, D1-3 1단계). 적산온도는 **작목 기준온도와 기상청 기온만으로** 계산하므로 값을 가르는 것은 작물이 아니라 **기준온도**와 **어느 날부터 더하느냐(누적 시작 월-일)** 둘뿐입니다. 이 짝을 "적산 계열"이라 부릅니다. 누구나 읽기만 가능하고 쓰기는 croplib-dp의 서버 키만 합니다. 키는 계열 × 날짜(`stn_id`, `t_base_c`, `cum_start_mmdd`, `date`)이고 **`crop_id` 열은 없습니다**. 값 열은 옛 `heat_daily`와 같습니다.
+적산온도 **계열** × 날짜입니다(v2.2, 결정 0063, D1-3 1단계). 적산온도는 **작목 기준온도와 기상청 기온만으로** 계산하므로 값을 가르는 것은 작물이 아니라 **기준온도**와 **어느 날부터 더하느냐(누적 시작 월-일)** 둘뿐입니다. 이 짝을 "적산 계열"이라 부릅니다. 누구나 읽기만 가능하고 쓰기는 croplib-dp의 서버 키만 합니다. 키는 계열 × 날짜(`stn_id`, `t_base_c`, `cum_start_mmdd`, `date`)이고 **`crop_id` 열은 없습니다**. 온도 화면과 종합 화면이 읽습니다. 아직 오지 않은 날은 올해 값이 비어 있고 평년 값만 있습니다(그래프의 평년 선). 그날 적산온도 = max((최고+최저)/2 − 기준온도, 0)(℃)이고, 화면은 `lead_days`를 쓰지 않고 `gdd_cum − gdd_normal_cum`을 보여 줍니다(결정 0032). 화면의 "마지막 갱신 시각"은 지점별 가장 늦은 `updated_at`입니다.
 
 | 열                                                       | 형식            | 뜻                                                                                                          |
 | -------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -447,16 +412,16 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 | `normal_from`, `normal_to`                               | 정수            | 평년 기간(연도)                                                                                             |
 | `filled`                                                 | 참/거짓         | 채운 기상 값의 영향을 받는 날                                                                               |
 | `calc_version`                                           | 문자            | 계산 버전                                                                                                   |
-| `updated_at`                                             | 시각            | 올린(고친) 시각. 고쳐 쓸 때(upsert 포함) 트리거가 지금으로 갱신 (옛 표와 같음)                              |
+| `updated_at`                                             | 시각            | 올린(고친) 시각. 고쳐 쓸 때(upsert 포함) 트리거가 지금으로 갱신                                             |
 
 - croplib-dp 쓰기: PostgREST `on_conflict=stn_id,t_base_c,cum_start_mmdd,date`. `t_base_c`는 **숫자로** 보냅니다.
 - **누적 시작 전 날은 줄이 없습니다**(croplib-dp 회신, 결정 0063): 계열마다 **그해 누적 시작일 ~ 12-31 줄만** 씁니다. 예) (10, 04-20) 계열은 04-20 ~ 12-31. 그 안의 누적 · 평년 누적 · 며칠 빠른가는 모두 그 누적 시작부터 셉니다. **화면은 그 계열에 줄이 없는 날을 "작기 전"으로 봅니다**(3단계 화면 작업 때 쓰는 규칙). 01-01 계열은 지금처럼 1년 내내 줄이 있습니다.
-- **`t_base_c`의 형식**: `numeric`(자릿수 없음, **실수형(float) 아님**)입니다. 사전 `crops.t_base_c`와 옛 `heat_daily.t_base_c`가 모두 `numeric`이라 뷰 · 새 표 · 옛 표가 같은 형식이고, `numeric(4,1)`처럼 자릿수를 묶으면 4.55 같은 값이 말없이 반올림되므로 묶지 않습니다. **숫자로 비교하므로 `4` · `4.0` · `4.00`은 같은 키이고 4.5는 그대로 4.5입니다.** 응답에 `4`와 `4.0`이 섞여 보일 수 있으니 **문자열로 비교하지 말고 숫자(Decimal)로 비교합니다.** croplib-dp는 뷰의 `heat_t_base_c` 값을 그대로 보내면 됩니다.
+- **`t_base_c`의 형식**: `numeric`(자릿수 없음, **실수형(float) 아님**)입니다. 사전 `crops.t_base_c`가 `numeric`이라 뷰 · 표가 같은 형식이고, `numeric(4,1)`처럼 자릿수를 묶으면 4.55 같은 값이 말없이 반올림되므로 묶지 않습니다. **숫자로 비교하므로 `4` · `4.0` · `4.00`은 같은 키이고 4.5는 그대로 4.5입니다.** 응답에 `4`와 `4.0`이 섞여 보일 수 있으니 **문자열로 비교하지 말고 숫자(Decimal)로 비교합니다.** croplib-dp는 뷰의 `heat_t_base_c` 값을 그대로 보내면 됩니다.
 - **해를 넘는 누적 시작**(예: 12-01 시작 계열)은 1/1 계열에 없습니다. 그때 "작기 해" 열이 필요한지는 **그때 정합니다**(지금 열을 만들지 않았습니다).
 
 ### `public.sun_series_daily`
 
-적산일사 **계열** × 날짜입니다(v2.2). 권한은 `heat_series_daily`와 같습니다. 키는 계열 × 날짜(`stn_id`, `cum_start_mmdd`, `date`)이고 값 열은 옛 `sun_daily`와 같습니다(`rs_day_mj` · `rs_cum_mj` · `rs_normal_day_mj` · `rs_normal_cum_mj` 수, 비어도 됨 / `normal_from` · `normal_to` 정수 / `filled` / `calc_version` / `updated_at`). 누적(`rs_cum_mj`)과 평년 누적은 그 계열의 누적 시작부터 셉니다. croplib-dp 쓰기: `on_conflict=stn_id,cum_start_mmdd,date`. **누적 시작 전 날은 줄이 없습니다** — 계열마다 그해 누적 시작일 ~ 12-31 줄만 쓰고(예: 04-20 계열은 04-20 ~ 12-31), 화면은 그 계열에 줄이 없는 날을 "작기 전"으로 봅니다(3단계 화면 작업 때 쓰는 규칙). 01-01 계열은 1년 내내 줄이 있습니다.
+적산일사 **계열** × 날짜입니다(v2.2). 권한은 `heat_series_daily`와 같습니다. 키는 계열 × 날짜(`stn_id`, `cum_start_mmdd`, `date`)입니다. 햇빛 화면과 종합 화면이 읽습니다. 일사를 재지 않는 지점은 줄이 없거나 `rs_cum_mj`가 비어 있으며, 화면은 "자료 없음"(미측정)을 보여 줍니다. 일사의 단위는 MJ/m²이고, 값 열은 다음과 같습니다(`rs_day_mj` · `rs_cum_mj` · `rs_normal_day_mj` · `rs_normal_cum_mj` 수, 비어도 됨 / `normal_from` · `normal_to` 정수 / `filled` / `calc_version` / `updated_at`). 누적(`rs_cum_mj`)과 평년 누적은 그 계열의 누적 시작부터 셉니다. croplib-dp 쓰기: `on_conflict=stn_id,cum_start_mmdd,date`. **누적 시작 전 날은 줄이 없습니다** — 계열마다 그해 누적 시작일 ~ 12-31 줄만 쓰고(예: 04-20 계열은 04-20 ~ 12-31), 화면은 그 계열에 줄이 없는 날을 "작기 전"으로 봅니다(3단계 화면 작업 때 쓰는 규칙). 01-01 계열은 1년 내내 줄이 있습니다.
 
 #### 계열 목록 뷰: `public.crop_accum_series`
 
@@ -476,11 +441,11 @@ croplib-dp 물수지 수집기는 `scenarios`를 읽기만 하고 새로 만들�
 
 #### 적산 계열은 세 단계로 바꿉니다 (결정 0063)
 
-1. **CropMon이 새 표 · 뷰를 넣는다 — v2.2.** 옛 `heat_daily` · `sun_daily`는 **한 글자도 바꾸지 않습니다**(croplib-dp가 계속 옛 키로 써도, 지금 화면이 옛 표를 읽어도 아무것도 안 깨집니다).
-2. croplib-dp가 새 표에도 쓰기 시작합니다(croplib-dp 이슈).
-3. CropMon 화면이 새 표로 읽기를 바꾸고 **옛 표 · 옛 줄은 3단계에서 지웁니다**(D1-3 2단계). 시점은 CropMon이 알립니다.
+1. **CropMon이 새 표 · 뷰를 넣는다 — v2.2.** 옛 `heat_daily` · `sun_daily`는 바꾸지 않았습니다. (끝남)
+2. croplib-dp가 새 표에도 쓰기 시작합니다. (끝남)
+3. CropMon 화면이 새 표로 읽기를 바꾸고(① 결정 0072), croplib-dp가 옛 표 쓰기를 멈춘 것을 확인한 뒤 **옛 표를 지웁니다**(② v2.5, 결정 0074).
 
-2단계가 시작된 뒤에는 v2.2의 되돌리기 SQL이 새 표에 줄이 있으면 멈춥니다(쓴 값이 사라지고 croplib-dp 쓰기가 실패하므로).
+v2.2의 되돌리기 SQL은 새 표에 줄이 있으면 멈춥니다(쓴 값이 사라지고 croplib-dp 쓰기가 실패하므로).
 
 ### `public.soil_water_daily`
 
@@ -731,8 +696,8 @@ croplib-dp의 DB 용량 감시(400MB 경고, 450MB 오류 알림)를 위한 RPC 
   {
     "db_bytes": 59768832,
     "tables": {
-      "heat_daily": 25165824,
-      "sun_daily": 15728640,
+      "heat_series_daily": 25165824,
+      "sun_series_daily": 15728640,
       "weather_daily": 8388608
     }
   }
@@ -746,6 +711,7 @@ croplib-dp의 DB 용량 감시(400MB 경고, 450MB 오류 알림)를 위한 RPC 
 
 | 버전  | 날짜       | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.5  | 2026-11-26 | 옛 적산 표 `heat_daily` · `sun_daily` 지움(`cascade` 없이, 되돌릴 수 없음). 값은 계열 표 `heat_series_daily` · `sun_series_daily`에 있음. 옛 포도 줄만 사라짐 (#211, 결정 0074)                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | v2.4  | 2026-11-21 | (구조 그대로, 사전 값만) 포도(`grape`) `gdd_stages` = [370, 1040, 2050] · `gdd_stage_labels` = [만개, 변색기, 수확기], `source`에 근거(비가림 04-20 기준) 덧붙임. 화면 변화 없음 (#201, 결정 0070)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | v2.3  | 2026-11-20 | 동의 기록: 함수 `record_my_consent(p_terms_version, p_privacy_version)`(동의 다섯 열을 DB 시각 `now()` 한 값으로 한 번에 씀) · 도우미 `member_has_consented()` 추가, **회원의 동의 다섯 열 직접 고치기 권한 회수**(직접 고치는 열 9개 → 4개), `farms` · `irrigation_logs` 넣기 · 고치기 정책에 "동의한 회원만" 추가(읽기 · 지우기 그대로) (#191, 결정 0065)                                                                                                                                                                                                                                                                                                   |
 | v2.2  | 2026-11-20 | 적산 계열 새 표 `heat_series_daily`(키 `stn_id, t_base_c, cum_start_mmdd, date`) · `sun_series_daily`(키 `stn_id, cum_start_mmdd, date`)와 계열 목록 뷰 `crop_accum_series` 추가. 옛 `heat_daily` · `sun_daily`는 바꾸지 않음(옛 표는 3단계에서 지움) (#186, 결정 0063)                                                                                                                                                                                                                                                                                                                                                                                       |
