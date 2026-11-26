@@ -45,8 +45,6 @@ const PUBLIC_TABLES = [
   "water_balance_daily",
   "water_outlook",
   "water_outlook_summary",
-  "heat_daily",
-  "sun_daily",
   "soil_water_daily",
   "heat_series_daily",
   "sun_series_daily",
@@ -88,14 +86,20 @@ function tablesInContract(): string[] {
   );
 }
 
+/** 마이그레이션이 만든 표에서 마이그레이션이 지운 표를 뺀 것 (= 지금 DB 에 있는 표). */
 function tablesInSql(): string[] {
-  return [
-    ...SQL.matchAll(/create table if not exists public\.([a-z_]+)\s*\(/g),
-  ].map((m) => m[1]);
+  const dropped = new Set(
+    [...SQL.matchAll(/drop table if exists public\.([a-z_]+)/g)].map(
+      (m) => m[1],
+    ),
+  );
+  return [...SQL.matchAll(/create table if not exists public\.([a-z_]+)\s*\(/g)]
+    .map((m) => m[1])
+    .filter((t) => !dropped.has(t));
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 16개(적산 계열 표 2개 포함), 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
+  it("계약서에 공개 테이블 14개(적산 계열 표 2개 포함), 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
       [...PUBLIC_TABLES, MEMBERS_TABLE, ...FARM_TABLES, HEALTH_TABLE].sort(),
     );
@@ -105,8 +109,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v2.4 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v2\.4\b/);
+  it("계약서의 현재 버전이 v2.5 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.5\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -154,34 +158,6 @@ describe("데이터 계약과 마이그레이션", () => {
       expect(CONTRACT).toContain("public.soil_water_latest");
     });
   });
-
-  describe.each(["heat_daily", "sun_daily"])(
-    "public.%s 올린 시각 (v1.8)",
-    (table) => {
-      it("updated_at 열이 비어 있지 않고 기본값은 now() 이다", () => {
-        expect(SQL).toMatch(
-          new RegExp(
-            `alter table public\\.${table}\\s+add column if not exists updated_at timestamptz not null default now\\(\\)`,
-          ),
-        );
-      });
-
-      it("고쳐 쓸 때(upsert 포함)도 updated_at 을 갱신하는 트리거가 있다", () => {
-        expect(SQL).toMatch(
-          new RegExp(
-            `create trigger ${table}_set_updated_at\\s+before update on public\\.${table}\\s+for each row execute function public\\.set_updated_at\\(\\)`,
-          ),
-        );
-      });
-
-      it("계약서 표에 updated_at 이 적혀 있다", () => {
-        const section = CONTRACT.split(`### \`public.${table}\``)[1].split(
-          "### `public.",
-        )[0];
-        expect(section).toContain("`updated_at`");
-      });
-    },
-  );
 
   it("updated_at 갱신 함수는 직접 부를 수 없게 막는다 (v1.8)", () => {
     expect(SQL).toMatch(
@@ -272,19 +248,17 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(SQL).toContain("작물 공통");
   });
 
-  it("적산온도는 지점 × 작물 × 날짜, 적산일사는 지점 × 날짜 (v1.4)", () => {
-    const heat = bodyOf("heat_daily");
-    const sun = bodyOf("sun_daily");
-    expect(heat).toMatch(/primary key \(stn_id, crop_id, date\)/);
-    expect(sun).toMatch(/primary key \(stn_id, date\)/);
+  it("적산 계열 표는 값 열과 평년 기간을 줄마다 남긴다 (v1.4 에서 옮김)", () => {
+    const heat = bodyOf("heat_series_daily");
+    const sun = bodyOf("sun_series_daily");
     for (const c of ["gdd_cum", "gdd_normal_cum", "lead_days", "t_base_c"]) {
       expect(heat).toContain(c);
     }
     for (const c of ["rs_cum_mj", "rs_normal_cum_mj"]) expect(sun).toContain(c);
     // 평년 기간을 줄마다 남긴다 (2016–2025 같은 기간을 화면에 적기 위해)
     for (const b of [heat, sun]) {
-      expect(b).toMatch(/normal_from int not null/);
-      expect(b).toMatch(/normal_to int not null/);
+      expect(b).toMatch(/normal_from\s+int\w*\s+not null/);
+      expect(b).toMatch(/normal_to\s+int\w*\s+not null/);
     }
   });
 
@@ -2012,5 +1986,78 @@ describe("포도 적산온도 단계 시드 (v2.4, 결정 0070, 이슈 #201)", (
     expect(block).toMatch(/gdd_stage_labels = '\{만개,변색기,수확기\}'/);
     expect(block).not.toContain("gdd_stages is null");
     expect(D1_2).toMatch(/count\(\*\) = 118\b/);
+  });
+});
+
+describe("옛 적산 표 지우기 (v2.5, 결정 0074, D1-3 3-②)", () => {
+  const OLD = ["heat_daily", "sun_daily"];
+  const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
+  const dropFile = () =>
+    stripComments(
+      read(
+        "supabase/migrations/20261126000000_data_contract_v2_5_drop_old_accum.sql",
+      ),
+    );
+  const statements = (sql: string) =>
+    sql
+      .split(";")
+      .map((x) => x.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+  it("마이그레이션은 두 표를 지우는 두 문장뿐이고 cascade 를 쓰지 않는다 (여러 번 실행해도 됨)", () => {
+    expect(statements(dropFile())).toEqual(
+      OLD.map((t) => `drop table if exists public.${t}`),
+    );
+    expect(dropFile()).not.toContain("cascade");
+  });
+
+  it("계약서에서 옛 표 절이 빠지고 변경 기록 v2.5 가 있다", () => {
+    for (const t of OLD) {
+      expect(CONTRACT).not.toContain(`### \`public.${t}\``);
+    }
+    expect(CONTRACT).toMatch(/\*\*v2\.5:\*\*/);
+    expect(CONTRACT).toMatch(/^\| v2\.5 +\|/m);
+  });
+
+  it("확인 SQL 은 읽기만 하고, 옛 표 없음 · 새 표 둘과 뷰 · 줄 수를 보고 all_ok 한 줄을 돌려준다", () => {
+    const check = stripComments(
+      read("supabase/checks/d1_3b_drop_old_check.sql"),
+    );
+    expect(statements(check)).toHaveLength(1);
+    expect(check).not.toMatch(
+      /\b(insert|update|delete|drop|create|alter|truncate|grant|revoke)\b/,
+    );
+    for (const name of [...OLD, ...SERIES_TABLES, "crop_accum_series"]) {
+      expect(check).toContain(`to_regclass('public.${name}')`);
+    }
+    for (const t of SERIES_TABLES) {
+      expect(check).toContain(`count(*) from public.${t}`);
+    }
+    expect(check).toContain("all_ok");
+  });
+
+  it("되돌리기 SQL 은 빈 옛 표를 원래 구조(키 · RLS · 정책 · 트리거 · 권한)로 만들고, 줄은 못 살린다고 적는다", () => {
+    const raw = read("supabase/checks/d1_3b_drop_old_rollback.sql");
+    expect(raw.split("\n").slice(0, 3).join("\n")).toContain(
+      "줄은 살리지 못함",
+    );
+    const sql = stripComments(raw);
+    expect(sql).toMatch(/primary key \(stn_id, crop_id, date\)/);
+    expect(sql).toMatch(/primary key \(stn_id, date\)/);
+    expect(sql).toContain("references public.crops (crop_id)");
+    for (const t of OLD) {
+      for (const phrase of [
+        `create table if not exists public.${t} (`,
+        `alter table public.${t} enable row level security`,
+        `revoke all on public.${t} from anon, authenticated`,
+        `grant select on public.${t} to anon, authenticated`,
+        `grant all on public.${t} to service_role`,
+        `create policy "${t} 누구나 읽기"`,
+        `create trigger ${t}_set_updated_at`,
+      ]) {
+        expect(sql).toContain(phrase);
+      }
+    }
+    expect(sql).not.toMatch(/\binsert into\b/);
   });
 });

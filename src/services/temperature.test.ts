@@ -107,7 +107,7 @@ describe("getTemperatureView — 정상", () => {
     expect(v.normalPeriod).toBe("2016–2025");
   });
 
-  it("마지막 계산 시각(heat_daily 올린 시각)과 마지막 관측일을 함께 준다", async () => {
+  it("마지막 계산 시각(heat_series_daily 올린 시각)과 마지막 관측일을 함께 준다", async () => {
     const v = await getTemperatureView(SEL, CHUNCHEON, {
       createSource: () => source(),
       now: NOW,
@@ -393,7 +393,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
       createSource: () =>
         source({
           year: async () => {
-            throw new Error("heat_daily 읽기 실패: 가짜 오류");
+            throw new Error("heat_series_daily 읽기 실패: 가짜 오류");
           },
         }),
       now: NOW,
@@ -415,7 +415,7 @@ describe("getTemperatureView — 자료 없음·실패", () => {
       createSource: () =>
         source({
           onDate: async () => {
-            throw new Error("heat_daily 읽기 실패: 가짜 오류");
+            throw new Error("heat_series_daily 읽기 실패: 가짜 오류");
           },
         }),
       now: NOW,

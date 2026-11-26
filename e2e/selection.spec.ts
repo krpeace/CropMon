@@ -139,7 +139,7 @@ test("지역 칩 점은 DB 의 오늘 물 판정, 없으면 '자료 없음'", as
   ).toBeVisible();
 });
 
-test("온도 화면 자료 상자는 heat_daily 마지막 계산 시각(09:20)", async ({
+test("온도 화면 자료 상자는 heat_series_daily 마지막 계산 시각(09:20)", async ({
   page,
 }) => {
   await page.goto("/temperature?st=101&crop=apple");

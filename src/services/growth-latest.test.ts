@@ -253,7 +253,7 @@ describe("getHomeGrowth", () => {
       createHeat: () =>
         heatSource({
           onDate: async () => {
-            throw new Error("heat_daily 읽기 실패: 가짜 오류");
+            throw new Error("heat_series_daily 읽기 실패: 가짜 오류");
           },
         }).src,
       createSun: () => sunSource(),

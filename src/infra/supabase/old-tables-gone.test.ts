@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-/** 결정 0072: 화면(src)은 옛 표 heat_daily · sun_daily 를 읽지 않는다. 3-②에서 옛 표를 지워도 화면이 안 깨진다. */
+/** 결정 0072 · 0074: 옛 표 heat_daily · sun_daily 는 지웠다(v2.5). src 에 읽는 곳이 다시 생기면 안 된다. */
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
     const p = join(dir, n);
@@ -12,7 +12,7 @@ function files(dir: string): string[] {
   });
 }
 
-describe("옛 표 읽기 금지 (결정 0072)", () => {
+describe("지운 옛 표 읽기 금지 (결정 0072 · 0074)", () => {
   it('src 에 .from("heat_daily") · .from("sun_daily") 가 0곳이다', () => {
     const bad = files(join(process.cwd(), "src")).filter((f) =>
       /\.from\(\s*["'`](heat_daily|sun_daily)["'`]\s*\)/.test(

@@ -460,18 +460,21 @@ yearDays.forEach((_, i) => {
 });
 const yIdx = Math.max(0, yearDays.indexOf(yesterday));
 const r1 = (v) => Math.round(v * 10) / 10;
-const heat_daily = [];
+// 적산 계열 표 (결정 0063 · 0072). 계열 키 = 기준온도 · 누적 시작.
+// 사과 (4, 01-01) · 배추 = 작물 공통 (5, 01-01). 배추와 공통은 같은 계열이라 한 벌만 둔다.
+// 포도 비가림 (10, 04-20) 줄은 화면이 아직 안 읽으므로 두지 않는다 (G1).
+const heat_series_daily = [];
 for (const [stn_id, [cumY, normalY, lead]] of Object.entries(HEAT)) {
   const cutoff = stn_id === "189" ? add(today, -3) : yesterday;
-  for (const crop_id of ["apple", "kimchi_cabbage", "common"]) {
+  for (const t_base_c of [4, 5]) {
     yearDays.forEach((date, i) => {
       const observed = date <= cutoff;
       const cum = observed ? r1((cumY * shape[i]) / shape[yIdx]) : null;
-      heat_daily.push({
+      heat_series_daily.push({
         stn_id,
-        crop_id,
+        t_base_c,
+        cum_start_mmdd: "01-01",
         date,
-        t_base_c: crop_id === "common" ? 5 : 4,
         gdd_day: observed
           ? r1((cumY * (shape[i] - (shape[i - 1] ?? 0))) / shape[yIdx])
           : null,
@@ -514,7 +517,7 @@ const sunYearDay = yearDays.map(
   (d, i) => sunNormalDay[i] * SUN_MONTH[Number(d.slice(5, 7)) - 1],
 );
 const sumTo = (arr, n) => arr.slice(0, n + 1).reduce((a, b) => a + b, 0);
-const sun_daily = [];
+const sun_series_daily = [];
 for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
   const cutoff = stn_id === "189" ? add(today, -3) : yesterday;
   const fy = cumY / sumTo(sunYearDay, yIdx);
@@ -527,8 +530,9 @@ for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
     const dn = sunNormalDay[i] * fn;
     if (dy != null) cy += dy;
     cn += dn;
-    sun_daily.push({
+    sun_series_daily.push({
       stn_id,
+      cum_start_mmdd: "01-01",
       date,
       rs_day_mj: dy == null ? null : r1(dy),
       rs_cum_mj: dy == null ? null : r1(cy),
@@ -543,10 +547,11 @@ for (const [stn_id, [cumY, normalY]] of Object.entries(SUN)) {
   });
 }
 
-// 울진(130): 일사 미측정 7곳 유형(sun_daily 365줄이 모두 null & filled=true) 재현
+// 울진(130): 일사 미측정 7곳 유형(일사 계열 365줄이 모두 null & filled=true) 재현
 for (const date of yearDays) {
-  sun_daily.push({
+  sun_series_daily.push({
     stn_id: "130",
+    cum_start_mmdd: "01-01",
     date,
     rs_day_mj: null,
     rs_cum_mj: null,
@@ -560,20 +565,6 @@ for (const date of yearDays) {
   });
 }
 
-// 적산 계열 새 표 (결정 0063 · 0072). 옛 표 값과 같은 숫자를 계열 키(기준온도 · 누적 시작)로 옮긴다.
-// 사과 (4, 01-01) · 배추 = 작물 공통 (5, 01-01) · 일사 01-01. 배추와 공통은 같은 계열이라 한 벌만 둔다.
-// 포도 비가림 (10, 04-20) 줄은 화면이 아직 안 읽으므로 두지 않는다 (G1).
-const heat_series_daily = heat_daily
-  .filter((r) => r.crop_id === "apple" || r.crop_id === "common")
-  .map((r) => {
-    const row = { ...r, cum_start_mmdd: "01-01" };
-    delete row.crop_id; // 새 표에는 작물 열이 없다
-    return row;
-  });
-const sun_series_daily = sun_daily.map((r) => ({
-  ...r,
-  cum_start_mmdd: "01-01",
-}));
 // 계열 목록 뷰 (crop_accum_series). 운영 뷰의 5줄과 같은 모양. 숫자는 문자로 와도(4.0) 화면이 수로 읽는다.
 const crop_accum_series = [
   {
@@ -612,9 +603,6 @@ const crop_accum_series = [
     sun_cum_start_mmdd: "01-01",
   },
 ];
-
-// 옛 표는 화면이 읽으면 안 된다 (결정 0072): 읽으면 오류를 돌려줘 e2e 가 깨지게 한다.
-const OLD_TABLES = new Set(["heat_daily", "sun_daily"]);
 
 const TABLES = {
   stations,
@@ -1218,13 +1206,16 @@ http
     if (/eq\.216\b|eq\.216-/.test(decodeURIComponent(url.search))) {
       return send(500, { message: "가짜 오류 (화면 테스트)" });
     }
-    if (OLD_TABLES.has(table)) {
-      return send(500, {
-        message: `옛 표 ${table} 는 화면이 읽지 않는다 (결정 0072)`,
+    const rows = TABLES[table];
+    // 없는 표는 실제 PostgREST 와 같은 404 꼴로 답한다 (지운 옛 표를 화면이 읽으면 e2e 가 깨진다)
+    if (!rows) {
+      return send(404, {
+        code: "PGRST205",
+        details: null,
+        hint: null,
+        message: `Could not find the table 'public.${table}' in the schema cache`,
       });
     }
-    const rows = TABLES[table];
-    if (!rows) return send(404, { message: `없는 표 ${table}` });
     const out = filter(rows, url.searchParams);
     if ((req.headers.accept ?? "").includes("vnd.pgrst.object")) {
       return out.length === 1
