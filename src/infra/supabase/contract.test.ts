@@ -48,6 +48,7 @@ const PUBLIC_TABLES = [
   "soil_water_daily",
   "heat_series_daily",
   "sun_series_daily",
+  "irrigation_methods",
 ] as const;
 
 /** 적산 계열 새 표(v2.2, 결정 0063). 공개 표(누구나 읽기, 서버 키만 쓰기)라 PUBLIC_TABLES 검사에도 들어간다. */
@@ -99,7 +100,7 @@ function tablesInSql(): string[] {
 }
 
 describe("데이터 계약과 마이그레이션", () => {
-  it("계약서에 공개 테이블 14개(적산 계열 표 2개 포함), 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
+  it("계약서에 공개 테이블 15개(적산 계열 표 2개 포함), 회원 표 members, 농장 표 7개, app_health 가 있다", () => {
     expect(tablesInContract().sort()).toEqual(
       [...PUBLIC_TABLES, MEMBERS_TABLE, ...FARM_TABLES, HEALTH_TABLE].sort(),
     );
@@ -109,8 +110,8 @@ describe("데이터 계약과 마이그레이션", () => {
     expect(tablesInSql().sort()).toEqual(tablesInContract().sort());
   });
 
-  it("계약서의 현재 버전이 v2.5 이다", () => {
-    expect(CONTRACT).toMatch(/## 현재 버전: v2\.5\b/);
+  it("계약서의 현재 버전이 v2.6 이다", () => {
+    expect(CONTRACT).toMatch(/## 현재 버전: v2\.6\b/);
   });
 
   describe("soil_water_latest 뷰 filled 열 (v1.10)", () => {
@@ -1979,13 +1980,13 @@ describe("포도 적산온도 단계 시드 (v2.4, 결정 0070, 이슈 #201)", (
     expect(flat.match(/\bupdate\b/g)).toHaveLength(1);
   });
 
-  it("d1_2 확인 SQL 11a: 적산 단계 · 라벨이 비어 있다 → 새 값과 같다로 맞췄다 (항목 수 118 그대로)", () => {
+  it("d1_2 확인 SQL 11a: 적산 단계 · 라벨이 비어 있다 → 새 값과 같다로 맞췄다 (항목 수: v2.4 때 118, v2.6 에서 동작 11개를 더해 129)", () => {
     const block = D1_2.slice(D1_2.indexOf("'11a "), D1_2.indexOf("'11b "));
     expect(block).toContain("새 값과 같다");
     expect(block).toContain("gdd_stages = '{370,1040,2050}'");
     expect(block).toMatch(/gdd_stage_labels = '\{만개,변색기,수확기\}'/);
     expect(block).not.toContain("gdd_stages is null");
-    expect(D1_2).toMatch(/count\(\*\) = 118\b/);
+    expect(D1_2).toMatch(/count\(\*\) = 129\b/);
   });
 });
 

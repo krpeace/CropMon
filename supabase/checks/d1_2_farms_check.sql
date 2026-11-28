@@ -6,6 +6,10 @@
 --
 -- 회원 DB(D1-1, 20261119000000_data_contract_v2_0_members.sql)가 이미 실행돼 있으면 탈퇴 함수 · 회원 표도 함께 시험하고,
 --   아직 없으면 그 항목(9b · 9c)만 "건너뜀"으로 참 처리한다(이 파일은 D1-1 없이도 돌아간다). D1-1 을 나중에 실행했다면 다시 Run 한다.
+-- v2.6(결정 0076, 20261128000000)을 Run 한 뒤의 값으로 고쳤다: 사과 225일 · 여름배추 60일, 13번 동작 항목.
+--   포도 작형은 농장에서 닫혀 있어, 되돌려지는 블록 안에서만 farm_open 을 잠깐 켜고 기존 포도 시험을 그대로 한다.
+--   v2.6 을 Run 하기 전에는 통과하지 않는다.
+--
 -- 아무것도 남기지 않는다. 가짜 회원(@example.invalid, 번호는 gen_random_uuid())과 농장을 만들어 시험하고,
 -- 끝에서 일부러 오류를 내 그 안의 변경을 모두 되돌린다 (결과는 되돌려지지 않는 변수로 꺼내 보여 준다).
 -- 항목이 하나라도 false 이면 그 항목 이름을 알려 주세요.
@@ -217,6 +221,8 @@ declare
   req_before timestamptz;
   run_id_x bigint;
   scen_x text;
+  u_v uuid; u_t uuid; u_z uuid; f_v uuid; f_t uuid; f_z uuid;
+  d0 date;
 begin
   perform set_config('cropmon.skip_wake', 'on', true);
   select count(*) into q_before from net.http_request_queue;
@@ -226,6 +232,9 @@ begin
     -- ===================================================================
     -- 1. 표 · 권한(RLS) · 열 권한
     -- ===================================================================
+    -- 되돌려지는 블록 안에서만: 포도 시험을 위해 잠깐 연다 (13번에서 다시 닫고 거절을 본다)
+    update public.crop_seasons set farm_open = true where crop_id = 'grape';
+
     u_a := pg_temp.new_user();
     u_b := pg_temp.new_user();
 
@@ -340,18 +349,18 @@ begin
     -- ===================================================================
     -- 3. 작기 연도 규칙 — farm_season_window (날짜 계산만)
     -- ===================================================================
-    res := pg_temp.item(res, '3a 사과 04-01 (210일): 작기 전 · 시작 당일 · 중 · 끝나는 날 당일은 모두 2026-04-01~2026-10-27',
-      pg_temp.win('04-01', 210, '2026-03-15') = '2026-04-01~2026-10-27'
-      and pg_temp.win('04-01', 210, '2026-04-01') = '2026-04-01~2026-10-27'
-      and pg_temp.win('04-01', 210, '2026-07-01') = '2026-04-01~2026-10-27'
-      and pg_temp.win('04-01', 210, '2026-10-27') = '2026-04-01~2026-10-27');
-    res := pg_temp.item(res, '3b 사과 끝난 다음 날은 다음 작기 2027-04-01~2027-10-27',
-      pg_temp.win('04-01', 210, '2026-10-28') = '2027-04-01~2027-10-27'
-      and pg_temp.win('04-01', 210, '2026-11-20') = '2027-04-01~2027-10-27');
-    res := pg_temp.item(res, '3c 배추 07-01 (90일): 2026-07-01~2026-09-28',
-      pg_temp.win('07-01', 90, '2026-07-01') = '2026-07-01~2026-09-28'
-      and pg_temp.win('07-01', 90, '2026-09-28') = '2026-07-01~2026-09-28'
-      and pg_temp.win('07-01', 90, '2026-09-29') = '2027-07-01~2027-09-28');
+    res := pg_temp.item(res, '3a 사과 04-01 (225일): 작기 전 · 시작 당일 · 중 · 끝나는 날 당일은 모두 2026-04-01~2026-11-11',
+      pg_temp.win('04-01', 225, '2026-03-15') = '2026-04-01~2026-11-11'
+      and pg_temp.win('04-01', 225, '2026-04-01') = '2026-04-01~2026-11-11'
+      and pg_temp.win('04-01', 225, '2026-07-01') = '2026-04-01~2026-11-11'
+      and pg_temp.win('04-01', 225, '2026-11-11') = '2026-04-01~2026-11-11');
+    res := pg_temp.item(res, '3b 사과 끝난 다음 날은 다음 작기 2027-04-01~2027-11-11',
+      pg_temp.win('04-01', 225, '2026-11-12') = '2027-04-01~2027-11-11'
+      and pg_temp.win('04-01', 225, '2026-11-20') = '2027-04-01~2027-11-11');
+    res := pg_temp.item(res, '3c 배추 07-01 (60일): 2026-07-01~2026-08-29',
+      pg_temp.win('07-01', 60, '2026-07-01') = '2026-07-01~2026-08-29'
+      and pg_temp.win('07-01', 60, '2026-08-29') = '2026-07-01~2026-08-29'
+      and pg_temp.win('07-01', 60, '2026-08-30') = '2027-07-01~2027-08-29');
     res := pg_temp.item(res, '3d 포도 비가림 04-20 (205일): 2026-04-20~2026-11-10, 다음 날부터는 2027 작기',
       pg_temp.win('04-20', 205, '2026-06-01') = '2026-04-20~2026-11-10'
       and pg_temp.win('04-20', 205, '2026-11-10') = '2026-04-20~2026-11-10'
@@ -381,7 +390,7 @@ begin
     f_s := pg_temp.new_farm(u_s, 'apple', 'apple-main', 'apple-k3', '04-01');
     res := pg_temp.item(res, '4a 농장을 만들면 작기 줄이 하나 생기고 규칙(오늘 기준)과 같다',
       (select count(*) from public.farm_seasons where farm_id = f_s) = 1
-      and exists (select 1 from public.farm_seasons s, public.farm_season_window('04-01', 210, d) w
+      and exists (select 1 from public.farm_seasons s, public.farm_season_window('04-01', 225, d) w
                    where s.farm_id = f_s and s.start_date = w.start_date and s.end_date = w.end_date
                      and s.crop_id = 'apple' and s.season_type_id = 'apple-main' and s.kc_set_id = 'apple-k3' and not s.start_unset));
     res := pg_temp.item(res, '4b 농장을 만들면 계산 상태 줄도 저절로 생긴다',
@@ -389,33 +398,33 @@ begin
 
     delete from public.farm_seasons where farm_id = f_s;
     perform public.sync_farm_seasons_at(f_s, '2026-11-20');
-    res := pg_temp.item(res, '4c 오늘이 2026-11-20 이면 다음 작기 한 줄 2027-04-01~2027-10-27',
-      pg_temp.rows_of(f_s) = '2027-04-01~2027-10-27');
+    res := pg_temp.item(res, '4c 오늘이 2026-11-20 이면 다음 작기 한 줄 2027-04-01~2027-11-11',
+      pg_temp.rows_of(f_s) = '2027-04-01~2027-11-11');
     select farm_season_id into s_id from public.farm_seasons where farm_id = f_s;
     perform public.sync_farm_seasons_at(f_s, '2027-05-01');
     res := pg_temp.item(res, '4d 작기 중에 다시 불러도 같은 줄 그대로 (새 줄 안 생김)',
-      pg_temp.rows_of(f_s) = '2027-04-01~2027-10-27' and exists (select 1 from public.farm_seasons where farm_season_id = s_id));
-    perform public.sync_farm_seasons_at(f_s, '2027-10-27');
-    res := pg_temp.item(res, '4e 끝나는 날 당일(2027-10-27)은 아직 작기 중 — 새 줄 안 생김',
-      pg_temp.rows_of(f_s) = '2027-04-01~2027-10-27');
+      pg_temp.rows_of(f_s) = '2027-04-01~2027-11-11' and exists (select 1 from public.farm_seasons where farm_season_id = s_id));
+    perform public.sync_farm_seasons_at(f_s, '2027-11-11');
+    res := pg_temp.item(res, '4e 끝나는 날 당일(2027-11-11)은 아직 작기 중 — 새 줄 안 생김',
+      pg_temp.rows_of(f_s) = '2027-04-01~2027-11-11');
     select updated_at into s_upd from public.farm_seasons where farm_season_id = s_id;
-    perform public.sync_farm_seasons_at(f_s, '2027-10-28');
-    res := pg_temp.item(res, '4f 끝난 다음 날(2027-10-28)은 지난 줄이 남고 다음 작기 줄이 생긴다 (2028 윤년 작기 2028-04-01~2028-10-27)',
-      pg_temp.rows_of(f_s) = '2027-04-01~2027-10-27 | 2028-04-01~2028-10-27');
+    perform public.sync_farm_seasons_at(f_s, '2027-11-12');
+    res := pg_temp.item(res, '4f 끝난 다음 날(2027-11-12)은 지난 줄이 남고 다음 작기 줄이 생긴다 (2028 윤년 작기 2028-04-01~2028-11-11)',
+      pg_temp.rows_of(f_s) = '2027-04-01~2027-11-11 | 2028-04-01~2028-11-11');
     res := pg_temp.item(res, '4g 지난 줄은 고치지 않는다 (같은 줄 · 수정 시각 그대로)',
       exists (select 1 from public.farm_seasons where farm_season_id = s_id and updated_at = s_upd));
-    perform public.sync_farm_seasons_at(f_s, '2027-10-28');
+    perform public.sync_farm_seasons_at(f_s, '2027-11-12');
     res := pg_temp.item(res, '4h 다시 불러도 두 줄 그대로 (여러 번 불러도 같은 결과)',
-      pg_temp.rows_of(f_s) = '2027-04-01~2027-10-27 | 2028-04-01~2028-10-27');
+      pg_temp.rows_of(f_s) = '2027-04-01~2027-11-11 | 2028-04-01~2028-11-11');
 
     -- 작물 공통으로 바꾸면: 지금 · 앞으로 올 줄은 지우고 지난 줄은 남긴다
     alter table public.farms disable trigger farms_after_update_crop;
     update public.farms set crop_id = 'common', season_type_id = null, kc_set_id = null,
       season_start_mmdd = null, season_start_source = null where farm_id = f_s;
     alter table public.farms enable trigger farms_after_update_crop;
-    perform public.sync_farm_seasons_at(f_s, '2027-10-28');
+    perform public.sync_farm_seasons_at(f_s, '2027-11-12');
     res := pg_temp.item(res, '4i 작물 공통이면 줄을 만들지 않고 앞으로 올 줄은 지운다 — 지난 줄은 남는다',
-      pg_temp.rows_of(f_s) = '2027-04-01~2027-10-27');
+      pg_temp.rows_of(f_s) = '2027-04-01~2027-11-11');
 
     u_u := pg_temp.new_user();
     f_u := pg_temp.new_farm(u_u, 'grape', 'grape-heated', 'grape-k1', null);
@@ -444,8 +453,8 @@ begin
     f_c := pg_temp.new_farm(u_c, 'kimchi_cabbage', 'kimchi_cabbage-summer', 'kimchi_cabbage-k1', '07-01');
     delete from public.farm_seasons where farm_id = f_c;
     perform public.sync_farm_seasons_at(f_c, '2026-11-20');
-    res := pg_temp.item(res, '4l 포도 비가림 04-20 은 2027-04-20~2027-11-10, 배추 07-01 은 2027-07-01~2027-09-28',
-      pg_temp.rows_of(f_g) = '2027-04-20~2027-11-10' and pg_temp.rows_of(f_c) = '2027-07-01~2027-09-28');
+    res := pg_temp.item(res, '4l 포도 비가림 04-20 은 2027-04-20~2027-11-10, 배추 07-01 은 2027-07-01~2027-08-29',
+      pg_temp.rows_of(f_g) = '2027-04-20~2027-11-10' and pg_temp.rows_of(f_c) = '2027-07-01~2027-08-29');
 
     ok1 := false; ok2 := false;
     begin
@@ -520,7 +529,7 @@ begin
     update public.farms set season_start_mmdd = '06-15' where farm_id = f_x;
     res := pg_temp.item(res, '5e 시작일을 바꾸면 지금 줄이 고쳐지고 (같은 줄, 새 줄 없음) 지난 줄은 그대로다',
       (select count(*) from public.farm_seasons where farm_id = f_x) = 2
-      and exists (select 1 from public.farm_seasons s, public.farm_season_window('06-15', 210, d) w
+      and exists (select 1 from public.farm_seasons s, public.farm_season_window('06-15', 225, d) w
                    where s.farm_season_id = s_id and s.start_date = w.start_date and s.end_date = w.end_date)
       and exists (select 1 from public.farm_seasons where farm_id = f_x and start_date = d - 800 and end_date = d - 700 and updated_at = s_upd));
 
@@ -836,7 +845,7 @@ begin
       and (select t_base_c = 4 from public.crops where crop_id = 'apple'));
     res := pg_temp.item(res, '11h 배추 기준온도 5 · 여름 작형 이름 "고랭지배추" (키는 그대로 kimchi_cabbage-summer)',
       (select t_base_c = 5 from public.crops where crop_id = 'kimchi_cabbage')
-      and (select name_ko = '고랭지배추' and l_ini_d = 25 and l_dev_d = 30 and l_mid_d = 25 and l_late_d = 10 and start_mmdd = '07-01'
+      and (select name_ko = '고랭지배추' and l_ini_d = 15 and l_dev_d = 20 and l_mid_d = 15 and l_late_d = 10 and start_mmdd = '07-01'
              from public.crop_seasons where season_type_id = 'kimchi_cabbage-summer'));
     v := null;
     begin update public.crops set gdd_stages = '{1,2,3}', gdd_stage_labels = '{"a","b"}' where crop_id = 'grape'; v := 'ok'; exception when others then v := sqlstate; end;
@@ -930,6 +939,105 @@ begin
       (select count(*) from net.http_request_queue) = q_before
       and (select last_wake_at is not distinct from wake_before from ops.farm_calc_wake where id = 1));
 
+    -- ===================================================================
+    -- 13. v2.6 내 농장 설정 (결정 0076) — 동작 시험. 위에서 열어 둔 포도를 다시 닫고 본다(모두 되돌려진다)
+    -- ===================================================================
+    update public.crop_seasons set farm_open = false where crop_id = 'grape';
+    u_v := pg_temp.new_user();
+    res := pg_temp.item(res, '13a 포도 작형으로 농장 넣기는 거절 (farm_open 거짓)',
+      pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id)
+        values ('주소', '101', 100, 'grape', 'grape-rainshelter')$q$) = '23514');
+    res := pg_temp.item(res, '13b 배추에 단계 일수는 거절, 작물 공통에 뿌리 깊이도 거절',
+      pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id, l_ini_d, l_dev_d, l_mid_d, l_late_d)
+        values ('주소', '101', 100, 'kimchi_cabbage', 'kimchi_cabbage-summer', 15, 20, 15, 10)$q$) = '23514'
+      and pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, zr_m)
+        values ('주소', '101', 100, 'common', 0.5)$q$) = '23514');
+    res := pg_temp.item(res, '13c 단계 일수 셋만 넣기는 거절, 5~200 밖 · 합 366 초과 · 고르기에 없는 뿌리 깊이도 거절',
+      pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id, l_ini_d, l_dev_d, l_mid_d)
+        values ('주소', '101', 100, 'apple', 'apple-main', 30, 60, 90)$q$) = '23514'
+      and pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id, l_ini_d, l_dev_d, l_mid_d, l_late_d)
+        values ('주소', '101', 100, 'apple', 'apple-main', 4, 60, 90, 45)$q$) = '23514'
+      and pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id, l_ini_d, l_dev_d, l_mid_d, l_late_d)
+        values ('주소', '101', 100, 'apple', 'apple-main', 100, 100, 100, 67)$q$) = '23514'
+      and pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id, zr_m)
+        values ('주소', '101', 100, 'apple', 'apple-main', 0.6)$q$) = '23514');
+
+    v := pg_temp.as_member(u_v, $q$insert into public.farms (address, stn_id, irrigated_area_m2, crop_id, season_type_id, season_start_mmdd, season_start_source,
+        irrigation_method, zr_m, l_ini_d, l_dev_d, l_mid_d, l_late_d)
+      values ('주소', '101', 100, 'apple', 'apple-main', '04-01', 'user', 'sprinkler', 0.8, 30, 60, 90, 45)$q$);
+    select farm_id into f_v from public.farms where user_id = u_v;
+    n := pg_temp.member_rows(u_v, format($q$update public.farms set crop_id = 'kimchi_cabbage', season_type_id = 'kimchi_cabbage-summer',
+      kc_set_id = 'kimchi_cabbage-k1', zr_m = 0.5 where farm_id = %L$q$, f_v));
+    res := pg_temp.item(res, '13d 작형을 바꾸면 단계 일수 · 뿌리 깊이가 비워진다 (같은 저장에 보낸 새 값도), 관수 방법은 남는다',
+      v = 'ok' and n = 1
+      and (select num_nulls(l_ini_d, l_dev_d, l_mid_d, l_late_d, zr_m) = 5 and irrigation_method = 'sprinkler'
+             from public.farms where farm_id = f_v));
+
+    u_t := pg_temp.new_user();
+    f_t := pg_temp.new_farm(u_t, 'apple', 'apple-main', 'apple-k3', '04-01');
+    select start_date into d0 from public.farm_seasons where farm_id = f_t;
+    res := pg_temp.item(res, '13e set_this_season_start: 기준일 ±61일은 거절, 빈 날짜 거절, 비회원은 두 함수를 못 부른다',
+      pg_temp.as_member(u_t, format('select public.set_this_season_start(%L)', d0 + 61)) = '22023'
+      and pg_temp.as_member(u_t, format('select public.set_this_season_start(%L)', d0 - 61)) = '22023'
+      and pg_temp.as_member(u_t, 'select public.set_this_season_start(null)') = '22023'
+      and pg_temp.as_anon(format('select public.set_this_season_start(%L)', d0)) = '42501'
+      and pg_temp.as_anon('select public.confirm_this_season_start()') = '42501');
+
+    update public.farm_calc_status set requested_at = null, recalc_from = null, done_at = null where farm_id = f_t;
+    v := pg_temp.as_member(u_t, format('select public.set_this_season_start(%L)', d0 + 5));
+    ok1 := v = 'ok';
+    ok1 := ok1 and (select start_date = d0 + 5 and end_date = d0 + 5 + 224 and start_source = 'this_year' and start_confirmed_at is not null
+                      from public.farm_seasons where farm_id = f_t);
+    ok2 := (select recalc_from = d0 and requested_at is not null from public.farm_calc_status where farm_id = f_t);
+    perform public.sync_farm_seasons_at(f_t, d);
+    ok1 := ok1 and (select start_date = d0 + 5 and start_source = 'this_year' from public.farm_seasons where farm_id = f_t and end_date >= d);
+    update public.farm_seasons set start_confirmed_at = null where farm_id = f_t;
+    v := pg_temp.as_member(u_t, 'select public.confirm_this_season_start()');
+    res := pg_temp.item(res, '13f 올해만 시작일: 저장 · 옛 시작일부터 다시 계산 · sync 가 덮어쓰지 않음 · [맞아요] 는 확인 시각 기록',
+      ok1 and ok2 and v = 'ok');
+    res := pg_temp.item(res, '13f2 [맞아요] 뒤에 확인 시각이 남아 있다',
+      (select start_confirmed_at is not null from public.farm_seasons where farm_id = f_t and end_date >= d));
+
+    delete from public.farm_seasons where farm_id = f_t;
+    insert into public.farm_seasons (farm_id, crop_id, season_type_id, kc_set_id, start_date, end_date, start_source)
+      values (f_t, 'apple', 'apple-main', 'apple-k3', '2027-03-20', '2027-10-30', 'this_year');
+    perform public.sync_farm_seasons_at(f_t, '2027-10-31');
+    ok1 := pg_temp.rows_of(f_t) = '2027-03-20~2027-10-30 | 2028-04-01~2028-11-11';
+    perform public.sync_farm_seasons_at(f_t, '2027-11-01');
+    res := pg_temp.item(res, '13g 규칙 가: 끝난 올해만 줄을 지우지 않고 다음 해 줄을 만든다 (다음 날 다시 불러도 같음)',
+      ok1 and pg_temp.rows_of(f_t) = '2027-03-20~2027-10-30 | 2028-04-01~2028-11-11');
+
+    delete from public.farm_seasons where farm_id = f_t;
+    insert into public.farm_seasons (farm_id, crop_id, season_type_id, kc_set_id, start_date, end_date, start_source)
+      values (f_t, 'apple', 'apple-main', 'apple-k3', '2027-04-01', '2027-11-11', 'yearly');
+    select farm_season_id into s_id from public.farm_seasons where farm_id = f_t;
+    alter table public.farms disable trigger farms_after_update_crop;
+    update public.farms set l_ini_d = 30, l_dev_d = 40, l_mid_d = 50, l_late_d = 30 where farm_id = f_t;
+    alter table public.farms enable trigger farms_after_update_crop;
+    perform public.sync_farm_seasons_at(f_t, '2027-10-01');
+    ok1 := pg_temp.rows_of(f_t) = '2027-04-01~2027-08-28';
+    ok1 := ok1 and exists (select 1 from public.farm_seasons where farm_season_id = s_id);
+    perform public.sync_farm_seasons_at(f_t, '2027-10-02');
+    res := pg_temp.item(res, '13h 규칙 다: 시작한 작기에서 일수를 줄여 끝이 지나도 올해 줄은 남고, 다음 sync 가 다음 해 줄을 만든다',
+      ok1 and pg_temp.rows_of(f_t) = '2027-04-01~2027-08-28 | 2028-04-01~2028-08-28');
+
+    u_z := pg_temp.new_user();
+    f_z := pg_temp.new_farm(u_z, 'apple', 'apple-main', 'apple-k3', '04-01');
+    update public.farms set l_ini_d = 30, l_dev_d = 60, l_mid_d = 90, l_late_d = 45 where farm_id = f_z;
+    select start_date into d0 from public.farm_seasons where farm_id = f_z;
+    update public.farm_calc_status set requested_at = null, recalc_from = null, done_at = null where farm_id = f_z;
+    n := pg_temp.member_rows(u_z, format('update public.farms set l_ini_d = 40, l_dev_d = 50 where farm_id = %L', f_z));
+    res := pg_temp.item(res, '13i 합이 같게 단계 일수만 나눠 바꿔도 지금 줄 시작일부터 다시 계산을 요청한다',
+      n = 1 and (select recalc_from = d0 and requested_at is not null from public.farm_calc_status where farm_id = f_z));
+    ok1 := true;
+    foreach t in array array['irrigation_method = ''furrow''', 'zr_m = 1.2'] loop
+      update public.farm_calc_status set requested_at = null, recalc_from = null, done_at = null where farm_id = f_z;
+      n := pg_temp.member_rows(u_z, format('update public.farms set ' || t || ' where farm_id = %L', f_z));
+      ok2 := (select recalc_from = d0 and requested_at is not null from public.farm_calc_status where farm_id = f_z);
+      if not coalesce(n = 1 and ok2, false) then ok1 := false; end if;
+    end loop;
+    res := pg_temp.item(res, '13j 관수 방법 · 뿌리 깊이를 바꾸면 지금 줄 시작일부터 다시 계산을 요청한다', ok1);
+
     -- 여기서 일부러 오류를 내 위의 모든 변경(가짜 회원 · 농장 · 기록 · 시험용 사전 변경 포함)을 되돌린다.
     raise exception 'd1_2_check_rollback';
   exception
@@ -948,5 +1056,5 @@ $check$;
 -- 마지막 줄 all_ok 가 true 면 통과. 위 DO 의 변경은 모두 되돌려졌다 (가짜 회원 · 농장 · 기록이 남지 않음).
 select seq, item, ok from d1_2_results
 union all
-select 999, 'all_ok', coalesce(bool_and(coalesce(ok, false)), false) and count(*) = 118 from d1_2_results
+select 999, 'all_ok', coalesce(bool_and(coalesce(ok, false)), false) and count(*) = 129 from d1_2_results
 order by seq;

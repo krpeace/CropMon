@@ -604,7 +604,37 @@ const crop_accum_series = [
   },
 ];
 
+// 관수 방법 사전 3종 (계약 v2.6). 아직 읽는 화면은 없다.
+const irrigation_methods = [
+  [
+    "drip",
+    "점적관수",
+    "가는 관으로 뿌리 가까이에 물을 방울방울 줘요.",
+    0.95,
+    true,
+    1,
+  ],
+  [
+    "sprinkler",
+    "스프링클러",
+    "물을 공중으로 뿌려 비처럼 적셔요.",
+    0.75,
+    false,
+    2,
+  ],
+  ["furrow", "도랑관수", "고랑을 따라 물을 흘려보내요.", 0.4, false, 3],
+].map(([method_code, name_ko, note, efficiency, is_default, sort_order]) => ({
+  method_code,
+  name_ko,
+  note,
+  efficiency,
+  is_default,
+  sort_order,
+  source: "관개 방식별 대표 효율, 사용자 결정 2026-11-27",
+}));
+
 const TABLES = {
+  irrigation_methods,
   stations,
   crops,
   soil_types,

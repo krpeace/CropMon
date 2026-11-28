@@ -149,7 +149,10 @@ describe("문서", () => {
     expect(contract).toContain("23시간");
     expect(contract).not.toContain("정리 작업(O2)");
     expect(contract).not.toContain("정리 작업 O2");
-    expect(contract).not.toMatch(/^\| v2\.6 +\|/m);
+    // 정기 정리는 판 이력에 줄을 만들지 않았다 (v2.6 은 내 농장 설정, 결정 0076)
+    expect(contract).not.toMatch(
+      /^\| v[\d.]+ .*(cleanup_accounts|ops-cleanup)/m,
+    );
   });
 
   it("구조 문서의 예약 목록과 결정 0075 가 있다", () => {
